@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detect meaningful drift between upstream and BlissMixerExt DSTM code."""
+"""Detect meaningful drift between upstream and BlissMixerLab DSTM code."""
 
 from __future__ import annotations
 
@@ -225,7 +225,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=Path("compat/dstm-drift.json"))
     parser.add_argument("--upstream-dir", type=Path, required=True)
     parser.add_argument(
-        "--extension-file", type=Path, default=Path("BlissMixerExt/Plugin.pm")
+        "--extension-file", type=Path, default=Path("BlissMixerLab/Plugin.pm")
     )
     parser.add_argument("--report", type=Path, default=Path("dstm-drift-report.md"))
     return parser.parse_args(argv)

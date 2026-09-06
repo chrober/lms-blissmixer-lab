@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update the LMS plugin repository feed for BlissMixerExt."""
+"""Update the LMS plugin repository feed for BlissMixerLab."""
 
 from __future__ import annotations
 
@@ -7,8 +7,9 @@ import argparse
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-PLUGIN_NAME = "BlissMixerExt"
-PLUGIN_TITLE = "Bliss Mixer Extensions"
+PLUGIN_NAME = "BlissMixerLab"
+LEGACY_PLUGIN_NAMES = {"BlissMixerExt"}
+PLUGIN_TITLE = "Bliss Mixer Lab"
 PLUGIN_DESC = "Experimental and early-access extensions for Bliss Mixer"
 PLUGIN_CREATOR = "Christoph O'Bermair"
 PLUGIN_CATEGORY = "playlists"
@@ -53,8 +54,9 @@ def update(
     if plugins is None:
         plugins = ET.SubElement(root, "plugins")
 
+    replaced_names = {PLUGIN_NAME, *LEGACY_PLUGIN_NAMES}
     for existing in list(plugins.findall("plugin")):
-        if existing.get("name") == PLUGIN_NAME:
+        if existing.get("name") in replaced_names:
             plugins.remove(existing)
 
     for target, url, sha in packages:

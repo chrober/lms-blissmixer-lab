@@ -25,6 +25,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Plugins
-          ln -s ../BlissMixerExt Plugins/BlissMixerExt
+          ln -s ../BlissMixerLab Plugins/BlissMixerLab
       - name: Run plugin regression tests
         run: prove -l tests

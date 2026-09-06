@@ -1,10 +1,10 @@
-package Plugins::BlissMixerExt::Survey;
+package Plugins::BlissMixerLab::Survey;
 
 #
 # LMS Bliss Mixer - Metric Learning Survey
 #
 # Based on bliss-metric-learning by Polochon-street
-# Adapted for LMS/BlissMixerExt by chrober
+# Adapted for LMS/BlissMixerLab by chrober
 # Sidecar adaptations (c) 2026 Christoph O'Bermair
 #
 # Licence: GPL v3
@@ -27,12 +27,12 @@ use Slim::Utils::Log;
 use Slim::Utils::Misc;
 use Slim::Utils::Prefs;
 
-my $log = logger('plugin.blissmixerext');
-my $prefs = preferences('plugin.blissmixerext');
+my $log = logger('plugin.blissmixerlab');
+my $prefs = preferences('plugin.blissmixerlab');
 my $serverPrefs = preferences('server');
 
-my $SURVEY_PAGE_RE = qr{blissmixerext/survey\.html}i;
-my $SURVEY_API_RE  = qr{blissmixerext/survey-api}i;
+my $SURVEY_PAGE_RE = qr{blissmixerlab/survey\.html}i;
+my $SURVEY_API_RE  = qr{blissmixerlab/survey-api}i;
 
 my $dbPath;
 my $matrixPath;
@@ -83,7 +83,7 @@ sub cliCommand {
         my $count = _countTriplets();
         my $matrixExists = (-e $matrixPath) ? 1 : 0;
         my $running = ($learner && $learner->alive) ? 1 : 0;
-        # The Ext learner is monitored locally instead of posting progress to
+        # The Lab learner is monitored locally instead of posting progress to
         # the upstream plugin's hard-coded CLI endpoint.
         if (!$running && $learner && $learningEndTime == 0) {
             _checkLearner();
@@ -162,7 +162,7 @@ sub _surveyPageHandler {
     my ($httpClient, $response) = @_;
     return unless $httpClient->connected;
 
-    my $htmlFile = dirname(__FILE__) . "/HTML/EN/plugins/BlissMixerExt/survey.html";
+    my $htmlFile = dirname(__FILE__) . "/HTML/EN/plugins/BlissMixerLab/survey.html";
     my $html = "";
     if (open(my $fh, '<', $htmlFile)) {
         local $/;
@@ -226,7 +226,7 @@ sub _handleGetSongs {
         while (my @row = $sth->fetchrow_array) {
             last if scalar(@songs) >= 3;
             my ($rowid, $file, $title, $artist, $album) = @row;
-            my $trackObj = Plugins::BlissMixerExt::Plugin::_pathToTrack($mediaDirs, $file);
+            my $trackObj = Plugins::BlissMixerLab::Plugin::_pathToTrack($mediaDirs, $file);
             if (blessed $trackObj) {
                 push @songs, {
                     rowid     => int($rowid),
@@ -316,7 +316,7 @@ sub _startLearning {
         return "The upstream BlissMixer analysis database was not found.";
     }
 
-    if (Plugins::BlissMixerExt::Plugin::_originalAnalyserRunning()) {
+    if (Plugins::BlissMixerLab::Plugin::_originalAnalyserRunning()) {
         return "Upstream BlissMixer analysis is running. Try again after it finishes.";
     }
 
@@ -337,7 +337,7 @@ sub _startLearning {
     my @params = ($learnerBinary, "--db", $dbPath, "--triplets", $tripletsPath,
                   "--output", $learningOutputPath,
                   "--lms", "127.0.0.1", "--json", $httpPort, "--notifs",
-                  "--lms-command", "blissmixerext",
+                  "--lms-command", "blissmixerlab",
                   "--logging", "error");
 
     main::INFOLOG && $log->info("Starting metric learning: " . join(' ', @params));
@@ -385,8 +385,8 @@ sub _learningEnded {
         main::INFOLOG && $log->info("Metric learning complete. Matrix saved to $matrixPath");
         $lastLearnerMsg = 'Learning completed';
         # Restart only the sidecar mixer so it picks up the new matrix.
-        Plugins::BlissMixerExt::Plugin::_stopMixer();
-        main::INFOLOG && $log->info("bliss-mixer-ext stopped; will restart with new matrix on next mix request");
+        Plugins::BlissMixerLab::Plugin::_stopMixer();
+        main::INFOLOG && $log->info("bliss-mixer-lab stopped; will restart with new matrix on next mix request");
     } else {
         $learnerFailed = 1;
         $lastLearnerMsg = 'Learning failed';
@@ -491,8 +491,8 @@ sub _clearTrainingData {
         unlink $matrixPath;
         main::INFOLOG && $log->info("Survey: deleted learned matrix ($matrixPath)");
         # Restart only the sidecar mixer so it stops using the old matrix.
-        Plugins::BlissMixerExt::Plugin::_stopMixer();
-        main::INFOLOG && $log->info("bliss-mixer-ext stopped; will restart without matrix on next mix request");
+        Plugins::BlissMixerLab::Plugin::_stopMixer();
+        main::INFOLOG && $log->info("bliss-mixer-lab stopped; will restart without matrix on next mix request");
     }
 }
 

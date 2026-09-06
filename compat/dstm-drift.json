@@ -4,7 +4,7 @@
   "upstream_ref": "master",
   "upstream_plugin_path": "BlissMixer/Plugin.pm",
   "reviewed_upstream_commit": "77e12249c48297f2c4498a0b20ada6a72e1c911f",
-  "extension_plugin_path": "BlissMixerExt/Plugin.pm",
+  "extension_plugin_path": "BlissMixerLab/Plugin.pm",
   "direct_mirrors": [
     "_weightParam",
     "_getMixableProperties",
@@ -39,22 +39,22 @@
     "_getListData"
   ],
   "identity_normalizations": [
-    ["Plugins::BlissMixerExt", "Plugins::BlissMixer"],
-    ["BLISSMIXEREXT", "BLISSMIXER"],
-    ["blissmixerext", "blissmixer"]
+    ["Plugins::BlissMixerLab", "Plugins::BlissMixer"],
+    ["BLISSMIXERLAB", "BLISSMIXER"],
+    ["blissmixerlab", "blissmixer"]
   ],
   "intentional_adaptations": {
-    "initPlugin": "Registers uniquely named Ext context-menu providers in a deterministic chain after the upstream providers, and registers the independent blissmixerext command without upstream analyser, importer, or protocol components.",
-    "postinitPlugin": "Registers Bliss (Ext) independently and applies the upstream compatibility gate.",
+    "initPlugin": "Registers uniquely named Lab context-menu providers in a deterministic chain after the upstream providers, and registers the independent blissmixerlab command without upstream analyser, importer, or protocol components.",
+    "postinitPlugin": "Registers Bliss (Lab) independently and applies the upstream compatibility gate.",
     "_pathToTrack": "Carries the sidecar's Windows path existence fix until it is present upstream.",
     "_dstmMix": "Owns the sidecar process, defers database refreshes during upstream analysis, and adds learned-matrix selection, play-count reranking, Last.fm similar-track guidance, blend handling, and experimental diagnostics.",
     "_selectViaLastFm": "Combines Last.fm recording and artist evidence with play-count influence over one shared candidate pool, applies a bounded deadline, and retains upstream artist-only behavior when the experimental signals are disabled.",
     "_getMixData": "Adds the learnedblend request property.",
     "_buildComparisonJson": "Adds learnedblend overrides used by experimental comparison diagnostics.",
-    "_cliCommand": "Keeps the Ext-only port and survey commands while routing interactive mix and list requests to the sidecar binary with adaptive seed settings.",
-    "_callApi": "Uses the sidecar process, preserves deferred bliss.db refresh handling, and returns Ext-labelled context-menu results.",
-    "_objectInfoHandler": "Uses distinct BlissMixerExt menu labels, commands, and player modes.",
-    "_trackSimilarityHandler": "Uses distinct BlissMixerExt menu labels, commands, and player modes and retains by-artist mode parameters.",
+    "_cliCommand": "Keeps the Lab-only port and survey commands while routing interactive mix and list requests to the sidecar binary with adaptive seed settings.",
+    "_callApi": "Uses the sidecar process, preserves deferred bliss.db refresh handling, and returns Lab-labelled context-menu results.",
+    "_objectInfoHandler": "Uses distinct BlissMixerLab menu labels, commands, and player modes.",
+    "_trackSimilarityHandler": "Uses distinct BlissMixerLab menu labels, commands, and player modes and retains by-artist mode parameters.",
     "_getListData": "Adds the upstream filter_xmas setting plus adaptiveweights and learnedblend for learned-matrix similarity lists."
   }
 }

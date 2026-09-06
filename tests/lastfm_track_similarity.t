@@ -72,7 +72,7 @@ BEGIN {
 }
 
 use lib "$FindBin::Bin/..";
-require Plugins::BlissMixerExt::LastFmTrackSimilarity;
+require Plugins::BlissMixerLab::LastFmTrackSimilarity;
 
 my $seed_mbid = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 my @duplicate_seeds = (
@@ -82,7 +82,7 @@ my @duplicate_seeds = (
 $Plugins::LastMix::LFM::mode = 'fresh';
 $Plugins::LastMix::LFM::calls = 0;
 my ($matches, $stats);
-Plugins::BlissMixerExt::LastFmTrackSimilarity::collect(
+Plugins::BlissMixerLab::LastFmTrackSimilarity::collect(
     \@duplicate_seeds,
     sub { ($matches, $stats) = @_ },
 );
@@ -105,7 +105,7 @@ my $mbid_candidate = TestSimilarityTrack->new(
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
 );
 cmp_ok(
-    abs(Plugins::BlissMixerExt::LastFmTrackSimilarity::candidateSupport(
+    abs(Plugins::BlissMixerLab::LastFmTrackSimilarity::candidateSupport(
         $mbid_candidate, $matches,
     ) - 0.9),
     '<', 0.000001,
@@ -115,7 +115,7 @@ my $name_candidate = TestSimilarityTrack->new(
     '  MATCHED   ARTIST ', ' Matched Song ', undef,
 );
 cmp_ok(
-    abs(Plugins::BlissMixerExt::LastFmTrackSimilarity::candidateSupport(
+    abs(Plugins::BlissMixerLab::LastFmTrackSimilarity::candidateSupport(
         $name_candidate, $matches,
     ) - 0.765),
     '<', 0.000001,
@@ -124,7 +124,7 @@ cmp_ok(
 
 $Plugins::LastMix::LFM::mode = 'single_hash';
 my $single;
-Plugins::BlissMixerExt::LastFmTrackSimilarity::collect(
+Plugins::BlissMixerLab::LastFmTrackSimilarity::collect(
     [TestSimilarityTrack->new('Other Artist', 'Other Song', undef)],
     sub { $single = shift },
 );
@@ -134,7 +134,7 @@ ok($single->{name}->{'result artist|one result'},
 $Plugins::LastMix::LFM::mode = 'rate_limit';
 $Plugins::LastMix::LFM::calls = 0;
 my $limited_stats;
-Plugins::BlissMixerExt::LastFmTrackSimilarity::collect(
+Plugins::BlissMixerLab::LastFmTrackSimilarity::collect(
     [
         TestSimilarityTrack->new('Artist A', 'Song A', undef),
         TestSimilarityTrack->new('Artist B', 'Song B', undef),
@@ -148,7 +148,7 @@ is_deeply($limited_stats->{error_codes}, ['LASTFM_29'],
 
 $Plugins::LastMix::LFM::mode = 'dispatch_error';
 my $dispatch_stats;
-Plugins::BlissMixerExt::LastFmTrackSimilarity::collect(
+Plugins::BlissMixerLab::LastFmTrackSimilarity::collect(
     [TestSimilarityTrack->new('Dispatch Artist', 'Dispatch Song', undef)],
     sub { $dispatch_stats = $_[1] },
 );

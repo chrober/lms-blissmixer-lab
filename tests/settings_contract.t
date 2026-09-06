@@ -18,7 +18,7 @@ BEGIN {
 
     package TestSettingsPrefs;
     our %values = (
-        'plugin.blissmixerext' => {},
+        'plugin.blissmixerlab' => {},
         'plugin.blissmixer' => {
             use_adaptive_weights => 1,
             use_lastfm_weighting => 1,
@@ -67,16 +67,16 @@ BEGIN {
 }
 
 use lib "$FindBin::Bin/..";
-require Plugins::BlissMixerExt::Settings;
+require Plugins::BlissMixerLab::Settings;
 
-is(Plugins::BlissMixerExt::Settings->name(), 'BLISSMIXEREXT',
+is(Plugins::BlissMixerLab::Settings->name(), 'BLISSMIXERLAB',
     'settings menu uses the catalog-backed plugin name token');
 is(
-    Plugins::BlissMixerExt::Settings->page(),
-    'plugins/BlissMixerExt/settings/blissmixerext.html',
+    Plugins::BlissMixerLab::Settings->page(),
+    'plugins/BlissMixerLab/settings/blissmixerlab.html',
     'settings page keeps the sidecar route',
 );
-my (undef, @preference_names) = Plugins::BlissMixerExt::Settings->prefs();
+my (undef, @preference_names) = Plugins::BlissMixerLab::Settings->prefs();
 is_deeply(
     \@preference_names,
     [qw(learned_blend playcount_influence lastfm_track_guidance_percent triplets_backup_path)],
@@ -84,7 +84,7 @@ is_deeply(
 );
 
 my %request_host = (host => '192.168.1.111:9000');
-Plugins::BlissMixerExt::Settings->beforeRender(\%request_host);
+Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
 is(
     $request_host{jsonrpc_url},
     'http://192.168.1.111:9000/jsonrpc.js',
@@ -98,22 +98,22 @@ ok($request_host{statistics_enabled}, 'enabled LMS listening statistics are repo
 ok($request_host{lastmix_available}, 'enabled LastMix is reported');
 ok($request_host{upstream_lastfm_enabled},
     'upstream Adaptive Last.fm weighting is reported');
-is($request_host{backup_success_text}, 'localized:BLISSMIXEREXT_BACKUP_SUCCESS',
+is($request_host{backup_success_text}, 'localized:BLISSMIXERLAB_BACKUP_SUCCESS',
     'dynamic JavaScript messages are localized before rendering');
-is($request_host{backup_now_text}, 'localized:BLISSMIXEREXT_BACKUP_NOW',
+is($request_host{backup_now_text}, 'localized:BLISSMIXERLAB_BACKUP_NOW',
     'backup button text is localized before rendering like upstream');
 is($request_host{learning_start_text},
-    'localized:BLISSMIXEREXT_LEARNING_START_TIME',
+    'localized:BLISSMIXERLAB_LEARNING_START_TIME',
     'live learner start time label is localized before rendering');
 is($request_host{learning_duration_text},
-    'localized:BLISSMIXEREXT_LEARNING_DURATION',
+    'localized:BLISSMIXERLAB_LEARNING_DURATION',
     'live learner duration label is localized before rendering');
 is($request_host{learning_status_text},
-    'localized:BLISSMIXEREXT_LEARNING_STATUS',
+    'localized:BLISSMIXERLAB_LEARNING_STATUS',
     'live learner progress label is localized before rendering');
 
 my %fallback_host;
-Plugins::BlissMixerExt::Settings->beforeRender(\%fallback_host);
+Plugins::BlissMixerLab::Settings->beforeRender(\%fallback_host);
 is(
     $fallback_host{jsonrpc_url},
     'http://127.0.0.1:9000/jsonrpc.js',
@@ -124,7 +124,7 @@ my %submitted = (
     pref_playcount_influence => -101,
     pref_lastfm_track_guidance_percent => 101,
 );
-Plugins::BlissMixerExt::Settings->handler(undef, \%submitted);
+Plugins::BlissMixerLab::Settings->handler(undef, \%submitted);
 is($submitted{pref_playcount_influence}, -100,
     'submitted play-count influence is clamped');
 is($submitted{pref_lastfm_track_guidance_percent}, 100,

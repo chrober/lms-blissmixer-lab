@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download and verify the native releases pinned for BlissMixerExt."""
+"""Download and verify the native releases pinned for BlissMixerLab."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parent
-PLUGIN = ROOT / "BlissMixerExt"
+PLUGIN = ROOT / "BlissMixerLab"
 SOURCE = PLUGIN / "Bin" / "SOURCE.md"
 
 COMPONENTS = {
@@ -20,11 +20,11 @@ COMPONENTS = {
         "repo": "chrober/bliss-mixer",
         "label": "Mixer release",
         "assets": {
-            "bliss-mixer-x86_64-linux": "x86_64-linux/bliss-mixer-ext",
-            "bliss-mixer-aarch64-linux": "aarch64-linux/bliss-mixer-ext",
-            "bliss-mixer-armhf-linux": "armhf-linux/bliss-mixer-ext",
-            "bliss-mixer-mac": "mac/bliss-mixer-ext",
-            "bliss-mixer-windows.exe": "windows/bliss-mixer-ext.exe",
+            "bliss-mixer-x86_64-linux": "x86_64-linux/bliss-mixer-lab",
+            "bliss-mixer-aarch64-linux": "aarch64-linux/bliss-mixer-lab",
+            "bliss-mixer-armhf-linux": "armhf-linux/bliss-mixer-lab",
+            "bliss-mixer-mac": "mac/bliss-mixer-lab",
+            "bliss-mixer-windows.exe": "windows/bliss-mixer-lab.exe",
         },
     },
     "learner": {

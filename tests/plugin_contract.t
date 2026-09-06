@@ -36,7 +36,7 @@ BEGIN {
             max_bpm_diff => 20,
             match_all_genres => 0,
         },
-        'plugin.blissmixerext' => {
+        'plugin.blissmixerlab' => {
             learned_blend => 50,
             playcount_influence => 0,
             lastfm_track_guidance_percent => 25,
@@ -131,17 +131,17 @@ BEGIN {
     }
     $INC{'JSON/XS/VersionOneAndTwo.pm'} = __FILE__;
 
-    package Plugins::BlissMixerExt::Settings;
+    package Plugins::BlissMixerLab::Settings;
     sub new { return bless {}, $_[0] }
-    $INC{'Plugins/BlissMixerExt/Settings.pm'} = __FILE__;
+    $INC{'Plugins/BlissMixerLab/Settings.pm'} = __FILE__;
 
-    package Plugins::BlissMixerExt::Survey;
+    package Plugins::BlissMixerLab::Survey;
     our $matrix_path;
     sub init { return }
     sub shutdown { return }
     sub cliCommand { return }
     sub matrixPath { return $matrix_path }
-    $INC{'Plugins/BlissMixerExt/Survey.pm'} = __FILE__;
+    $INC{'Plugins/BlissMixerLab/Survey.pm'} = __FILE__;
 
     package Slim::Plugin::DontStopTheMusic::Plugin;
     our @registered;
@@ -175,54 +175,54 @@ BEGIN {
 }
 
 use lib "$FindBin::Bin/..";
-require Plugins::BlissMixerExt::Plugin;
+require Plugins::BlissMixerLab::Plugin;
 
 $Slim::Utils::PluginManager::manifest = undef;
-ok(!Plugins::BlissMixerExt::Plugin::_upstreamCompatible(),
+ok(!Plugins::BlissMixerLab::Plugin::_upstreamCompatible(),
     'missing upstream BlissMixer is rejected');
 
 $Slim::Utils::PluginManager::manifest = {version => '0.9.9'};
-ok(!Plugins::BlissMixerExt::Plugin::_upstreamCompatible(),
+ok(!Plugins::BlissMixerLab::Plugin::_upstreamCompatible(),
     'older upstream BlissMixer is rejected');
 
 $Slim::Utils::PluginManager::manifest = {version => '0.10.0'};
-ok(Plugins::BlissMixerExt::Plugin::_upstreamCompatible(),
+ok(Plugins::BlissMixerLab::Plugin::_upstreamCompatible(),
     'minimum supported upstream BlissMixer is accepted');
 
 @Slim::Plugin::DontStopTheMusic::Plugin::registered = ();
-Plugins::BlissMixerExt::Plugin->postinitPlugin();
+Plugins::BlissMixerLab::Plugin->postinitPlugin();
 is(scalar @Slim::Plugin::DontStopTheMusic::Plugin::registered, 1,
     'one sidecar DSTM provider is registered');
-is($Slim::Plugin::DontStopTheMusic::Plugin::registered[0][0], 'BLISSMIXEREXT_DSTM',
+is($Slim::Plugin::DontStopTheMusic::Plugin::registered[0][0], 'BLISSMIXERLAB_DSTM',
     'the sidecar uses its distinct DSTM provider id');
 is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
     'the sidecar DSTM provider has a callback');
 
 $Slim::Utils::PluginManager::manifest = {version => '0.9.9'};
 @Slim::Plugin::DontStopTheMusic::Plugin::registered = ();
-Plugins::BlissMixerExt::Plugin->postinitPlugin();
+Plugins::BlissMixerLab::Plugin->postinitPlugin();
 is(scalar @Slim::Plugin::DontStopTheMusic::Plugin::registered, 0,
     'incompatible upstream prevents DSTM registration');
 
 {
     no warnings 'redefine';
-    local *Plugins::BlissMixerExt::Plugin::_portAvailable = sub {
+    local *Plugins::BlissMixerLab::Plugin::_portAvailable = sub {
         return $_[0] == 12003;
     };
     $TestPrefs::values{'plugin.blissmixer'}{mixer_port} = 12002;
-    is(Plugins::BlissMixerExt::Plugin::_availableMixerPort(), 12003,
+    is(Plugins::BlissMixerLab::Plugin::_availableMixerPort(), 12003,
         'the sidecar automatically selects the first available loopback port');
 }
 
 {
     no warnings 'redefine';
-    local *Plugins::BlissMixerExt::Plugin::_portAvailable = sub { return 1 };
+    local *Plugins::BlissMixerLab::Plugin::_portAvailable = sub { return 1 };
     $TestPrefs::values{'plugin.blissmixer'}{mixer_port} = 12001;
-    is(Plugins::BlissMixerExt::Plugin::_availableMixerPort(), 12002,
+    is(Plugins::BlissMixerLab::Plugin::_availableMixerPort(), 12002,
         'automatic selection never reuses the configured upstream mixer port');
 }
 
-my @default_weights = split /,/, Plugins::BlissMixerExt::Plugin::_weightParam();
+my @default_weights = split /,/, Plugins::BlissMixerLab::Plugin::_weightParam();
 is(scalar @default_weights, 23, 'BlissMixer weights expand to all 23 analysis features');
 ok(!(grep { abs($_ - 1) > 0.000001 } @default_weights),
     'the upstream default sliders produce neutral per-feature weights');
@@ -231,60 +231,60 @@ $TestPrefs::values{'plugin.blissmixer'}{weight_tempo} = 25;
 $TestPrefs::values{'plugin.blissmixer'}{weight_timbre} = 25;
 $TestPrefs::values{'plugin.blissmixer'}{weight_loudness} = 25;
 $TestPrefs::values{'plugin.blissmixer'}{weight_chroma} = 25;
-my @custom_weights = split /,/, Plugins::BlissMixerExt::Plugin::_weightParam();
+my @custom_weights = split /,/, Plugins::BlissMixerLab::Plugin::_weightParam();
 cmp_ok(abs($custom_weights[0] - 6.25), '<', 0.000001,
     'tempo weight is derived from the upstream slider');
 cmp_ok(abs($custom_weights[1] - (25 / 30)), '<', 0.000001,
     'timbre feature weights are derived from the upstream slider');
 
-is(Plugins::BlissMixerExt::Plugin::_lastfmEndorsedWeightForPercent(50, 2, 8), 4,
+is(Plugins::BlissMixerLab::Plugin::_lastfmEndorsedWeightForPercent(50, 2, 8), 4,
     'Last.fm weighting solves the requested endorsed share');
-is(Plugins::BlissMixerExt::Plugin::_lastfmEndorsedWeightForPercent(100, 2, 8), 1_000_000,
+is(Plugins::BlissMixerLab::Plugin::_lastfmEndorsedWeightForPercent(100, 2, 8), 1_000_000,
     'a 100 percent target uses the finite upper bound');
-is(Plugins::BlissMixerExt::Plugin::_lastfmEndorsedWeightForPercent(50, 0, 8), 1,
+is(Plugins::BlissMixerLab::Plugin::_lastfmEndorsedWeightForPercent(50, 0, 8), 1,
     'an empty endorsed set keeps neutral weighting');
-is(Plugins::BlissMixerExt::Plugin::_lastfmNormalizeArtist('  The Artist  '), 'the artist',
+is(Plugins::BlissMixerLab::Plugin::_lastfmNormalizeArtist('  The Artist  '), 'the artist',
     'Last.fm artist keys are normalized consistently');
-is(Plugins::BlissMixerExt::Plugin::_lastfmTrackWeight(1, 0), 1,
+is(Plugins::BlissMixerLab::Plugin::_lastfmTrackWeight(1, 0), 1,
     'zero Last.fm track guidance is neutral');
-cmp_ok(abs(Plugins::BlissMixerExt::Plugin::_lastfmTrackWeight(1, 100) - 10),
+cmp_ok(abs(Plugins::BlissMixerLab::Plugin::_lastfmTrackWeight(1, 100) - 10),
     '<', 0.000001, 'maximum recording evidence has a bounded tenfold weight');
-$TestPrefs::values{'plugin.blissmixerext'}{lastfm_track_guidance_percent} = 125;
-is(Plugins::BlissMixerExt::Plugin::_lastfmTrackGuidance(), 100,
+$TestPrefs::values{'plugin.blissmixerlab'}{lastfm_track_guidance_percent} = 125;
+is(Plugins::BlissMixerLab::Plugin::_lastfmTrackGuidance(), 100,
     'Last.fm similar-track guidance is clamped at the positive limit');
 
-$TestPrefs::values{'plugin.blissmixerext'}{playcount_influence} = 55;
-is(Plugins::BlissMixerExt::Plugin::_playCountInfluence(), 55,
+$TestPrefs::values{'plugin.blissmixerlab'}{playcount_influence} = 55;
+is(Plugins::BlissMixerLab::Plugin::_playCountInfluence(), 55,
     'configured play-count influence is available when LMS statistics are enabled');
-$TestPrefs::values{'plugin.blissmixerext'}{playcount_influence} = 123;
-is(Plugins::BlissMixerExt::Plugin::_playCountInfluence(), 100,
+$TestPrefs::values{'plugin.blissmixerlab'}{playcount_influence} = 123;
+is(Plugins::BlissMixerLab::Plugin::_playCountInfluence(), 100,
     'play-count influence is clamped at the positive limit');
 {
     no warnings 'redefine';
-    local *Plugins::BlissMixerExt::Plugin::_statisticsEnabled = sub { return 0 };
-    is(Plugins::BlissMixerExt::Plugin::_playCountInfluence(), 0,
+    local *Plugins::BlissMixerLab::Plugin::_statisticsEnabled = sub { return 0 };
+    is(Plugins::BlissMixerLab::Plugin::_playCountInfluence(), 0,
         'play-count influence is inactive when LMS listening statistics are disabled');
 }
-is(Plugins::BlissMixerExt::Plugin::_playCountPoolMultiplier(0), 1,
+is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(0), 1,
     'disabled play-count influence does not expand the candidate pool');
-is(Plugins::BlissMixerExt::Plugin::_playCountPoolMultiplier(5), 2,
+is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(5), 2,
     'any non-zero play-count influence expands the candidate pool');
-is(Plugins::BlissMixerExt::Plugin::_playCountPoolMultiplier(-100), 10,
+is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(-100), 10,
     'maximum negative influence uses the maximum candidate pool');
-is(Plugins::BlissMixerExt::Plugin::_playCountPoolMultiplier(100), 10,
+is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(100), 10,
     'maximum positive influence uses the maximum candidate pool');
-is(Plugins::BlissMixerExt::Plugin::_candidatePoolMultiplier(1, 100), 10,
+is(Plugins::BlissMixerLab::Plugin::_candidatePoolMultiplier(1, 100), 10,
     'Last.fm and play count share one 10x pool instead of multiplying pools');
 cmp_ok(
-    Plugins::BlissMixerExt::Plugin::_playCountWeight(1, 100),
+    Plugins::BlissMixerLab::Plugin::_playCountWeight(1, 100),
     '>',
-    Plugins::BlissMixerExt::Plugin::_playCountWeight(-1, 100),
+    Plugins::BlissMixerLab::Plugin::_playCountWeight(-1, 100),
     'positive influence gives frequently played tracks more weight',
 );
 cmp_ok(
-    Plugins::BlissMixerExt::Plugin::_playCountWeight(-1, -100),
+    Plugins::BlissMixerLab::Plugin::_playCountWeight(-1, -100),
     '>',
-    Plugins::BlissMixerExt::Plugin::_playCountWeight(1, -100),
+    Plugins::BlissMixerLab::Plugin::_playCountWeight(1, -100),
     'negative influence gives less-played tracks more weight',
 );
 
@@ -294,14 +294,14 @@ my @playcount_tracks = (
     TestTrack->new('high', 100),
 );
 is_deeply(
-    Plugins::BlissMixerExt::Plugin::_selectWeightedCandidates(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
         \@playcount_tracks, 1, 100, undef, undef, sub { 0.5 },
     ),
     ['high'],
     'positive influence can promote a frequently played candidate over Bliss rank',
 );
 is_deeply(
-    Plugins::BlissMixerExt::Plugin::_selectWeightedCandidates(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
         \@playcount_tracks, 1, -100, undef, undef, sub { 0.5 },
     ),
     ['low'],
@@ -312,7 +312,7 @@ my @equal_playcount_tracks = (
     TestTrack->new('second', undef),
 );
 is_deeply(
-    Plugins::BlissMixerExt::Plugin::_selectWeightedCandidates(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
         \@equal_playcount_tracks, 1, 100, undef, undef, sub { 0.5 },
     ),
     ['first'],
@@ -323,7 +323,7 @@ my @lastfm_track_candidates = (
     TestTrack->new('track-match', 0, 'Artist', 'Matched'),
 );
 is_deeply(
-    Plugins::BlissMixerExt::Plugin::_selectWeightedCandidates(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
         \@lastfm_track_candidates,
         1,
         0,
@@ -337,18 +337,18 @@ is_deeply(
     'Last.fm recording evidence can promote a matching Bliss candidate',
 );
 
-is(Plugins::BlissMixerExt::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),
+is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),
     'defer', 'database refresh is deferred while upstream analysis is running');
-is(Plugins::BlissMixerExt::Plugin::_databaseRefreshAction(1, 1, 'same', 'same', 0),
+is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'same', 'same', 0),
     'none', 'analysis alone does not interrupt an existing mixer');
-is(Plugins::BlissMixerExt::Plugin::_databaseRefreshAction(0, 1, 'old', 'new', 0),
+is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(0, 1, 'old', 'new', 0),
     'restart', 'a database change outside analysis refreshes the mixer');
-is(Plugins::BlissMixerExt::Plugin::_databaseRefreshAction(0, 1, 'same', 'same', 1),
+is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(0, 1, 'same', 'same', 1),
     'restart', 'a deferred refresh runs once after analysis finishes');
-is(Plugins::BlissMixerExt::Plugin::_databaseRefreshAction(1, 0, 'old', 'new', 0),
+is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 0, 'old', 'new', 0),
     'none', 'analysis does not prevent an unavailable mixer from starting');
 
-my $selection_log_lines = Plugins::BlissMixerExt::Plugin::_selectionLogLines(
+my $selection_log_lines = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
     [
         {
             track => TestTrack->new('bliss-only', 13, 'Ten Years After', 'Here They Come'),
@@ -421,7 +421,7 @@ is_deeply(\@first_pipes, \@third_pipes,
 is_deeply(\@first_pipes, \@fourth_pipes,
     'combined selection log pipe separators align for track evidence too');
 
-my $artist_only_log = Plugins::BlissMixerExt::Plugin::_selectionLogLines(
+my $artist_only_log = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
     [{
         track => TestTrack->new('artist-only', 0, 'Artist', 'Title'),
         rank => 7,
@@ -435,55 +435,55 @@ like($artist_only_log->[0],
     'artist-only output retains the historical centered two-column layout');
 
 is_deeply(
-    Plugins::BlissMixerExt::Plugin::_genreGroups(),
+    Plugins::BlissMixerLab::Plugin::_genreGroups(),
     [['Rock', 'Hard Rock'], ['Jazz*'], ['Ambient']],
     'genre groups are inherited from BlissMixer and trimmed without losing patterns',
 );
 
 my $menu_track = TestTrack->new('seed.flac', 0, 'Seed Artist', 'Seed Title');
-my $create_track = Plugins::BlissMixerExt::Plugin::trackInfoHandler(
+my $create_track = Plugins::BlissMixerLab::Plugin::trackInfoHandler(
     undef, undef, $menu_track,
 );
-is($create_track->{name}, 'BLISSMIXEREXT_CREATE_MIX',
-    'track menu exposes Create bliss mix (Ext)');
-is_deeply($create_track->{jive}{actions}{go}{cmd}, ['blissmixerext', 'mix'],
-    'Ext mix action uses the sidecar command namespace');
+is($create_track->{name}, 'BLISSMIXERLAB_CREATE_MIX',
+    'track menu exposes Create bliss mix (Lab)');
+is_deeply($create_track->{jive}{actions}{go}{cmd}, ['blissmixerlab', 'mix'],
+    'Lab mix action uses the sidecar command namespace');
 is($create_track->{jive}{actions}{go}{params}{track_id}, 42,
     'track mix action forwards the track id');
 
-my $create_album = Plugins::BlissMixerExt::Plugin::_objectInfoHandler(
+my $create_album = Plugins::BlissMixerLab::Plugin::_objectInfoHandler(
     'album', undef, undef, $menu_track,
 );
 is($create_album->{jive}{actions}{go}{params}{album_id}, 42,
     'album mix action forwards the album id');
-my $create_artist = Plugins::BlissMixerExt::Plugin::_objectInfoHandler(
+my $create_artist = Plugins::BlissMixerLab::Plugin::_objectInfoHandler(
     'artist', undef, undef, $menu_track,
 );
 is($create_artist->{jive}{actions}{go}{params}{artist_id}, 42,
     'artist mix action forwards the artist id');
 
-my $similar = Plugins::BlissMixerExt::Plugin::similarTracksHandler(
+my $similar = Plugins::BlissMixerLab::Plugin::similarTracksHandler(
     undef, undef, $menu_track,
 );
-is($similar->{name}, 'BLISSMIXEREXT_SIMILAR_TRACKS',
-    'track menu exposes Similar tracks (Ext)');
-is_deeply($similar->{jive}{actions}{go}{cmd}, ['blissmixerext', 'list'],
-    'Ext similarity action uses the sidecar command namespace');
+is($similar->{name}, 'BLISSMIXERLAB_SIMILAR_TRACKS',
+    'track menu exposes Similar tracks (Lab)');
+is_deeply($similar->{jive}{actions}{go}{cmd}, ['blissmixerlab', 'list'],
+    'Lab similarity action uses the sidecar command namespace');
 is($similar->{jive}{actions}{go}{params}{byArtist}, 0,
     'general similarity action does not restrict the artist');
 
-my $similar_artist = Plugins::BlissMixerExt::Plugin::similarTracksByArtistHandler(
+my $similar_artist = Plugins::BlissMixerLab::Plugin::similarTracksByArtistHandler(
     undef, undef, $menu_track,
 );
-is($similar_artist->{name}, 'BLISSMIXEREXT_SIMILAR_TRACKS_BY_ARTIST',
-    'track menu exposes Similar tracks by artist (Ext)');
+is($similar_artist->{name}, 'BLISSMIXERLAB_SIMILAR_TRACKS_BY_ARTIST',
+    'track menu exposes Similar tracks by artist (Lab)');
 is($similar_artist->{jive}{actions}{go}{params}{byArtist}, 1,
     'artist similarity action carries its artist restriction');
 is($similar_artist->{player}{modeParams}{byArtist}, 1,
     'artist restriction is also retained for classic-player navigation');
 
 my $list_data = JSON::PP::decode_json(
-    Plugins::BlissMixerExt::Plugin::_getListData($menu_track, 50, 1, 1),
+    Plugins::BlissMixerLab::Plugin::_getListData($menu_track, 50, 1, 1),
 );
 is($list_data->{track}, 'seed.flac',
     'similarity request sends the seed path relative to the music folder');
@@ -499,30 +499,30 @@ is($list_data->{filterxmas}, 1,
 my $general_request = TestRequest->new({byArtist => 0});
 my $artist_request = TestRequest->new({byArtist => 1});
 is(
-    Plugins::BlissMixerExt::Plugin::_interactiveActionName(
+    Plugins::BlissMixerLab::Plugin::_interactiveActionName(
         $general_request, 'mix',
     ),
-    'Create bliss mix (Ext)',
-    'interactive logging names the Ext mix action',
+    'Create bliss mix (Lab)',
+    'interactive logging names the Lab mix action',
 );
 is(
-    Plugins::BlissMixerExt::Plugin::_interactiveActionName(
+    Plugins::BlissMixerLab::Plugin::_interactiveActionName(
         $general_request, 'list',
     ),
-    'Similar tracks (Ext)',
-    'interactive logging names the general Ext similarity action',
+    'Similar tracks (Lab)',
+    'interactive logging names the general Lab similarity action',
 );
 is(
-    Plugins::BlissMixerExt::Plugin::_interactiveActionName(
+    Plugins::BlissMixerLab::Plugin::_interactiveActionName(
         $artist_request, 'list',
     ),
-    'Similar tracks by artist (Ext)',
-    'interactive logging names the same-artist Ext similarity action',
+    'Similar tracks by artist (Lab)',
+    'interactive logging names the same-artist Lab similarity action',
 );
 
-$Plugins::BlissMixerExt::Survey::matrix_path = undef;
+$Plugins::BlissMixerLab::Survey::matrix_path = undef;
 my ($list_strategy, $list_uses_static) =
-    Plugins::BlissMixerExt::Plugin::_interactiveStrategy(
+    Plugins::BlissMixerLab::Plugin::_interactiveStrategy(
         $artist_request, 'list', [$menu_track],
     );
 like($list_strategy, qr/static weights.*same artist only.*no learned matrix/,
@@ -536,32 +536,32 @@ open my $strategy_matrix_fh, '>', $strategy_matrix
     or die "Cannot create $strategy_matrix: $!";
 print {$strategy_matrix_fh} "{}\n";
 close $strategy_matrix_fh;
-$Plugins::BlissMixerExt::Survey::matrix_path = $strategy_matrix;
+$Plugins::BlissMixerLab::Survey::matrix_path = $strategy_matrix;
 ($list_strategy, $list_uses_static) =
-    Plugins::BlissMixerExt::Plugin::_interactiveStrategy(
+    Plugins::BlissMixerLab::Plugin::_interactiveStrategy(
         $general_request, 'list', [$menu_track],
     );
 like($list_strategy, qr/learned matrix.*all artists.*single-seed/,
     'similarity logging reports learned-matrix selection accurately');
 is($list_uses_static, 0,
     'learned-matrix selection does not claim to use static weights');
-$Plugins::BlissMixerExt::Survey::matrix_path = undef;
+$Plugins::BlissMixerLab::Survey::matrix_path = undef;
 
-is(Plugins::BlissMixerExt::Plugin->title(), 'BlissMixerExt',
+is(Plugins::BlissMixerLab::Plugin->title(), 'BlissMixerLab',
     'plugin identity remains distinct from upstream');
 
 my $migration_dir = tempdir(CLEANUP => 1);
-my $legacy_matrix = File::Spec->catfile($migration_dir, 'blissmixer-ext-matrix.json');
+my $legacy_matrix = File::Spec->catfile($migration_dir, 'blissmixer-lab-matrix.json');
 my $canonical_matrix = File::Spec->catfile($migration_dir, 'learned_matrix.json');
 open my $legacy_fh, '>', $legacy_matrix or die "Cannot create $legacy_matrix: $!";
 print {$legacy_fh} "legacy matrix\n";
 close $legacy_fh;
 is(
-    Plugins::BlissMixerExt::Plugin::_migrateLearningFile(
+    Plugins::BlissMixerLab::Plugin::_migrateLearningFile(
         $legacy_matrix, $canonical_matrix,
     ),
     'migrated',
-    'an Ext-specific learning file is migrated to its canonical filename',
+    'an Lab-specific learning file is migrated to its canonical filename',
 );
 ok(-e $canonical_matrix, 'the migrated canonical learning file exists');
 ok(!-e $legacy_matrix, 'the successfully migrated legacy file is gone');
@@ -574,7 +574,7 @@ open $legacy_fh, '>', $legacy_matrix or die "Cannot recreate $legacy_matrix: $!"
 print {$legacy_fh} "other matrix\n";
 close $legacy_fh;
 is(
-    Plugins::BlissMixerExt::Plugin::_migrateLearningFile(
+    Plugins::BlissMixerLab::Plugin::_migrateLearningFile(
         $legacy_matrix, $canonical_matrix,
     ),
     'conflict',

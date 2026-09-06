@@ -1,31 +1,31 @@
 # Architecture
 
-BlissMixerExt is a sidecar, not a runtime patch. It uses public LMS facilities
+BlissMixerLab is a sidecar, not a runtime patch. It uses public LMS facilities
 and shared on-disk analysis data but does not replace upstream Perl packages or
 registrations.
 
 ## Ownership boundary
 
-| Concern | Bliss Mixer | BlissMixerExt |
+| Concern | Bliss Mixer | BlissMixerLab |
 | --- | --- | --- |
 | Library analysis and `bliss.db` writes | Owner | Read-only consumer |
 | Stable mix preferences | Owner | Reads on every request |
 | Experimental preferences | None | Owner |
-| Mixer process | `bliss-mixer` | `bliss-mixer-ext` |
+| Mixer process | `bliss-mixer` | `bliss-mixer-lab` |
 | Learning process | None | `bliss-learner` |
-| DSTM provider | `Bliss` | `Bliss (Ext)` |
+| DSTM provider | `Bliss` | `Bliss (Lab)` |
 | Survey, triplets, learned matrix | None | Owner |
 
 The two preference namespaces are deliberately separate:
 
 - `plugin.blissmixer` supplies filters, repeat limits, weights, seed strategy,
   genre groups, DSTM count, and Last.fm behavior.
-- `plugin.blissmixerext` supplies only the learned blend, play-count influence,
+- `plugin.blissmixerlab` supplies only the learned blend, play-count influence,
   Last.fm similar-track guidance, and training-data backup path.
 
 ## Candidate reranking
 
-BlissMixerExt never expands candidate membership beyond tracks returned by its
+BlissMixerLab never expands candidate membership beyond tracks returned by its
 sidecar mixer. Upstream Last.fm artist endorsement, experimental Last.fm
 similar-track evidence, and play-count influence rerank one shared candidate
 pool. Last.fm recording matches prefer MusicBrainz recording IDs and fall back
@@ -42,18 +42,18 @@ track.
 
 ## Database lifecycle
 
-BlissMixerExt resolves `bliss.db` in the LMS preferences directory after plugin
+BlissMixerLab resolves `bliss.db` in the LMS preferences directory after plugin
 initialization. Before each DSTM request it queries the existing upstream
 `blissmixer analyser act:status` command. It stops its mixer while analysis is
 active. It also records database size and modification time and restarts
-`bliss-mixer-ext` after a database change.
+`bliss-mixer-lab` after a database change.
 
-No Ext code starts an analyser or opens the database for writes.
+No Lab code starts an analyser or opens the database for writes.
 
 ## Binary isolation
 
 The experimental mixer has a unique installed filename. It binds to
-`127.0.0.1` on an automatically selected Ext-owned port, avoiding the
+`127.0.0.1` on an automatically selected Lab-owned port, avoiding the
 experimental binary's upstream-specific dynamic-port callback. The learner has
 the canonical `bliss-learner` name because upstream Bliss Mixer has no learner
 binary with which it could conflict. It is monitored as a local child process
@@ -64,7 +64,7 @@ the learner produces a new result, preserving the previous model after a failed
 experiment.
 
 Native executables are released independently by `chrober/bliss-mixer` and
-`chrober/bliss-learner`. BlissMixerExt pins both release tags and commits, checks
+`chrober/bliss-learner`. BlissMixerLab pins both release tags and commits, checks
 their published SHA-256 files, and renames the verified assets only while
 assembling plugin packages. Workflow artifacts are never used as durable release
 inputs.
@@ -73,10 +73,10 @@ inputs.
 
 When an experiment is accepted upstream:
 
-1. Release an Ext version that recognizes the upstream version containing it.
-2. Migrate any Ext preference or data that users should retain.
-3. Remove the graduated setting and implementation from Ext.
-4. Stop registering `Bliss (Ext)` when it no longer provides distinct behavior.
+1. Release an Lab version that recognizes the upstream version containing it.
+2. Migrate any Lab preference or data that users should retain.
+3. Remove the graduated setting and implementation from Lab.
+4. Stop registering `Bliss (Lab)` when it no longer provides distinct behavior.
 
 ## Upstream DSTM drift
 
@@ -84,7 +84,7 @@ When an experiment is accepted upstream:
 DSTM routines were last reviewed. It also separates direct mirrors from
 intentional adaptations. `.github/workflows/dstm-drift.yml` checks both parts:
 
-- Direct mirrors are compared between current upstream and BlissMixerExt after
+- Direct mirrors are compared between current upstream and BlissMixerLab after
   removing comments, layout, and the expected plugin-identity differences.
 - Intentional adaptations are compared between current upstream and the recorded
   reviewed upstream commit, so a new upstream change cannot be hidden by the

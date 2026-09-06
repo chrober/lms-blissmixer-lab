@@ -64,16 +64,16 @@ BEGIN {
     sub addRawFunction { push @handlers, [$_[1], $_[2]] }
     $INC{'Slim/Web/Pages.pm'} = __FILE__;
 
-    package Plugins::BlissMixerExt::Plugin;
+    package Plugins::BlissMixerLab::Plugin;
     our $analyser_running = 0;
     our $mixer_stop_count = 0;
     sub _originalAnalyserRunning { return $analyser_running }
     sub _stopMixer { $mixer_stop_count++ }
-    $INC{'Plugins/BlissMixerExt/Plugin.pm'} = __FILE__;
+    $INC{'Plugins/BlissMixerLab/Plugin.pm'} = __FILE__;
 }
 
 use lib "$FindBin::Bin/..";
-require Plugins::BlissMixerExt::Survey;
+require Plugins::BlissMixerLab::Survey;
 
 my $temporary = tempdir(CLEANUP => 1);
 my $database = File::Spec->catfile($temporary, 'bliss.db');
@@ -82,8 +82,8 @@ my $triplets = File::Spec->catfile($temporary, 'training_triplets.json');
 $TestSurveyPrefs::values{triplets_backup_path} = $temporary;
 $TestSurveyPrefs::values{httpport} = 9123;
 
-Plugins::BlissMixerExt::Survey::init($database, $matrix, $triplets);
-is(Plugins::BlissMixerExt::Survey::matrixPath(), $matrix,
+Plugins::BlissMixerLab::Survey::init($database, $matrix, $triplets);
+is(Plugins::BlissMixerLab::Survey::matrixPath(), $matrix,
     'survey exposes the canonical learned matrix path');
 is(scalar @Slim::Web::Pages::handlers, 2,
     'survey page and API handlers are registered');
@@ -92,45 +92,45 @@ my $training = [
     ['one.flac', 'two.flac', 'three.flac'],
     ['four.flac', 'five.flac', 'six.flac'],
 ];
-Plugins::BlissMixerExt::Survey::_saveTriplets($training);
-is(Plugins::BlissMixerExt::Survey::_countTriplets(), 2,
+Plugins::BlissMixerLab::Survey::_saveTriplets($training);
+is(Plugins::BlissMixerLab::Survey::_countTriplets(), 2,
     'saved survey rounds can be counted');
-is_deeply(Plugins::BlissMixerExt::Survey::_loadTriplets(), $training,
+is_deeply(Plugins::BlissMixerLab::Survey::_loadTriplets(), $training,
     'survey triplets round-trip through JSON storage');
 
-my ($backup_ok, $backup_error) = Plugins::BlissMixerExt::Survey::_backupTriplets();
+my ($backup_ok, $backup_error) = Plugins::BlissMixerLab::Survey::_backupTriplets();
 ok($backup_ok, 'training data can be backed up');
 ok(!defined $backup_error, 'successful backup has no error');
 my @backups = glob(File::Spec->catfile($temporary, 'blissmixer-triplets-*.zip'));
 is(scalar @backups, 1, 'one timestamped backup archive is created');
 
 unlink $triplets or die "Cannot remove $triplets: $!";
-my $restore_error = Plugins::BlissMixerExt::Survey::_restoreBackup($backups[0]);
+my $restore_error = Plugins::BlissMixerLab::Survey::_restoreBackup($backups[0]);
 ok(!defined $restore_error, 'training data backup restores successfully');
-is_deeply(Plugins::BlissMixerExt::Survey::_loadTriplets(), $training,
+is_deeply(Plugins::BlissMixerLab::Survey::_loadTriplets(), $training,
     'restored training data matches the original');
 
 unlink $database if -e $database;
-like(Plugins::BlissMixerExt::Survey::_startLearning(), qr/database was not found/,
+like(Plugins::BlissMixerLab::Survey::_startLearning(), qr/database was not found/,
     'learning refuses to run without the upstream BlissMixer database');
 
 open my $database_fh, '>', $database or die "Cannot create $database: $!";
 close $database_fh;
-$Plugins::BlissMixerExt::Plugin::analyser_running = 1;
-like(Plugins::BlissMixerExt::Survey::_startLearning(), qr/analysis is running/,
+$Plugins::BlissMixerLab::Plugin::analyser_running = 1;
+like(Plugins::BlissMixerLab::Survey::_startLearning(), qr/analysis is running/,
     'learning does not compete with upstream analysis');
-$Plugins::BlissMixerExt::Plugin::analyser_running = 0;
-like(Plugins::BlissMixerExt::Survey::_startLearning(), qr/Not enough training data \(2 triplets\)/,
+$Plugins::BlissMixerLab::Plugin::analyser_running = 0;
+like(Plugins::BlissMixerLab::Survey::_startLearning(), qr/Not enough training data \(2 triplets\)/,
     'learning requires the minimum number of survey rounds');
 
-Plugins::BlissMixerExt::Survey::_saveTriplets([($training->[0]) x 10]);
-is(Plugins::BlissMixerExt::Survey::_startLearning(), 'Learning started',
+Plugins::BlissMixerLab::Survey::_saveTriplets([($training->[0]) x 10]);
+is(Plugins::BlissMixerLab::Survey::_startLearning(), 'Learning started',
     'learning starts when sufficient training data is available');
 my $learner_command = join ' ', @Proc::Background::arguments;
 like($learner_command,
-    qr/--lms 127\.0\.0\.1 --json 9123 --notifs --lms-command blissmixerext/,
+    qr/--lms 127\.0\.0\.1 --json 9123 --notifs --lms-command blissmixerlab/,
     'the learner sends its detailed progress to the sidecar command');
-Plugins::BlissMixerExt::Survey::_stopLearning();
+Plugins::BlissMixerLab::Survey::_stopLearning();
 
 open my $matrix_fh, '>', $matrix or die "Cannot create $matrix: $!";
 print {$matrix_fh} 'old matrix';
@@ -138,18 +138,18 @@ close $matrix_fh;
 open my $new_matrix_fh, '>', "$matrix.new" or die "Cannot create $matrix.new: $!";
 print {$new_matrix_fh} 'new matrix';
 close $new_matrix_fh;
-Plugins::BlissMixerExt::Survey::_learningEnded();
+Plugins::BlissMixerLab::Survey::_learningEnded();
 open my $installed_fh, '<', $matrix or die "Cannot read $matrix: $!";
 my $installed = do { local $/; <$installed_fh> };
 close $installed_fh;
 is($installed, 'new matrix', 'a completed experiment atomically replaces the old matrix');
-is($Plugins::BlissMixerExt::Plugin::mixer_stop_count, 1,
+is($Plugins::BlissMixerLab::Plugin::mixer_stop_count, 1,
     'installing a learned matrix restarts only the sidecar mixer');
 
-Plugins::BlissMixerExt::Survey::_clearTrainingData();
+Plugins::BlissMixerLab::Survey::_clearTrainingData();
 ok(!-e $triplets, 'clearing training data removes sidecar triplets');
 ok(!-e $matrix, 'clearing training data removes the learned matrix');
-is($Plugins::BlissMixerExt::Plugin::mixer_stop_count, 2,
+is($Plugins::BlissMixerLab::Plugin::mixer_stop_count, 2,
     'clearing the matrix restarts only the sidecar mixer');
 
 done_testing();

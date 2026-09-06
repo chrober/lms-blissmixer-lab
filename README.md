@@ -1,13 +1,13 @@
-# Bliss Mixer Extensions
+# Bliss Mixer Lab
 
-BlissMixerExt is an independent companion plugin for
+BlissMixerLab is an independent companion plugin for
 [Lyrion Media Server](https://lyrion.org/) and the upstream
 [Bliss Mixer](https://github.com/CDrummond/lms-blissmixer) plugin. It provides a
 temporary staging area where experimental and early-access extensions can be
 tested by interested users before they are proposed for inclusion in Bliss
 Mixer.
 
-BlissMixerExt is installed alongside Bliss Mixer and does not replace or modify
+BlissMixerLab is installed alongside Bliss Mixer and does not replace or modify
 it. Features may be added, changed, or removed as experiments evolve or move
 upstream.
 
@@ -19,7 +19,7 @@ currently contributes:
 - A preference-learning survey and native learner that produce a learned
   similarity matrix, including configurable matrix influence and training-data
   backup and restore.
-- A separate **Bliss (Ext)** Don't Stop the Music provider that honors Bliss
+- A separate **Bliss (Lab)** Don't Stop the Music provider that honors Bliss
   Mixer's configured strategy and filters. Depending on configuration, it
   supports:
 
@@ -30,20 +30,20 @@ currently contributes:
     tracks while retaining acoustic similarity as a ranking signal.
   - Last.fm recording-similarity guidance, with MusicBrainz recording IDs
     preferred and normalized artist/title matching as a fallback.
-- **Create bliss mix (Ext)** actions for tracks, albums, and artists, plus
-  **Similar tracks (Ext)** and **Similar tracks by artist (Ext)** actions. These
-  use the separate Ext mixer and respect the configured mixing strategy,
+- **Create bliss mix (Lab)** actions for tracks, albums, and artists, plus
+  **Similar tracks (Lab)** and **Similar tracks by artist (Lab)** actions. These
+  use the separate Lab mixer and respect the configured mixing strategy,
   including adaptive weighting and the learned matrix.
 
 ## Responsibilities
 
 - Upstream Bliss Mixer analyses the music library and owns `bliss.db`.
-- BlissMixerExt reads that database and the upstream mix preferences.
-- BlissMixerExt owns the runtime processes, preferences, and data needed by its
+- BlissMixerLab reads that database and the upstream mix preferences.
+- BlissMixerLab owns the runtime processes, preferences, and data needed by its
   staged extensions.
 - The plugins remain separately registered and operate side by side.
 
-BlissMixerExt currently requires Bliss Mixer 0.10.0 or newer and LMS 9.0 or
+BlissMixerLab currently requires Bliss Mixer 0.10.0 or newer and LMS 9.0 or
 newer.
 
 ## Installation
@@ -57,16 +57,16 @@ maintained. Add its feed as an additional repository in Lyrion Media Server:
 https://raw.githubusercontent.com/chrober/lms-plugins/main/repo.xml
 ```
 
-Then install **Bliss Mixer Extensions** through the LMS plugin manager and
+Then install **Bliss Mixer Lab** through the LMS plugin manager and
 restart LMS. The repository selects the appropriate platform-specific package,
-including `bliss-mixer-ext` and `bliss-learner`, for the server.
+including `bliss-mixer-lab` and `bliss-learner`, for the server.
 
-Enable both Bliss Mixer and Bliss Mixer Extensions. Run library analysis from
+Enable both Bliss Mixer and Bliss Mixer Lab. Run library analysis from
 the upstream Bliss Mixer settings, configure experimental options on the
-BlissMixerExt settings page, and select **Bliss (Ext)** under Don't Stop the
+BlissMixerLab settings page, and select **Bliss (Lab)** under Don't Stop the
 Music.
 
-For development, place or symlink the `BlissMixerExt` directory in the LMS
+For development, place or symlink the `BlissMixerLab` directory in the LMS
 plugins directory and run:
 
 ```text
@@ -76,7 +76,7 @@ python download-binaries.py
 ## Compatibility and isolation
 
 The sidecar deliberately does not register an analyser, importer, Bliss Mixer
-URL protocol, or replacement context-menu handlers. Its uniquely named Ext
+URL protocol, or replacement context-menu handlers. Its uniquely named Lab
 context-menu providers coexist with the upstream actions. Its mixer listens
 only on a separate automatically selected loopback port. It checks whether the
 upstream analyser is active and reloads its mixer when `bliss.db` changes.
@@ -113,7 +113,7 @@ On a Debian-based development system, run the complete plugin suite with
 
 Pushing a semantic version tag runs `.github/workflows/release.yml`. It validates
 the plugin, reads the pinned native releases from
-`BlissMixerExt/Bin/SOURCE.md`, downloads and verifies every SHA-256 file, and
+`BlissMixerLab/Bin/SOURCE.md`, downloads and verifies every SHA-256 file, and
 creates separate Linux, macOS, and Windows plugin packages. It publishes those
 packages and their SHA-1/SHA-256 files as a GitHub Release, then updates the
 three platform entries in `chrober/lms-plugins`.
@@ -130,5 +130,5 @@ This project contains code adapted from Craig Drummond's GPLv3-licensed
 [lms-blissmixer](https://github.com/CDrummond/lms-blissmixer). The metric
 learning work is based on `bliss-metric-learning` by Polochon-street.
 
-BlissMixerExt is distributed under the GNU General Public License v3. See
+BlissMixerLab is distributed under the GNU General Public License v3. See
 [LICENSE](LICENSE).

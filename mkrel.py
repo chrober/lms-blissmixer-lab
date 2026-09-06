@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #
-# LMS-BlissMixerExt
+# LMS-BlissMixerLab
 #
 # Copyright (c) 2022-2026 Craig Drummond <craig.p.drummond@gmail.com>
 # MIT license.
@@ -12,8 +12,8 @@ import hashlib, os, re, requests, shutil, sys
 
 PUBLIC_XML = "public.xml"
 REPO_XML = "repo.xml"
-PLUGIN_NAME = "BlissMixerExt"
-PLUGIN_GIT_NAME = "lms-blissmixer-ext"
+PLUGIN_NAME = "BlissMixerLab"
+PLUGIN_GIT_NAME = "lms-blissmixer-lab"
 REPO_ORDER = ['linux', 'mac', 'windows']
 MOVE_FOLDERS = {'linux':   ['mac', 'windows'],
                 'windows': ['aarch64-linux', 'armhf-linux', 'x86_64-linux', 'mac'],

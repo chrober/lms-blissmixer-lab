@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN = ROOT / "BlissMixerExt"
+PLUGIN = ROOT / "BlissMixerLab"
 
 
 def fail(message: str) -> None:
@@ -15,10 +15,10 @@ def fail(message: str) -> None:
 
 
 manifest = ET.parse(PLUGIN / "install.xml").getroot()
-if manifest.findtext("module") != "Plugins::BlissMixerExt::Plugin":
-    fail("install.xml must use the BlissMixerExt module namespace")
-if manifest.findtext("name") != "BLISSMIXEREXT":
-    fail("install.xml must use the BlissMixerExt name token")
+if manifest.findtext("module") != "Plugins::BlissMixerLab::Plugin":
+    fail("install.xml must use the BlissMixerLab module namespace")
+if manifest.findtext("name") != "BLISSMIXERLAB":
+    fail("install.xml must use the BlissMixerLab name token")
 if manifest.findtext("id") == "6979c1ee-0644-4ed1-a440-c5ff6869eae4":
     fail("install.xml reuses the upstream BlissMixer UUID")
 
@@ -27,28 +27,28 @@ survey_source = (PLUGIN / "Survey.pm").read_text(encoding="utf-8")
 lastfm_track_source = (PLUGIN / "LastFmTrackSimilarity.pm").read_text(encoding="utf-8")
 
 required = {
-    "separate preference namespace": "preferences('plugin.blissmixerext')",
+    "separate preference namespace": "preferences('plugin.blissmixerlab')",
     "upstream preference reader": "preferences('plugin.blissmixer')",
-    "separate DSTM handler": "BLISSMIXEREXT_DSTM",
-    "separate mixer binary": "findbin('bliss-mixer-ext')",
+    "separate DSTM handler": "BLISSMIXERLAB_DSTM",
+    "separate mixer binary": "findbin('bliss-mixer-lab')",
     "canonical learner binary": "findbin('bliss-learner')",
     "loopback-only mixer": 'push @params, "127.0.0.1"',
     "automatic loopback port selection": "_availableMixerPort",
     "canonical learned matrix": "'learned_matrix.json'",
     "canonical training triplets": "'training_triplets.json'",
     "legacy data migration": "_migrateLearningFile",
-    "sidecar learner notifications": '"--lms-command", "blissmixerext"',
+    "sidecar learner notifications": '"--lms-command", "blissmixerlab"',
     "runtime statistics gate": "return 0 unless _statisticsEnabled()",
     "shared Last.fm/play-count pool": "_candidatePoolMultiplier",
     "Last.fm similar-track lookup": "getSimilarTracks",
     "bounded Last.fm evidence deadline": "LASTFM_EVIDENCE_TIMEOUT",
-    "Ext mix context action": "BLISSMIXEREXT_CREATE_MIX",
-    "Ext similar-tracks context action": "BLISSMIXEREXT_SIMILAR_TRACKS",
+    "Lab mix context action": "BLISSMIXERLAB_CREATE_MIX",
+    "Lab similar-tracks context action": "BLISSMIXERLAB_SIMILAR_TRACKS",
     "adaptive similar-track request": "adaptiveweights => int($prefs->get('use_adaptive_weights') || 0)",
     "interactive action logging": "User action: $action",
     "interactive strategy logging": "Effective strategy: $strategy",
-    "interactive result logging": "returned by bliss-mixer-ext",
-    "interactive timing diagnostics": "Interactive Ext request timing:",
+    "interactive result logging": "returned by bliss-mixer-lab",
+    "interactive timing diagnostics": "Interactive Lab request timing:",
 }
 for description, needle in required.items():
     if needle not in plugin_source + survey_source + lastfm_track_source:
@@ -64,11 +64,11 @@ if "last.fm-endorsed (a+t)" not in plugin_source:
 if "continuing mixes and deferring the database refresh" not in plugin_source:
     fail("DSTM must remain available while upstream analysis updates bliss.db")
 if "temporarily unavailable" in plugin_source:
-    fail("upstream analysis must not disable Bliss (Ext)")
+    fail("upstream analysis must not disable Bliss (Lab)")
 
 for forbidden in (
-    "Plugins::BlissMixerExt::Analyser",
-    "Plugins::BlissMixerExt::Importer",
+    "Plugins::BlissMixerLab::Analyser",
+    "Plugins::BlissMixerLab::Importer",
     "registerInfoProvider( blissmix =>",
     "registerInfoProvider( blisssimilarity =>",
     "registerInfoProvider( blisssimilaritybyartist =>",
@@ -78,22 +78,22 @@ for forbidden in (
         fail(f"sidecar contains conflicting registration: {forbidden}")
 
 for provider, anchor in (
-    ("blissmixerextmix", "blisssimilaritybyartist"),
-    ("blissmixerextsimilarity", "blissmixerextmix"),
-    ("blissmixerextsimilaritybyartist", "blissmixerextsimilarity"),
+    ("blissmixerlabmix", "blisssimilaritybyartist"),
+    ("blissmixerlabsimilarity", "blissmixerlabmix"),
+    ("blissmixerlabsimilaritybyartist", "blissmixerlabsimilarity"),
 ):
     if not re.search(
         rf"registerInfoProvider\( {provider} => \(\s*after\s*=>\s*'{anchor}'",
         plugin_source,
     ):
         fail(f"context-menu provider {provider} must appear after {anchor}")
-if re.search(r"registerInfoProvider\( blissmixerext\w+ => \(\s*above\s*=>", plugin_source):
+if re.search(r"registerInfoProvider\( blissmixerlab\w+ => \(\s*above\s*=>", plugin_source):
     fail("TrackInfo placement must use Lyrion's after key, not ignored above")
 
 if 'blissmixer-triplets-${ts}.zip' not in survey_source:
     fail("training-data backups must retain the established BlissMixer filename")
 
-settings = (PLUGIN / "HTML/EN/plugins/BlissMixerExt/settings/blissmixerext.html").read_text(encoding="utf-8")
+settings = (PLUGIN / "HTML/EN/plugins/BlissMixerLab/settings/blissmixerlab.html").read_text(encoding="utf-8")
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref not in {
         "learned_blend", "playcount_influence",
@@ -143,8 +143,8 @@ for behavior in (
         fail(f"backup/restore picker is missing upstream behavior: {behavior}")
 
 settings_source = (PLUGIN / "Settings.pm").read_text(encoding="utf-8")
-if "protectName('BLISSMIXEREXT')" not in settings_source:
-    fail("settings menu name must use the BLISSMIXEREXT localization token")
+if "protectName('BLISSMIXERLAB')" not in settings_source:
+    fail("settings menu name must use the BLISSMIXERLAB localization token")
 if "$paramRef->{host}" not in settings_source:
     fail("settings JSON-RPC URL must prefer the browser-facing LMS request host")
 if "$paramRef->{statistics_enabled} = main::STATISTICS ? 1 : 0" not in settings_source:
@@ -166,23 +166,23 @@ for line_number, line in enumerate(strings_source.splitlines(), start=1):
         fail(f"strings.txt line {line_number} is not a valid string token")
     string_tokens.add(line)
 
-if "BLISSMIXEREXT\n\tEN\tBliss Mixer Extensions" not in strings_source:
-    fail("display name must be Bliss Mixer Extensions")
+if "BLISSMIXERLAB\n\tEN\tBliss Mixer Lab" not in strings_source:
+    fail("display name must be Bliss Mixer Lab")
 if (
-    "BLISSMIXEREXT_DESC\n"
+    "BLISSMIXERLAB_DESC\n"
     "\tEN\tExperimental and early-access extensions for Bliss Mixer"
     not in strings_source
 ):
     fail("plugin description must identify experimental and early-access extensions")
-if "BLISSMIXEREXT_DSTM\n\tEN\tBliss (Ext)" not in strings_source:
-    fail("the Bliss (Ext) DSTM provider display name must remain stable")
+if "BLISSMIXERLAB_DSTM\n\tEN\tBliss (Lab)" not in strings_source:
+    fail("the Bliss (Lab) DSTM provider display name must remain stable")
 for token, label in {
-    "BLISSMIXEREXT_CREATE_MIX": "Create bliss mix (Ext)",
-    "BLISSMIXEREXT_SIMILAR_TRACKS": "Similar tracks (Ext)",
-    "BLISSMIXEREXT_SIMILAR_TRACKS_BY_ARTIST": "Similar tracks by artist (Ext)",
+    "BLISSMIXERLAB_CREATE_MIX": "Create bliss mix (Lab)",
+    "BLISSMIXERLAB_SIMILAR_TRACKS": "Similar tracks (Lab)",
+    "BLISSMIXERLAB_SIMILAR_TRACKS_BY_ARTIST": "Similar tracks by artist (Lab)",
 }.items():
     if f"{token}\n\tEN\t{label}" not in strings_source:
-        fail(f"missing Ext context-menu label: {label}")
+        fail(f"missing Lab context-menu label: {label}")
 for implementation_detail in (
     "larger candidate pool",
     "share the same pool",
@@ -193,8 +193,8 @@ for implementation_detail in (
 referenced_tokens = {
     manifest.findtext("name"),
     manifest.findtext("description"),
-    *re.findall(r'"(BLISSMIXEREXT(?:_[A-Z0-9_]+)?)"\s*\|\s*string', settings),
-    *re.findall(r'(?:title|desc)="(BLISSMIXEREXT(?:_[A-Z0-9_]+)?)"', settings),
+    *re.findall(r'"(BLISSMIXERLAB(?:_[A-Z0-9_]+)?)"\s*\|\s*string', settings),
+    *re.findall(r'(?:title|desc)="(BLISSMIXERLAB(?:_[A-Z0-9_]+)?)"', settings),
 }
 for token in referenced_tokens:
     if token and token not in string_tokens:
@@ -215,9 +215,9 @@ for requirement in (
     "chrober/bliss-mixer",
     "chrober/bliss-learner",
     "sha256sum -c *.sha256",
-    "lms-blissmixer-ext-linux-",
-    "lms-blissmixer-ext-mac-",
-    "lms-blissmixer-ext-windows-",
+    "lms-blissmixer-lab-linux-",
+    "lms-blissmixer-lab-mac-",
+    "lms-blissmixer-lab-windows-",
     "scripts/update_lms_plugins_repo.py",
 ):
     if requirement not in release_workflow:
@@ -253,4 +253,4 @@ for label in ("Mixer release", "Mixer commit", "Learner release", "Learner commi
     if not re.search(rf"{label}:\s*`[^`]+`", source_manifest):
         fail(f"binary provenance is missing {label}")
 
-print("BlissMixerExt repository validation passed")
+print("BlissMixerLab repository validation passed")

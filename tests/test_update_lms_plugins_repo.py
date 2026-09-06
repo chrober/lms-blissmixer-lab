@@ -7,13 +7,14 @@ from scripts.update_lms_plugins_repo import update
 
 
 class UpdateFeedTest(unittest.TestCase):
-    def test_replaces_only_ext_entries_for_all_platforms(self) -> None:
+    def test_replaces_only_lab_entries_for_all_platforms(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "repo.xml"
             path.write_text(
                 "<extensions><plugins>"
                 '<plugin name="Other" version="1"><target>unix</target></plugin>'
                 '<plugin name="BlissMixerExt" version="0"><target>unix</target></plugin>'
+                '<plugin name="BlissMixerLab" version="0"><target>unix</target></plugin>'
                 "</plugins></extensions>",
                 encoding="utf-8",
             )
@@ -29,19 +30,20 @@ class UpdateFeedTest(unittest.TestCase):
             assert plugins is not None
             entries = plugins.findall("plugin")
             self.assertEqual(entries[0].get("name"), "Other")
-            ext = [entry for entry in entries if entry.get("name") == "BlissMixerExt"]
-            self.assertEqual([entry.findtext("target") for entry in ext], ["unix", "mac", "windows"])
-            self.assertTrue(all(entry.get("version") == "0.1.0" for entry in ext))
-            self.assertEqual([entry.findtext("url") for entry in ext], [item[1] for item in packages])
-            self.assertEqual([entry.findtext("sha") for entry in ext], [item[2] for item in packages])
+            lab = [entry for entry in entries if entry.get("name") == "BlissMixerLab"]
+            self.assertFalse(any(entry.get("name") == "BlissMixerExt" for entry in entries))
+            self.assertEqual([entry.findtext("target") for entry in lab], ["unix", "mac", "windows"])
+            self.assertTrue(all(entry.get("version") == "0.1.0" for entry in lab))
+            self.assertEqual([entry.findtext("url") for entry in lab], [item[1] for item in packages])
+            self.assertEqual([entry.findtext("sha") for entry in lab], [item[2] for item in packages])
             self.assertTrue(
-                all(entry.findtext("title") == "Bliss Mixer Extensions" for entry in ext)
+                all(entry.findtext("title") == "Bliss Mixer Lab" for entry in lab)
             )
             self.assertTrue(
                 all(
                     entry.findtext("desc")
                     == "Experimental and early-access extensions for Bliss Mixer"
-                    for entry in ext
+                    for entry in lab
                 )
             )
 

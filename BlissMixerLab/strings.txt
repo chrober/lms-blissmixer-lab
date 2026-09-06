@@ -1,149 +1,149 @@
-BLISSMIXEREXT
-	EN	Bliss Mixer Extensions
+BLISSMIXERLAB
+	EN	Bliss Mixer Lab
 
-BLISSMIXEREXT_DESC
+BLISSMIXERLAB_DESC
 	EN	Experimental and early-access extensions for Bliss Mixer
 
-DEBUG_PLUGIN_BLISSMIXEREXT
-	EN	Bliss Mixer Extensions
+DEBUG_PLUGIN_BLISSMIXERLAB
+	EN	Bliss Mixer Lab
 
-BLISSMIXEREXT_DSTM
-	EN	Bliss (Ext)
+BLISSMIXERLAB_DSTM
+	EN	Bliss (Lab)
 
-BLISSMIXEREXT_CREATE_MIX
-	EN	Create bliss mix (Ext)
+BLISSMIXERLAB_CREATE_MIX
+	EN	Create bliss mix (Lab)
 
-BLISSMIXEREXT_SIMILAR_TRACKS
-	EN	Similar tracks (Ext)
+BLISSMIXERLAB_SIMILAR_TRACKS
+	EN	Similar tracks (Lab)
 
-BLISSMIXEREXT_SIMILAR_TRACKS_BY_ARTIST
-	EN	Similar tracks by artist (Ext)
+BLISSMIXERLAB_SIMILAR_TRACKS_BY_ARTIST
+	EN	Similar tracks by artist (Lab)
 
-BLISSMIXEREXT_STATUS
+BLISSMIXERLAB_STATUS
 	EN	Companion status
 
-BLISSMIXEREXT_UPSTREAM_OK
+BLISSMIXERLAB_UPSTREAM_OK
 	EN	Compatible installed BlissMixer version:
 
-BLISSMIXEREXT_UPSTREAM_MISSING
-	EN	BlissMixerExt requires an enabled upstream BlissMixer 0.10.0 or newer. Detected version:
+BLISSMIXERLAB_UPSTREAM_MISSING
+	EN	BlissMixerLab requires an enabled upstream BlissMixer 0.10.0 or newer. Detected version:
 
-BLISSMIXEREXT_DATABASE_OK
+BLISSMIXERLAB_DATABASE_OK
 	EN	The upstream analysis database is available.
 
-BLISSMIXEREXT_DATABASE_MISSING
+BLISSMIXERLAB_DATABASE_MISSING
 	EN	No bliss.db was found. Run analysis from the upstream BlissMixer settings first.
 
-BLISSMIXEREXT_STATISTICS_OK
+BLISSMIXERLAB_STATISTICS_OK
 	EN	Lyrion listening statistics are enabled; play counts are available.
 
-BLISSMIXEREXT_STATISTICS_UNAVAILABLE
+BLISSMIXERLAB_STATISTICS_UNAVAILABLE
 	EN	Lyrion listening statistics are disabled, so play counts are unavailable. Remove the --nostatistics server startup option and restart Lyrion to enable them.
 
-BLISSMIXEREXT_SETTINGS_NOTE
-	EN	BlissMixerExt uses the mixer, filter, seed, genre, and Last.fm settings from upstream BlissMixer. Only experimental settings are shown here.
+BLISSMIXERLAB_SETTINGS_NOTE
+	EN	BlissMixerLab uses the mixer, filter, seed, genre, and Last.fm settings from upstream BlissMixer. Only experimental settings are shown here.
 
-BLISSMIXEREXT_MIX_SETTINGS
+BLISSMIXERLAB_MIX_SETTINGS
 	EN	Experimental mix settings
 
-BLISSMIXEREXT_MIX_SETTINGS_NOTE
+BLISSMIXERLAB_MIX_SETTINGS_NOTE
 	EN	These settings extend the candidate selection produced by Bliss Mixer.
 
-BLISSMIXEREXT_LEARNED_BLEND
+BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
 
-BLISSMIXEREXT_LEARNED_BLEND_DESC
+BLISSMIXERLAB_LEARNED_BLEND_DESC
 	EN	For multiple adaptive-weighting seeds, controls how strongly the learned matrix influences similarity. 0 is variance only; 100 is learned matrix only. A single seed uses the learned matrix directly.
 
-BLISSMIXEREXT_PLAYCOUNT_INFLUENCE
+BLISSMIXERLAB_PLAYCOUNT_INFLUENCE
 	EN	Play-count influence
 
-BLISSMIXEREXT_PLAYCOUNT_INFLUENCE_DESC
+BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_DESC
 	EN	Controls how listening history affects track selection. Negative values prefer less-played tracks, 0 ignores play counts, and positive values prefer frequently played tracks.
 
-BLISSMIXEREXT_PLAYCOUNT_INFLUENCE_UNAVAILABLE
+BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_UNAVAILABLE
 	EN	This setting requires Lyrion listening statistics. They are disabled when the server is started with --nostatistics.
 
-BLISSMIXEREXT_LASTFM_TRACK_GUIDANCE
+BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE
 	EN	Last.fm similar-track guidance
 
-BLISSMIXEREXT_LASTFM_TRACK_GUIDANCE_DESC
+BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_DESC
 	EN	Controls the bounded influence of Last.fm track similarity among local Bliss candidates. Zero disables similar-track lookups. Default: 25.
 
-BLISSMIXEREXT_LASTFM_TRACK_GUIDANCE_UNAVAILABLE
+BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE
 	EN	Requires LastMix and the Adaptive weightings and Last.fm artist weighting options to be enabled in the original Bliss Mixer settings.
 
-BLISSMIXEREXT_LEARNING
+BLISSMIXERLAB_LEARNING
 	EN	Metric learning
 
-BLISSMIXEREXT_LEARNING_NOTE
+BLISSMIXERLAB_LEARNING_NOTE
 	EN	Complete similarity surveys, then train a personal distance matrix. The previous matrix remains active if an experimental training run fails.
 
-BLISSMIXEREXT_LEARNER_NOT_FOUND
+BLISSMIXERLAB_LEARNER_NOT_FOUND
 	EN	The bliss-learner executable was not found.
 
-BLISSMIXEREXT_OPEN_SURVEY
+BLISSMIXERLAB_OPEN_SURVEY
 	EN	Open Similarity Survey
 
-BLISSMIXEREXT_TRIPLETS
+BLISSMIXERLAB_TRIPLETS
 	EN	Training triplets:
 
-BLISSMIXEREXT_MATRIX
+BLISSMIXERLAB_MATRIX
 	EN	Learned matrix:
 
-BLISSMIXEREXT_MATRIX_AVAILABLE
+BLISSMIXERLAB_MATRIX_AVAILABLE
 	EN	Available
 
-BLISSMIXEREXT_MATRIX_MISSING
+BLISSMIXERLAB_MATRIX_MISSING
 	EN	Not yet generated
 
-BLISSMIXEREXT_RUN_LEARNING
+BLISSMIXERLAB_RUN_LEARNING
 	EN	Run Learning
 
-BLISSMIXEREXT_STOP_LEARNING
+BLISSMIXERLAB_STOP_LEARNING
 	EN	Stop Learning
 
-BLISSMIXEREXT_CLEAR_TRAINING
+BLISSMIXERLAB_CLEAR_TRAINING
 	EN	Clear Training Data
 
-BLISSMIXEREXT_LEARNING_START_TIME
+BLISSMIXERLAB_LEARNING_START_TIME
 	EN	Start:
 
-BLISSMIXEREXT_LEARNING_DURATION
+BLISSMIXERLAB_LEARNING_DURATION
 	EN	Duration:
 
-BLISSMIXEREXT_LEARNING_STATUS
+BLISSMIXERLAB_LEARNING_STATUS
 	EN	Status:
 
-BLISSMIXEREXT_LEARNING_FAILED
+BLISSMIXERLAB_LEARNING_FAILED
 	EN	Learning failed unexpectedly. Check the Lyrion server log for details.
 
-BLISSMIXEREXT_BACKUP_PATH
+BLISSMIXERLAB_BACKUP_PATH
 	EN	Training data backup folder
 
-BLISSMIXEREXT_BACKUP_PATH_DESC
+BLISSMIXERLAB_BACKUP_PATH_DESC
 	EN	If set, backup zip files of the training triplets are stored in this folder. Backup filenames include a timestamp.
 
-BLISSMIXEREXT_BACKUP_NOW
+BLISSMIXERLAB_BACKUP_NOW
 	EN	Backup now
 
-BLISSMIXEREXT_BACKUP_SUCCESS
+BLISSMIXERLAB_BACKUP_SUCCESS
 	EN	Backup created.
 
-BLISSMIXEREXT_BACKUP_FAILED
+BLISSMIXERLAB_BACKUP_FAILED
 	EN	Backup failed.
 
-BLISSMIXEREXT_RESTORE_PATH
+BLISSMIXERLAB_RESTORE_PATH
 	EN	Restore from backup
 
-BLISSMIXEREXT_RESTORE_PATH_DESC
+BLISSMIXERLAB_RESTORE_PATH_DESC
 	EN	Choose a backup zip file to restore the training triplets.
 
-BLISSMIXEREXT_RESTORE_IN_PROGRESS
+BLISSMIXERLAB_RESTORE_IN_PROGRESS
 	EN	Restoring backup...
 
-BLISSMIXEREXT_RESTORE_SUCCESS
+BLISSMIXERLAB_RESTORE_SUCCESS
 	EN	Training data restored successfully.
 
-BLISSMIXEREXT_RESTORE_FAILED
+BLISSMIXERLAB_RESTORE_FAILED
 	EN	Restore failed.

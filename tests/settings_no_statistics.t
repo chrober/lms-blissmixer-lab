@@ -18,7 +18,7 @@ BEGIN {
 
     package TestNoStatisticsPrefs;
     our %values = (
-        'plugin.blissmixerext' => {},
+        'plugin.blissmixerlab' => {},
         server => {httpport => 9000},
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
@@ -63,10 +63,10 @@ BEGIN {
 }
 
 use lib "$FindBin::Bin/..";
-require Plugins::BlissMixerExt::Settings;
+require Plugins::BlissMixerLab::Settings;
 
 my %params;
-Plugins::BlissMixerExt::Settings->beforeRender(\%params);
+Plugins::BlissMixerLab::Settings->beforeRender(\%params);
 ok(!$params{statistics_enabled},
     'settings report disabled LMS listening statistics');
 

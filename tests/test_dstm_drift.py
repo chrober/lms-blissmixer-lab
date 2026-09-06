@@ -29,7 +29,7 @@ class DstmDriftTests(unittest.TestCase):
             "direct_mirrors": ["shared"],
             "adapted_from_upstream": ["adapted"],
             "identity_normalizations": [
-                ["Plugins::BlissMixerExt", "Plugins::BlissMixer"]
+                ["Plugins::BlissMixerLab", "Plugins::BlissMixer"]
             ],
             "intentional_adaptations": {"adapted": "Adds an extension field."},
         }
@@ -38,7 +38,7 @@ class DstmDriftTests(unittest.TestCase):
             routine("adapted", "return { count => 5 };"),
         )
         self.extension = source(
-            routine("shared", "return Plugins::BlissMixerExt->value();"),
+            routine("shared", "return Plugins::BlissMixerLab->value();"),
             routine("adapted", "return { count => 5, extension => 1 };"),
         )
 

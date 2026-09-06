@@ -1,18 +1,18 @@
-name: Publish BlissMixerExt
+name: Publish BlissMixerLab
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Plugin version/tag. Empty reads BlissMixerExt/install.xml."
+        description: "Plugin version/tag. Empty reads BlissMixerLab/install.xml."
         required: false
         default: ""
       mixer_release:
-        description: "bliss-mixer release tag. Empty reads BlissMixerExt/Bin/SOURCE.md."
+        description: "bliss-mixer release tag. Empty reads BlissMixerLab/Bin/SOURCE.md."
         required: false
         default: ""
       learner_release:
-        description: "bliss-learner release tag. Empty reads BlissMixerExt/Bin/SOURCE.md."
+        description: "bliss-learner release tag. Empty reads BlissMixerLab/Bin/SOURCE.md."
         required: false
         default: ""
       prerelease:
@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Plugins
-          ln -s ../BlissMixerExt Plugins/BlissMixerExt
+          ln -s ../BlissMixerLab Plugins/BlissMixerLab
       - name: Run plugin regression tests
         run: prove -l tests
 
@@ -96,7 +96,7 @@ jobs:
           LEARNER_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.learner_release || '' }}
         run: |
           set -euo pipefail
-          install_version="$(python -c 'import xml.etree.ElementTree as ET; print(ET.parse("BlissMixerExt/install.xml").getroot().findtext("version"))')"
+          install_version="$(python -c 'import xml.etree.ElementTree as ET; print(ET.parse("BlissMixerLab/install.xml").getroot().findtext("version"))')"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             tag="$GITHUB_REF_NAME"
             version="${tag#v}"
@@ -110,17 +110,17 @@ jobs:
             exit 1
           fi
 
-          source_file="BlissMixerExt/Bin/SOURCE.md"
-          mixer_release="${MIXER_INPUT:-$(python -c 'import pathlib,re; t=pathlib.Path("BlissMixerExt/Bin/SOURCE.md").read_text(); m=re.search(r"Mixer release:\s*`([^`]+)`",t); print(m.group(1) if m else "")')}"
-          learner_release="${LEARNER_INPUT:-$(python -c 'import pathlib,re; t=pathlib.Path("BlissMixerExt/Bin/SOURCE.md").read_text(); m=re.search(r"Learner release:\s*`([^`]+)`",t); print(m.group(1) if m else "")')}"
+          source_file="BlissMixerLab/Bin/SOURCE.md"
+          mixer_release="${MIXER_INPUT:-$(python -c 'import pathlib,re; t=pathlib.Path("BlissMixerLab/Bin/SOURCE.md").read_text(); m=re.search(r"Mixer release:\s*`([^`]+)`",t); print(m.group(1) if m else "")')}"
+          learner_release="${LEARNER_INPUT:-$(python -c 'import pathlib,re; t=pathlib.Path("BlissMixerLab/Bin/SOURCE.md").read_text(); m=re.search(r"Learner release:\s*`([^`]+)`",t); print(m.group(1) if m else "")')}"
           if [ -z "$mixer_release" ] || [ -z "$learner_release" ]; then
             echo "Could not determine native component releases from $source_file" >&2
             exit 1
           fi
 
-          linux_asset="lms-blissmixer-ext-linux-$version.zip"
-          mac_asset="lms-blissmixer-ext-mac-$version.zip"
-          windows_asset="lms-blissmixer-ext-windows-$version.zip"
+          linux_asset="lms-blissmixer-lab-linux-$version.zip"
+          mac_asset="lms-blissmixer-lab-mac-$version.zip"
+          windows_asset="lms-blissmixer-lab-windows-$version.zip"
           base_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/$tag"
           {
             echo "version=$version"
@@ -151,16 +151,16 @@ jobs:
       - name: Install plugin binaries into plugin tree
         run: |
           set -euo pipefail
-          install -m 0755 -D native/mixer/bliss-mixer-x86_64-linux BlissMixerExt/Bin/x86_64-linux/bliss-mixer-ext
-          install -m 0755 -D native/learner/bliss-learner-x86_64-linux BlissMixerExt/Bin/x86_64-linux/bliss-learner
-          install -m 0755 -D native/mixer/bliss-mixer-aarch64-linux BlissMixerExt/Bin/aarch64-linux/bliss-mixer-ext
-          install -m 0755 -D native/learner/bliss-learner-aarch64-linux BlissMixerExt/Bin/aarch64-linux/bliss-learner
-          install -m 0755 -D native/mixer/bliss-mixer-armhf-linux BlissMixerExt/Bin/armhf-linux/bliss-mixer-ext
-          install -m 0755 -D native/learner/bliss-learner-armhf-linux BlissMixerExt/Bin/armhf-linux/bliss-learner
-          install -m 0755 -D native/mixer/bliss-mixer-mac BlissMixerExt/Bin/mac/bliss-mixer-ext
-          install -m 0755 -D native/learner/bliss-learner-mac BlissMixerExt/Bin/mac/bliss-learner
-          install -m 0644 -D native/mixer/bliss-mixer-windows.exe BlissMixerExt/Bin/windows/bliss-mixer-ext.exe
-          install -m 0644 -D native/learner/bliss-learner-windows.exe BlissMixerExt/Bin/windows/bliss-learner.exe
+          install -m 0755 -D native/mixer/bliss-mixer-x86_64-linux BlissMixerLab/Bin/x86_64-linux/bliss-mixer-lab
+          install -m 0755 -D native/learner/bliss-learner-x86_64-linux BlissMixerLab/Bin/x86_64-linux/bliss-learner
+          install -m 0755 -D native/mixer/bliss-mixer-aarch64-linux BlissMixerLab/Bin/aarch64-linux/bliss-mixer-lab
+          install -m 0755 -D native/learner/bliss-learner-aarch64-linux BlissMixerLab/Bin/aarch64-linux/bliss-learner
+          install -m 0755 -D native/mixer/bliss-mixer-armhf-linux BlissMixerLab/Bin/armhf-linux/bliss-mixer-lab
+          install -m 0755 -D native/learner/bliss-learner-armhf-linux BlissMixerLab/Bin/armhf-linux/bliss-learner
+          install -m 0755 -D native/mixer/bliss-mixer-mac BlissMixerLab/Bin/mac/bliss-mixer-lab
+          install -m 0755 -D native/learner/bliss-learner-mac BlissMixerLab/Bin/mac/bliss-learner
+          install -m 0644 -D native/mixer/bliss-mixer-windows.exe BlissMixerLab/Bin/windows/bliss-mixer-lab.exe
+          install -m 0644 -D native/learner/bliss-learner-windows.exe BlissMixerLab/Bin/windows/bliss-learner.exe
 
       - name: Package platform plugin archives
         id: package
@@ -174,14 +174,14 @@ jobs:
           package_platform() {
             platform="$1"
             asset="$2"
-            rm -rf staging/BlissMixerExt
-            cp -a BlissMixerExt staging/BlissMixerExt
+            rm -rf staging/BlissMixerLab
+            cp -a BlissMixerLab staging/BlissMixerLab
             case "$platform" in
-              linux) rm -rf staging/BlissMixerExt/Bin/mac staging/BlissMixerExt/Bin/windows ;;
-              mac) rm -rf staging/BlissMixerExt/Bin/aarch64-linux staging/BlissMixerExt/Bin/armhf-linux staging/BlissMixerExt/Bin/x86_64-linux staging/BlissMixerExt/Bin/windows ;;
-              windows) rm -rf staging/BlissMixerExt/Bin/aarch64-linux staging/BlissMixerExt/Bin/armhf-linux staging/BlissMixerExt/Bin/x86_64-linux staging/BlissMixerExt/Bin/mac ;;
+              linux) rm -rf staging/BlissMixerLab/Bin/mac staging/BlissMixerLab/Bin/windows ;;
+              mac) rm -rf staging/BlissMixerLab/Bin/aarch64-linux staging/BlissMixerLab/Bin/armhf-linux staging/BlissMixerLab/Bin/x86_64-linux staging/BlissMixerLab/Bin/windows ;;
+              windows) rm -rf staging/BlissMixerLab/Bin/aarch64-linux staging/BlissMixerLab/Bin/armhf-linux staging/BlissMixerLab/Bin/x86_64-linux staging/BlissMixerLab/Bin/mac ;;
             esac
-            (cd staging && zip -q -r "../dist/$asset" BlissMixerExt)
+            (cd staging && zip -q -r "../dist/$asset" BlissMixerLab)
           }
           package_platform linux "$LINUX_ASSET"
           package_platform mac "$MAC_ASSET"
@@ -201,17 +201,17 @@ jobs:
           WINDOWS_ASSET: ${{ steps.meta.outputs.windows_asset }}
         run: |
           set -euo pipefail
-          unzip -l "dist/$LINUX_ASSET" | grep 'BlissMixerExt/Bin/x86_64-linux/bliss-mixer-ext'
-          unzip -l "dist/$LINUX_ASSET" | grep 'BlissMixerExt/Bin/aarch64-linux/bliss-learner'
-          unzip -l "dist/$MAC_ASSET" | grep 'BlissMixerExt/Bin/mac/bliss-mixer-ext'
-          unzip -l "dist/$WINDOWS_ASSET" | grep 'BlissMixerExt/Bin/windows/bliss-learner.exe'
+          unzip -l "dist/$LINUX_ASSET" | grep 'BlissMixerLab/Bin/x86_64-linux/bliss-mixer-lab'
+          unzip -l "dist/$LINUX_ASSET" | grep 'BlissMixerLab/Bin/aarch64-linux/bliss-learner'
+          unzip -l "dist/$MAC_ASSET" | grep 'BlissMixerLab/Bin/mac/bliss-mixer-lab'
+          unzip -l "dist/$WINDOWS_ASSET" | grep 'BlissMixerLab/Bin/windows/bliss-learner.exe'
           if unzip -Z1 "dist/$MAC_ASSET" | grep -Eq 'Bin/(windows|x86_64-linux|aarch64-linux|armhf-linux)/'; then exit 1; fi
           if unzip -Z1 "dist/$WINDOWS_ASSET" | grep -Eq 'Bin/(mac|x86_64-linux|aarch64-linux|armhf-linux)/'; then exit 1; fi
 
       - name: Upload packages as workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: blissmixerext-${{ steps.meta.outputs.version }}
+          name: blissmixerlab-${{ steps.meta.outputs.version }}
           path: dist/*
           if-no-files-found: error
 
@@ -228,7 +228,7 @@ jobs:
           set -euo pipefail
           notes="dist/release-notes.md"
           {
-            echo "# BlissMixerExt $VERSION"
+            echo "# BlissMixerLab $VERSION"
             echo
             echo "Experimental sidecar plugin for Bliss Mixer with Windows, macOS, x86_64 Linux, ARM64 Linux, and ARMHF Linux binaries."
             echo
@@ -242,7 +242,7 @@ jobs:
           else
             gh release create "$TAG" dist/*.zip dist/*.sha1 dist/*.sha256 \
               --target "$GITHUB_SHA" \
-              --title "BlissMixerExt $VERSION" \
+              --title "BlissMixerLab $VERSION" \
               --notes-file "$notes" \
               "${prerelease_flag[@]}"
           fi
@@ -298,5 +298,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add repo.xml
-          git commit -m "Publish BlissMixerExt ${{ steps.meta.outputs.version }}"
+          git commit -m "Publish BlissMixerLab ${{ steps.meta.outputs.version }}"
           git push

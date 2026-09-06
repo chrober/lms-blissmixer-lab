@@ -1,7 +1,7 @@
-package Plugins::BlissMixerExt::Plugin;
+package Plugins::BlissMixerLab::Plugin;
 
 #
-# Bliss Mixer Extensions companion for Lyrion Music Server
+# Bliss Mixer Lab companion for Lyrion Music Server
 #
 # (c) 2022-2026 Craig Drummond
 # Additional sidecar adaptations (c) 2026 Christoph O'Bermair
@@ -28,9 +28,9 @@ use Slim::Utils::Prefs;
 use Slim::Utils::Strings qw(cstring);
 use Slim::Utils::Versions;
 
-use Plugins::BlissMixerExt::Settings;
-use Plugins::BlissMixerExt::Survey;
-use Plugins::BlissMixerExt::LastFmTrackSimilarity;
+use Plugins::BlissMixerLab::Settings;
+use Plugins::BlissMixerLab::Survey;
+use Plugins::BlissMixerLab::LastFmTrackSimilarity;
 
 use constant DEF_NUM_DSTM_TRACKS => 5;
 use constant NUM_FOREST_SEED_TRACKS => 10;
@@ -50,13 +50,13 @@ use constant MIN_BLISSMIXER_VERSION => '0.10.0';
 use constant LASTFM_EVIDENCE_TIMEOUT => 8;
 
 my $log = Slim::Utils::Log->addLogCategory({
-    'category'     => 'plugin.blissmixerext',
+    'category'     => 'plugin.blissmixerlab',
     'defaultLevel' => 'INFO',
     'logGroups'    => 'SCANNER',
 });
 
 my $prefs = preferences('plugin.blissmixer');
-my $extprefs = preferences('plugin.blissmixerext');
+my $labprefs = preferences('plugin.blissmixerlab');
 my $dbPath = "";
 my $dbSignature = "";
 my $databaseRefreshDeferred = 0;
@@ -83,9 +83,9 @@ sub _upstreamCompatible {
 
 sub shutdownPlugin {
     _stopMixer();
-    Plugins::BlissMixerExt::Survey::shutdown();
+    Plugins::BlissMixerLab::Survey::shutdown();
     if (Slim::Utils::PluginManager->isEnabled('Slim::Plugin::DontStopTheMusic::Plugin')) {
-        Slim::Plugin::DontStopTheMusic::Plugin->unregisterHandler('BLISSMIXEREXT_DSTM');
+        Slim::Plugin::DontStopTheMusic::Plugin->unregisterHandler('BLISSMIXERLAB_DSTM');
     }
     $initialized = 0;
 }
@@ -95,7 +95,7 @@ sub initPlugin {
 
     return 1 if $initialized;
 
-    $extprefs->init({
+    $labprefs->init({
         learned_blend    => 50,
         playcount_influence => 0,
         lastfm_track_guidance_percent => 25,
@@ -103,7 +103,7 @@ sub initPlugin {
     });
 
     if ( main::WEBUI ) {
-        Plugins::BlissMixerExt::Settings->new;
+        Plugins::BlissMixerLab::Settings->new;
     }
 
     #                                                            |requires Client
@@ -111,29 +111,29 @@ sub initPlugin {
     #                                                            |  |  |has Tags
     #                                                            |  |  |  |Function to call
     #                                                            C  Q  T  F
-    Slim::Control::Request::addDispatch(['blissmixerext', '_cmd'], [0, 0, 1, \&_cliCommand]);
+    Slim::Control::Request::addDispatch(['blissmixerlab', '_cmd'], [0, 0, 1, \&_cliCommand]);
 
-    Slim::Menu::TrackInfo->registerInfoProvider( blissmixerextmix => (
+    Slim::Menu::TrackInfo->registerInfoProvider( blissmixerlabmix => (
         after    => 'blisssimilaritybyartist',
         func     => \&trackInfoHandler,
     ) );
 
-    Slim::Menu::TrackInfo->registerInfoProvider( blissmixerextsimilarity => (
-        after    => 'blissmixerextmix',
+    Slim::Menu::TrackInfo->registerInfoProvider( blissmixerlabsimilarity => (
+        after    => 'blissmixerlabmix',
         func     => \&similarTracksHandler,
     ) );
 
-    Slim::Menu::TrackInfo->registerInfoProvider( blissmixerextsimilaritybyartist => (
-        after    => 'blissmixerextsimilarity',
+    Slim::Menu::TrackInfo->registerInfoProvider( blissmixerlabsimilaritybyartist => (
+        after    => 'blissmixerlabsimilarity',
         func     => \&similarTracksByArtistHandler,
     ) );
 
-    Slim::Menu::AlbumInfo->registerInfoProvider( blissmixerextmix => (
+    Slim::Menu::AlbumInfo->registerInfoProvider( blissmixerlabmix => (
         below    => 'addalbum',
         func     => \&albumInfoHandler,
     ) );
 
-    Slim::Menu::ArtistInfo->registerInfoProvider( blissmixerextmix => (
+    Slim::Menu::ArtistInfo->registerInfoProvider( blissmixerlabmix => (
         below    => 'addartist',
         func     => \&artistInfoHandler,
     ) );
@@ -144,7 +144,7 @@ sub initPlugin {
     _initBinaries();
 
     if (!_upstreamCompatible()) {
-        $log->warn('BlissMixerExt requires an enabled upstream BlissMixer ' . MIN_BLISSMIXER_VERSION . ' or newer');
+        $log->warn('BlissMixerLab requires an enabled upstream BlissMixer ' . MIN_BLISSMIXER_VERSION . ' or newer');
     }
 
     $initialized = 1;
@@ -158,11 +158,11 @@ sub postinitPlugin {
     if ( _upstreamCompatible()
         && Slim::Utils::PluginManager->isEnabled('Slim::Plugin::DontStopTheMusic::Plugin') ) {
         require Slim::Plugin::DontStopTheMusic::Plugin;
-        Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXEREXT_DSTM', sub {
+        Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM', sub {
             my ($client, $cb) = @_;
             _dstmMix($client, $cb, $prefs->get('filter_genres') || 0, 0);
         });
-        #Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXEREXT_DSTM_IGNORE_GENRES', sub {
+        #Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM_IGNORE_GENRES', sub {
         #    my ($client, $cb) = @_;
         #    _dstmMix($client, $cb, 0, 0);
         #});
@@ -185,36 +185,36 @@ sub _initBinaries {
             Slim::Utils::Misc::addFindBinPaths($p);
         }
     }
-    $mixerBinary = Slim::Utils::Misc::findbin('bliss-mixer-ext');
+    $mixerBinary = Slim::Utils::Misc::findbin('bliss-mixer-lab');
     main::INFOLOG && $log->info("Mixer: ${mixerBinary}");
 
     my $prefsDir = Slim::Utils::Prefs::dir();
     my $matrixPath = catfile($prefsDir, 'learned_matrix.json');
     my $tripletsPath = catfile($prefsDir, 'training_triplets.json');
     _migrateLearningFile(
-        catfile($prefsDir, 'blissmixer-ext-matrix.json'), $matrixPath,
+        catfile($prefsDir, 'blissmixer-lab-matrix.json'), $matrixPath,
     );
     _migrateLearningFile(
-        catfile($prefsDir, 'blissmixer-ext-triplets.json'), $tripletsPath,
+        catfile($prefsDir, 'blissmixer-lab-triplets.json'), $tripletsPath,
     );
-    Plugins::BlissMixerExt::Survey::init($dbPath, $matrixPath, $tripletsPath);
+    Plugins::BlissMixerLab::Survey::init($dbPath, $matrixPath, $tripletsPath);
 }
 
 sub _migrateLearningFile {
     my ($legacyPath, $canonicalPath) = @_;
     if (-e $canonicalPath) {
         if (-e $legacyPath) {
-            $log->warn("Both canonical and legacy BlissMixerExt learning files exist; using $canonicalPath and leaving $legacyPath untouched");
+            $log->warn("Both canonical and legacy BlissMixerLab learning files exist; using $canonicalPath and leaving $legacyPath untouched");
             return 'conflict';
         }
         return 'canonical';
     }
     return 'absent' unless -e $legacyPath;
     if (rename $legacyPath, $canonicalPath) {
-        main::INFOLOG && $log->info("Migrated BlissMixerExt learning file from $legacyPath to $canonicalPath");
+        main::INFOLOG && $log->info("Migrated BlissMixerLab learning file from $legacyPath to $canonicalPath");
         return 'migrated';
     }
-    $log->warn("Could not migrate BlissMixerExt learning file from $legacyPath to $canonicalPath: $!");
+    $log->warn("Could not migrate BlissMixerLab learning file from $legacyPath to $canonicalPath: $!");
     return 'failed';
 }
 
@@ -255,11 +255,11 @@ sub _availableMixerPort {
         next if $port == $upstreamPort;
         return $port if _portAvailable($port);
     }
-    $log->warn('Could not find an available loopback port for bliss-mixer-ext');
+    $log->warn('Could not find an available loopback port for bliss-mixer-lab');
     return 0;
 }
 
-# The Ext binary deliberately uses an auto-selected loopback-only port. The
+# The Lab binary deliberately uses an auto-selected loopback-only port. The
 # experimental binary reports dynamic ports to the upstream "blissmixer"
 # command, which a sidecar must never replace or intercept.
 sub _checkIfMixerReady {
@@ -371,7 +371,7 @@ sub _startMixer {
     $lastWeights = _weightParam();
     push @params, $lastWeights;
     # Auto-detect learned metric matrix
-    my $matrixFile = Plugins::BlissMixerExt::Survey::matrixPath();
+    my $matrixFile = Plugins::BlissMixerLab::Survey::matrixPath();
     if ($matrixFile && -e $matrixFile) {
         push @params, "--matrix";
         push @params, $matrixFile;
@@ -401,7 +401,7 @@ sub _startMixer {
 sub _cliCommand {
     my $request = shift;
 
-    if ($request->isNotCommand([['blissmixerext']])) {
+    if ($request->isNotCommand([['blissmixerlab']])) {
         $request->setStatusBadDispatch();
         return;
     }
@@ -430,7 +430,7 @@ sub _cliCommand {
     }
 
     if ($cmd eq 'survey') {
-        Plugins::BlissMixerExt::Survey::cliCommand($request);
+        Plugins::BlissMixerLab::Survey::cliCommand($request);
         return;
     }
 
@@ -439,7 +439,7 @@ sub _cliCommand {
     if ($request->getParam('track_id')) {
         my ($trackObj) = Slim::Schema->find('Track', $request->getParam('track_id'));
         if ($trackObj) {
-            main::DEBUGLOG && $log->debug("BlissMix Ext track seed " . $trackObj->path);
+            main::DEBUGLOG && $log->debug("BlissMix Lab track seed " . $trackObj->path);
             push @seedsToUse, $trackObj;
         }
     } else {
@@ -480,7 +480,7 @@ sub _cliCommand {
         }
     }
 
-    main::DEBUGLOG && $log->debug("Number of tracks for BlissMix Ext: " . scalar(@seedsToUse));
+    main::DEBUGLOG && $log->debug("Number of tracks for BlissMix Lab: " . scalar(@seedsToUse));
     if (@seedsToUse) {
         if ($cmd eq 'mix') {
             my $numTracks = @seedsToUse > 2 ? NUM_MIX_TRACKS : NUM_MIX_TRACKS_FEW;
@@ -523,10 +523,10 @@ sub _interactiveActionName {
     my ($request, $api) = @_;
     if ($api eq 'list') {
         return ($request->getParam('byArtist') || 0)
-            ? 'Similar tracks by artist (Ext)'
-            : 'Similar tracks (Ext)';
+            ? 'Similar tracks by artist (Lab)'
+            : 'Similar tracks (Lab)';
     }
-    return 'Create bliss mix (Ext)';
+    return 'Create bliss mix (Lab)';
 }
 
 sub _interactiveStrategy {
@@ -536,7 +536,7 @@ sub _interactiveStrategy {
         ? 'same artist only' : 'all artists';
     my $useAdaptive = $prefs->get('use_adaptive_weights') || 0;
     my $useForest = $prefs->get('use_forest') || 0;
-    my $matrixFile = Plugins::BlissMixerExt::Survey::matrixPath();
+    my $matrixFile = Plugins::BlissMixerLab::Survey::matrixPath();
     my $hasMatrix = $matrixFile && -e $matrixFile;
 
     if ($cmd eq 'list') {
@@ -556,7 +556,7 @@ sub _interactiveStrategy {
                 : 'static weights (single adaptive seed and no learned matrix)',
                 $hasMatrix ? 0 : 1);
         }
-        my $blend = int($extprefs->get('learned_blend') // 50);
+        my $blend = int($labprefs->get('learned_blend') // 50);
         my $description = !$hasMatrix || $blend == 0 ? 'pure variance-based adaptive weighting'
                         : $blend == 100              ? 'pure learned matrix'
                         :                              "adaptive weighting (${blend}% learned matrix)";
@@ -845,8 +845,8 @@ sub _refreshMixerDatabase {
         $databaseRefreshDeferred = 1;
     } elsif ($refreshAction eq 'restart') {
         main::INFOLOG && $log->info($databaseRefreshDeferred
-            ? 'Upstream BlissMixer analysis finished; refreshing bliss-mixer-ext once'
-            : 'Upstream bliss.db changed; restarting bliss-mixer-ext');
+            ? 'Upstream BlissMixer analysis finished; refreshing bliss-mixer-lab once'
+            : 'Upstream bliss.db changed; restarting bliss-mixer-lab');
         _stopMixer();
     }
 }
@@ -875,7 +875,7 @@ sub _callApi {
             }
         }
         my $action = _interactiveActionName($request, $api);
-        $log->warn("$action request failed: bliss-mixer-ext is not available");
+        $log->warn("$action request failed: bliss-mixer-lab is not available");
         $request->setStatusDone();
         $lastMixerStart = 0;
         return 1;
@@ -890,7 +890,7 @@ sub _callApi {
             my $response = shift;
             my $responseReceived = Time::HiRes::time();
             main::DEBUGLOG && $log->debug(
-                'Received Ext API response: '
+                'Received Lab API response: '
                 . ($response->headers->header('X-Bliss-Debug') || $response->content)
             );
 
@@ -920,14 +920,14 @@ sub _callApi {
                     last if @ids >= $maxTracks;
                 } elsif (!blessed $trackObj) {
                     $unresolved++;
-                    $log->error("Ext API returned a song that LMS could not resolve: $track");
+                    $log->error("Lab API returned a song that LMS could not resolve: $track");
                 }
             }
 
             if (main::INFOLOG) {
                 my $action = _interactiveActionName($request, $api);
                 $log->info(sprintf(
-                    '%s results: %d returned by bliss-mixer-ext, %d selected for LMS, %d unresolved',
+                    '%s results: %d returned by bliss-mixer-lab, %d selected for LMS, %d unresolved',
                     $action, $returnedCount, scalar(@usableTracks), $unresolved,
                 ));
                 $log->info('Selected tracks (' . scalar(@usableTracks) . '):');
@@ -983,7 +983,7 @@ sub _callApi {
                 $request->addResult('offset', 0);
                 $request->addResult('window', {
                     windowStyle => 'icon_list',
-                    text => $request->string('BLISSMIXEREXT_DSTM'),
+                    text => $request->string('BLISSMIXERLAB_DSTM'),
                 });
 
                 $request->addResultLoop(
@@ -1031,7 +1031,7 @@ sub _callApi {
             if (main::DEBUGLOG) {
                 my $finished = Time::HiRes::time();
                 $log->debug(sprintf(
-                    'Interactive Ext request timing: HTTP=%dms, result processing=%dms, total=%dms',
+                    'Interactive Lab request timing: HTTP=%dms, result processing=%dms, total=%dms',
                     int(($responseReceived - $requestStarted) * 1000),
                     int(($finished - $responseReceived) * 1000),
                     int(($finished - $requestStarted) * 1000),
@@ -1079,7 +1079,7 @@ sub _objectInfoHandler {
             actions => {
                 go => {
                     player => 0,
-                    cmd => ['blissmixerext', 'mix'],
+                    cmd => ['blissmixerlab', 'mix'],
                     params => {
                         menu => 1,
                         useContextMenu => 1,
@@ -1088,10 +1088,10 @@ sub _objectInfoHandler {
                 },
             },
         },
-        name => cstring($client, 'BLISSMIXEREXT_CREATE_MIX'),
+        name => cstring($client, 'BLISSMIXERLAB_CREATE_MIX'),
         favorites => 0,
         player => {
-            mode => 'blissmixerext_mix',
+            mode => 'blissmixerlab_mix',
             modeParams => { $actionParam => $obj->id },
         },
     };
@@ -1105,7 +1105,7 @@ sub _trackSimilarityHandler {
             actions => {
                 go => {
                     player => 0,
-                    cmd => ['blissmixerext', 'list'],
+                    cmd => ['blissmixerlab', 'list'],
                     params => {
                         menu => 1,
                         useContextMenu => 1,
@@ -1118,12 +1118,12 @@ sub _trackSimilarityHandler {
         name => cstring(
             $client,
             $byArtist
-                ? 'BLISSMIXEREXT_SIMILAR_TRACKS_BY_ARTIST'
-                : 'BLISSMIXEREXT_SIMILAR_TRACKS',
+                ? 'BLISSMIXERLAB_SIMILAR_TRACKS_BY_ARTIST'
+                : 'BLISSMIXERLAB_SIMILAR_TRACKS',
         ),
         favorites => 0,
         player => {
-            mode => 'blissmixerext_list',
+            mode => 'blissmixerlab_list',
             modeParams => {
                 track_id => $obj->id,
                 byArtist => $byArtist,
@@ -1203,9 +1203,9 @@ sub _dstmMix {
                 my $singleSeedLearnedOverride = 0;
                 my $configuredBlend;
                 if ($useAdaptiveWeights) {
-                    my $blend = int($extprefs->get('learned_blend') // 50);
+                    my $blend = int($labprefs->get('learned_blend') // 50);
                     $configuredBlend = $blend;
-                    my $matrixFile = Plugins::BlissMixerExt::Survey::matrixPath();
+                    my $matrixFile = Plugins::BlissMixerLab::Survey::matrixPath();
                     my $hasMatrix = $matrixFile && -e $matrixFile;
                     $singleSeedLearnedOverride = $hasMatrix && scalar(@seedsToUse) == 1;
                     my $lfm = $prefs->get('use_lastfm_weighting') && exists $INC{'Plugins/LastMix/LFM.pm'};
@@ -1434,7 +1434,7 @@ sub _dstmMix {
                                     $log->debug('Comparison for "extended isolation forest" skipped (needs >= 4 seeds, have ' . scalar(@eifCompSeeds) . ')');
                                 }
                                 # Pure variance-based (no learned matrix influence) — skip if already at blend=0%
-                                my $currentBlend = int($extprefs->get('learned_blend') // 50);
+                                my $currentBlend = int($labprefs->get('learned_blend') // 50);
                                 if ($currentBlend != 0) {
                                     my $varianceJson = _buildComparisonJson(\@seedsToUse, $prevRef, $dstm_tracks, $filterGenres, 0, 1, 0);
                                     push @compQueue, [$url, "adaptive weighting (pure variance, blend=0%)", $varianceJson];
@@ -1589,7 +1589,7 @@ sub _selectViaLastFm {
     }, $artistStats);
 
     if ($trackGuidance) {
-        Plugins::BlissMixerExt::LastFmTrackSimilarity::collect(
+        Plugins::BlissMixerLab::LastFmTrackSimilarity::collect(
             $seeds,
             sub {
                 $trackDone = 1;
@@ -1659,7 +1659,7 @@ sub _selectArtistWeightedCandidates {
 }
 
 sub _lastfmTrackGuidance {
-    my $influence = int($extprefs->get('lastfm_track_guidance_percent') // 25);
+    my $influence = int($labprefs->get('lastfm_track_guidance_percent') // 25);
     $influence = 0 if $influence < 0;
     $influence = 100 if $influence > 100;
     return $influence;
@@ -1667,7 +1667,7 @@ sub _lastfmTrackGuidance {
 
 sub _playCountInfluence {
     return 0 unless _statisticsEnabled();
-    my $influence = int($extprefs->get('playcount_influence') // 0);
+    my $influence = int($labprefs->get('playcount_influence') // 0);
     $influence = -100 if $influence < -100;
     $influence = 100 if $influence > 100;
     return $influence;
@@ -1791,7 +1791,7 @@ sub _selectWeightedCandidates {
         $weight *= $lastfmWeight if $lastfmArtists && $entry->{endorsed};
         if ($trackGuidance) {
             my $trackSupport =
-                Plugins::BlissMixerExt::LastFmTrackSimilarity::candidateSupport(
+                Plugins::BlissMixerLab::LastFmTrackSimilarity::candidateSupport(
                     $entry->{track}, $lastfmTracks
                 );
             my $trackWeight = _lastfmTrackWeight(
@@ -1977,7 +1977,7 @@ sub prefName {
 
 sub title {
     my $class = shift;
-    return 'BlissMixerExt';
+    return 'BlissMixerLab';
 }
 
 sub _mixFailed {
@@ -2065,7 +2065,7 @@ sub _getMixData {
                         norepalb    => int($noRepAlbOverride // $prefs->get('no_repeat_album')),
                         forest      => int($prefs->get('use_forest') || 0),
                         adaptiveweights => int($prefs->get('use_adaptive_weights') || 0),
-                        learnedblend => int($extprefs->get('learned_blend') // 50),
+                        learnedblend => int($labprefs->get('learned_blend') // 50),
                         genregroups => _genreGroups(),
                         allgenres   => int($prefs->get('match_all_genres') || 0),
                         main::DEBUGLOG ? (debug => 1) : ()
@@ -2094,7 +2094,7 @@ sub _getListData {
         allgenres => int($prefs->get('match_all_genres') || 0),
         byartist => int($byArtist),
         adaptiveweights => int($prefs->get('use_adaptive_weights') || 0),
-        learnedblend => int($extprefs->get('learned_blend') // 50),
+        learnedblend => int($labprefs->get('learned_blend') // 50),
     });
 
     main::DEBUGLOG && $log->debug("Request $jsonData");

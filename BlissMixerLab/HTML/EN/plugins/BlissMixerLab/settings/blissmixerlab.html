@@ -20,78 +20,78 @@
 [% PROCESS settings/header.html %]
 
 [% WRAPPER settingSection %]
-    <p>[% "BLISSMIXEREXT_SETTINGS_NOTE" | string %]</p>
+    <p>[% "BLISSMIXERLAB_SETTINGS_NOTE" | string %]</p>
 
-    <b style="font-size:125%" id="status-section-header" class="shown-section" onclick="toggleSection('status-section')">[% "BLISSMIXEREXT_STATUS" | string %]</b><br/><br/>
+    <b style="font-size:125%" id="status-section-header" class="shown-section" onclick="toggleSection('status-section')">[% "BLISSMIXERLAB_STATUS" | string %]</b><br/><br/>
     <div id="status-section">
     [% IF upstream_compatible %]
-        <p style="color:#398439">[% "BLISSMIXEREXT_UPSTREAM_OK" | string %] [% upstream_version %].</p>
+        <p style="color:#398439">[% "BLISSMIXERLAB_UPSTREAM_OK" | string %] [% upstream_version %].</p>
     [% ELSE %]
-        <p style="color:#c9302c">[% "BLISSMIXEREXT_UPSTREAM_MISSING" | string %][% IF upstream_version %] [% upstream_version %].[% END %]</p>
+        <p style="color:#c9302c">[% "BLISSMIXERLAB_UPSTREAM_MISSING" | string %][% IF upstream_version %] [% upstream_version %].[% END %]</p>
     [% END %]
     [% IF database_exists %]
-        <p style="color:#398439">[% "BLISSMIXEREXT_DATABASE_OK" | string %]</p>
+        <p style="color:#398439">[% "BLISSMIXERLAB_DATABASE_OK" | string %]</p>
     [% ELSE %]
-        <p style="color:#c9302c">[% "BLISSMIXEREXT_DATABASE_MISSING" | string %]</p>
+        <p style="color:#c9302c">[% "BLISSMIXERLAB_DATABASE_MISSING" | string %]</p>
     [% END %]
     [% IF statistics_enabled %]
-        <p style="color:#398439">[% "BLISSMIXEREXT_STATISTICS_OK" | string %]</p>
+        <p style="color:#398439">[% "BLISSMIXERLAB_STATISTICS_OK" | string %]</p>
     [% ELSE %]
-        <p style="color:#c9302c">[% "BLISSMIXEREXT_STATISTICS_UNAVAILABLE" | string %]</p>
+        <p style="color:#c9302c">[% "BLISSMIXERLAB_STATISTICS_UNAVAILABLE" | string %]</p>
     [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>
 
-    <b style="font-size:125%" id="mix-section-header" class="shown-section" onclick="toggleSection('mix-section')">[% "BLISSMIXEREXT_MIX_SETTINGS" | string %]</b><br/><br/>
+    <b style="font-size:125%" id="mix-section-header" class="shown-section" onclick="toggleSection('mix-section')">[% "BLISSMIXERLAB_MIX_SETTINGS" | string %]</b><br/><br/>
     <div id="mix-section">
-    <div style="opacity:0.6">[% "BLISSMIXEREXT_MIX_SETTINGS_NOTE" | string %]</div><br/>
-    [% WRAPPER settingGroup title="BLISSMIXEREXT_LEARNED_BLEND" desc="BLISSMIXEREXT_LEARNED_BLEND_DESC" %]
+    <div style="opacity:0.6">[% "BLISSMIXERLAB_MIX_SETTINGS_NOTE" | string %]</div><br/>
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_LEARNED_BLEND" desc="BLISSMIXERLAB_LEARNED_BLEND_DESC" %]
         <input type="number" min="0" max="100" class="stdedit sliderInput_0_100_1" name="pref_learned_blend" id="learned_blend" value="[% prefs.learned_blend %]" size="5">
     [% END %]
 
-    [% WRAPPER settingGroup title="BLISSMIXEREXT_PLAYCOUNT_INFLUENCE" desc="BLISSMIXEREXT_PLAYCOUNT_INFLUENCE_DESC" %]
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_PLAYCOUNT_INFLUENCE" desc="BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_DESC" %]
         <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_playcount_influence" id="playcount_influence" value="[% prefs.playcount_influence %]" size="5" [% UNLESS statistics_enabled %]disabled[% END %]>
         [% UNLESS statistics_enabled %]
             <input type="hidden" name="pref_playcount_influence" value="[% prefs.playcount_influence %]">
-            <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXEREXT_PLAYCOUNT_INFLUENCE_UNAVAILABLE" | string %]</div>
+            <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_UNAVAILABLE" | string %]</div>
         [% END %]
     [% END %]
 
-    [% WRAPPER settingGroup title="BLISSMIXEREXT_LASTFM_TRACK_GUIDANCE" desc="BLISSMIXEREXT_LASTFM_TRACK_GUIDANCE_DESC" %]
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE" desc="BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_DESC" %]
         <input type="number" min="0" max="100" step="1" class="stdedit sliderInput_0_100_1" name="pref_lastfm_track_guidance_percent" id="lastfm_track_guidance_percent" value="[% prefs.lastfm_track_guidance_percent %]" size="5" [% UNLESS lastmix_available && upstream_lastfm_enabled %]disabled[% END %]>
         [% UNLESS lastmix_available && upstream_lastfm_enabled %]
             <input type="hidden" name="pref_lastfm_track_guidance_percent" value="[% prefs.lastfm_track_guidance_percent %]">
-            <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXEREXT_LASTFM_TRACK_GUIDANCE_UNAVAILABLE" | string %]</div>
+            <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE" | string %]</div>
         [% END %]
     [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>
 
-    <b style="font-size:125%" id="learning-section-header" class="hidden-section" onclick="toggleSection('learning-section')">[% "BLISSMIXEREXT_LEARNING" | string %]</b><br/><br/>
+    <b style="font-size:125%" id="learning-section-header" class="hidden-section" onclick="toggleSection('learning-section')">[% "BLISSMIXERLAB_LEARNING" | string %]</b><br/><br/>
     <div id="learning-section" class="hidden">
     [% IF no_learner_binary %]
-        <p style="color:#c9302c">[% "BLISSMIXEREXT_LEARNER_NOT_FOUND" | string %]</p>
+        <p style="color:#c9302c">[% "BLISSMIXERLAB_LEARNER_NOT_FOUND" | string %]</p>
     [% ELSE %]
-        <p>[% "BLISSMIXEREXT_LEARNING_NOTE" | string %]</p>
-        <p><a href="[% survey_url %]" target="_blank" style="font-size:115%;font-weight:bold">[% "BLISSMIXEREXT_OPEN_SURVEY" | string %]</a></p>
+        <p>[% "BLISSMIXERLAB_LEARNING_NOTE" | string %]</p>
+        <p><a href="[% survey_url %]" target="_blank" style="font-size:115%;font-weight:bold">[% "BLISSMIXERLAB_OPEN_SURVEY" | string %]</a></p>
 
         <table style="margin:12px 0">
-            <tr><td>[% "BLISSMIXEREXT_TRIPLETS" | string %]</td><td id="triplet-count">-</td></tr>
-            <tr><td>[% "BLISSMIXEREXT_MATRIX" | string %]</td><td id="matrix-status">-</td></tr>
+            <tr><td>[% "BLISSMIXERLAB_TRIPLETS" | string %]</td><td id="triplet-count">-</td></tr>
+            <tr><td>[% "BLISSMIXERLAB_MATRIX" | string %]</td><td id="matrix-status">-</td></tr>
         </table>
 
-        <button id="learning-button" onclick="toggleLearning()" type="button">[% "BLISSMIXEREXT_RUN_LEARNING" | string %]</button>
-        <button id="clear-training-button" onclick="clearTraining()" type="button">[% "BLISSMIXEREXT_CLEAR_TRAINING" | string %]</button>
+        <button id="learning-button" onclick="toggleLearning()" type="button">[% "BLISSMIXERLAB_RUN_LEARNING" | string %]</button>
+        <button id="clear-training-button" onclick="clearTraining()" type="button">[% "BLISSMIXERLAB_CLEAR_TRAINING" | string %]</button>
         <div id="learning-status" style="margin-top:8px"></div>
     [% END %]
 
-    [% WRAPPER settingGroup title="BLISSMIXEREXT_BACKUP_PATH" desc="BLISSMIXEREXT_BACKUP_PATH_DESC" %]
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_BACKUP_PATH" desc="BLISSMIXERLAB_BACKUP_PATH_DESC" %]
         <input type="text" class="stdedit selectFolder" name="pref_triplets_backup_path" id="triplets_backup_path" value="[% prefs.triplets_backup_path %]" size="40">
         <button id="backup-now-btn" onclick="backupNow()" type="button" style="margin-left:8px" [% UNLESS prefs.triplets_backup_path %] disabled [% END %]>[% backup_now_text %]</button>
         <span id="backup-now-status" style="margin-left:8px;opacity:0.8"></span>
     [% END %]
 
-    [% WRAPPER settingGroup title="BLISSMIXEREXT_RESTORE_PATH" desc="BLISSMIXEREXT_RESTORE_PATH_DESC" %]
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_RESTORE_PATH" desc="BLISSMIXERLAB_RESTORE_PATH_DESC" %]
         <input type="hidden" class="selectFile" id="restore_backup_path" value="">
         <div id="restore-status" style="margin-top:4px;opacity:0.8"></div>
     [% END %]
@@ -124,7 +124,7 @@
         header.classList.toggle('hidden-section', !show);
         try {
             if (window.localStorage) {
-                window.localStorage.setItem('bliss-mixer-ext::' + id, show ? 'true' : 'false');
+                window.localStorage.setItem('bliss-mixer-lab::' + id, show ? 'true' : 'false');
             }
         } catch (e) { }
     }
@@ -133,15 +133,15 @@
         let show = defaultShown;
         try {
             const stored = window.localStorage
-                ? window.localStorage.getItem('bliss-mixer-ext::' + id)
+                ? window.localStorage.getItem('bliss-mixer-lab::' + id)
                 : null;
             if (stored !== null) show = stored === 'true';
         } catch (e) { }
         setSectionShown(id, show);
     }
 
-    async function extCommand(act, extra) {
-        const command = ['blissmixerext', 'survey', 'act:' + act];
+    async function labCommand(act, extra) {
+        const command = ['blissmixerlab', 'survey', 'act:' + act];
         if (extra) command.push(extra);
         const response = await fetch('[% jsonrpc_url %]', {
             method: 'POST',
@@ -156,19 +156,19 @@
 
     async function refreshLearning() {
         try {
-            const response = await extCommand('status');
+            const response = await labCommand('status');
             const result = response.result || {};
             learningStatusCount++;
             learningRunning = parseInt(result.learning || 0) === 1;
             document.getElementById('triplet-count').textContent = result.triplets || 0;
             document.getElementById('matrix-status').textContent = parseInt(result.matrix_exists || 0) === 1
-                ? '[% "BLISSMIXEREXT_MATRIX_AVAILABLE" | string %]'
-                : '[% "BLISSMIXEREXT_MATRIX_MISSING" | string %]';
+                ? '[% "BLISSMIXERLAB_MATRIX_AVAILABLE" | string %]'
+                : '[% "BLISSMIXERLAB_MATRIX_MISSING" | string %]';
             const button = document.getElementById('learning-button');
             const clearButton = document.getElementById('clear-training-button');
             button.textContent = learningRunning
-                ? '[% "BLISSMIXEREXT_STOP_LEARNING" | string %]'
-                : '[% "BLISSMIXEREXT_RUN_LEARNING" | string %]';
+                ? '[% "BLISSMIXERLAB_STOP_LEARNING" | string %]'
+                : '[% "BLISSMIXERLAB_RUN_LEARNING" | string %]';
             if (clearButton) clearButton.style.display = learningRunning ? 'none' : '';
 
             const status = document.getElementById('learning-status');
@@ -222,7 +222,7 @@
     }
 
     async function toggleLearning() {
-        const response = await extCommand(learningRunning ? 'stop-learning' : 'run-learning');
+        const response = await labCommand(learningRunning ? 'stop-learning' : 'run-learning');
         const message = response && response.result ? response.result.msg : undefined;
         if (message === 'Learning started' || message === 'stopped') {
             learningErrorMessage = null;
@@ -234,8 +234,8 @@
     }
 
     async function clearTraining() {
-        if (!confirm('Delete all BlissMixerExt survey answers and the learned matrix?')) return;
-        await extCommand('clear-training-data');
+        if (!confirm('Delete all BlissMixerLab survey answers and the learned matrix?')) return;
+        await labCommand('clear-training-data');
         await refreshLearning();
     }
 
@@ -247,7 +247,7 @@
         }
         const target = document.getElementById('backup-now-status');
         try {
-            const response = await extCommand('backup');
+            const response = await labCommand('backup');
             target.textContent = response.result && response.result.ok
                 ? '[% backup_success_text %]'
                 : (response.result && response.result.msg
@@ -279,7 +279,7 @@
         const target = document.getElementById('restore-status');
         target.textContent = '[% restore_in_progress_text %]';
         try {
-            const response = await extCommand('restore-backup', 'path:' + path);
+            const response = await labCommand('restore-backup', 'path:' + path);
             if (response.result && response.result.ok) {
                 target.textContent = '[% restore_success_text %]';
                 await refreshLearning();

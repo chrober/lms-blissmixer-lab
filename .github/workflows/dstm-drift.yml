@@ -3,7 +3,7 @@ name: BlissMixer DSTM drift
 on:
   pull_request:
     paths:
-      - BlissMixerExt/Plugin.pm
+      - BlissMixerLab/Plugin.pm
       - compat/dstm-drift.json
       - scripts/check_dstm_drift.py
       - tests/test_dstm_drift.py
@@ -11,7 +11,7 @@ on:
   push:
     branches: [main]
     paths:
-      - BlissMixerExt/Plugin.pm
+      - BlissMixerLab/Plugin.pm
       - compat/dstm-drift.json
       - scripts/check_dstm_drift.py
       - tests/test_dstm_drift.py
@@ -32,7 +32,7 @@ jobs:
   drift:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out BlissMixerExt
+      - name: Check out BlissMixerLab
         uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7

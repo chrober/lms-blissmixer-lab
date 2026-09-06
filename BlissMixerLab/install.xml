@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 
 <extension>
-    <id>db1d31c4-2c59-4f80-9379-f4610c955a1f</id>
-    <icon>plugins/BlissMixerExt/html/images/blissmixerext.png</icon>
-    <name>BLISSMIXEREXT</name>
-    <module>Plugins::BlissMixerExt::Plugin</module>
-    <version>0.4.3</version>
-    <description>BLISSMIXEREXT_DESC</description>
+    <id>9403287a-081c-4e96-ad93-52c140939469</id>
+    <icon>plugins/BlissMixerLab/html/images/blissmixerlab.png</icon>
+    <name>BLISSMIXERLAB</name>
+    <module>Plugins::BlissMixerLab::Plugin</module>
+    <version>0.5.0</version>
+    <description>BLISSMIXERLAB_DESC</description>
     <creator>Christoph O'Bermair</creator>
     <defaultState>
         <mac>enabled</mac>
         <win>enabled</win>
         <other>enabled</other>
     </defaultState>
-    <homepageURL>https://github.com/chrober/lms-blissmixer-ext</homepageURL>
+    <homepageURL>https://github.com/chrober/lms-blissmixer-lab</homepageURL>
     <type>2</type>
     <targetApplication>
         <id>Logitech Media Server</id>

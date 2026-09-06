@@ -1,7 +1,7 @@
-package Plugins::BlissMixerExt::LastFmTrackSimilarity;
+package Plugins::BlissMixerLab::LastFmTrackSimilarity;
 
 #
-# Bliss Mixer Extensions companion for Lyrion Music Server
+# Bliss Mixer Lab companion for Lyrion Music Server
 #
 # Licence: GPL v3
 #
@@ -12,7 +12,7 @@ use Slim::Utils::Log;
 
 use constant MAX_SIMILAR_RESULTS => 25;
 
-my $log = Slim::Utils::Log::logger('plugin.blissmixerext');
+my $log = Slim::Utils::Log::logger('plugin.blissmixerlab');
 
 sub _normalizeText {
     my $value = lc(shift // '');
