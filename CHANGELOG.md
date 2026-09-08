@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0 - 2026-09-08
+
+- Remove the Lab-owned play-count setting now that play-count influence is
+  configured and implemented by Bliss Mixer.
+- Inherit Bliss Mixer's Static Weights, EIF, or Adaptive Weightings strategy
+  and its shared Last.fm artist/play-count candidate refinements.
+- Apply the Lab-owned Last.fm recording-similarity guidance to candidates from
+  all three strategies; learned-matrix influence remains Adaptive-only.
+
 ## 0.5.0 - 2026-09-06
 
 - Rename the companion plugin from Bliss Mixer Extensions to **Bliss Mixer Lab**.

@@ -19,10 +19,7 @@ BEGIN {
     package TestSettingsPrefs;
     our %values = (
         'plugin.blissmixerlab' => {},
-        'plugin.blissmixer' => {
-            use_adaptive_weights => 1,
-            use_lastfm_weighting => 1,
-        },
+        'plugin.blissmixer' => {},
         server => {httpport => 9000},
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
@@ -64,6 +61,13 @@ BEGIN {
     package Slim::Utils::Versions;
     sub compareVersions { return 0 }
     $INC{'Slim/Utils/Versions.pm'} = __FILE__;
+
+    package Plugins::BlissMixer::CandidateSelection;
+    $INC{'Plugins/BlissMixer/CandidateSelection.pm'} = __FILE__;
+
+    package Plugins::BlissMixer::Plugin;
+    sub _lastfmNormalizeArtist { return }
+    sub _fetchSimilarArtistsForSeeds { return }
 }
 
 use lib "$FindBin::Bin/..";
@@ -79,7 +83,7 @@ is(
 my (undef, @preference_names) = Plugins::BlissMixerLab::Settings->prefs();
 is_deeply(
     \@preference_names,
-    [qw(learned_blend playcount_influence lastfm_track_guidance_percent triplets_backup_path)],
+    [qw(learned_blend lastfm_track_guidance_percent triplets_backup_path)],
     'settings expose only user-meaningful experimental preferences',
 );
 
@@ -94,10 +98,7 @@ ok($request_host{upstream_compatible}, 'compatible upstream is reported');
 is($request_host{upstream_version}, '0.10.0',
     'the displayed upstream version comes from the live loaded manifest');
 ok(!$request_host{no_learner_binary}, 'available sidecar learner is reported');
-ok($request_host{statistics_enabled}, 'enabled LMS listening statistics are reported');
 ok($request_host{lastmix_available}, 'enabled LastMix is reported');
-ok($request_host{upstream_lastfm_enabled},
-    'upstream Adaptive Last.fm weighting is reported');
 is($request_host{backup_success_text}, 'localized:BLISSMIXERLAB_BACKUP_SUCCESS',
     'dynamic JavaScript messages are localized before rendering');
 is($request_host{backup_now_text}, 'localized:BLISSMIXERLAB_BACKUP_NOW',
@@ -121,12 +122,9 @@ is(
 );
 
 my %submitted = (
-    pref_playcount_influence => -101,
     pref_lastfm_track_guidance_percent => 101,
 );
 Plugins::BlissMixerLab::Settings->handler(undef, \%submitted);
-is($submitted{pref_playcount_influence}, -100,
-    'submitted play-count influence is clamped');
 is($submitted{pref_lastfm_track_guidance_percent}, 100,
     'submitted Last.fm track guidance is clamped');
 

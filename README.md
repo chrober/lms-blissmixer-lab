@@ -20,16 +20,14 @@ currently contributes:
   similarity matrix, including configurable matrix influence and training-data
   backup and restore.
 - A separate **Bliss (Lab)** Don't Stop the Music provider that honors Bliss
-  Mixer's configured strategy and filters. Depending on configuration, it
-  supports:
+  Mixer's configured strategy, filters, and candidate-selection refinements.
+  It adds:
 
-  - Bliss Mixer's complete **Adaptive Weightings** strategy, including dynamic
-    acoustic weighting and optional Last.fm artist endorsement.
-  - Learned-matrix weighting with configurable influence.
-  - Play-count influence that can favor either less-played or frequently played
-    tracks while retaining acoustic similarity as a ranking signal.
+  - Learned-matrix weighting with configurable influence when Bliss Mixer uses
+    **Adaptive Weightings**.
   - Last.fm recording-similarity guidance, with MusicBrainz recording IDs
-    preferred and normalized artist/title matching as a fallback.
+    preferred and normalized artist/title matching as a fallback, for Static
+    Weights, EIF, and Adaptive Weightings.
 - **Create bliss mix (Lab)** actions for tracks, albums, and artists, plus
   **Similar tracks (Lab)** and **Similar tracks by artist (Lab)** actions. These
   use the separate Lab mixer and respect the configured mixing strategy,
@@ -43,8 +41,8 @@ currently contributes:
   staged extensions.
 - The plugins remain separately registered and operate side by side.
 
-BlissMixerLab currently requires Bliss Mixer 0.10.0 or newer and LMS 9.0 or
-newer.
+BlissMixerLab currently requires Bliss Mixer 0.10.0 or newer with the shared
+candidate-reranking component, and LMS 9.0 or newer.
 
 ## Installation
 
@@ -90,7 +88,7 @@ and the Perl plugin regression suite. The Perl tests exercise the sidecar's
 upstream compatibility gate, DSTM identity and port isolation, inherited mixer
 preferences, survey persistence and backup/restore, and learned-matrix
 replacement behavior. It also covers Last.fm recording matching, partial
-provider failures, and the combined selection signals. Release publication
+provider failures, and integration with upstream candidate reranking. Release publication
 runs the same test gate.
 
 The separate `BlissMixer DSTM drift` workflow checks the current upstream

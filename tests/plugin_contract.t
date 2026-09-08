@@ -35,10 +35,11 @@ BEGIN {
             max_duration => 600,
             max_bpm_diff => 20,
             match_all_genres => 0,
+            lastfm_weighting_weight => 25,
+            playcount_influence => -40,
         },
         'plugin.blissmixerlab' => {
             learned_blend => 50,
-            playcount_influence => 0,
             lastfm_track_guidance_percent => 25,
         },
     );
@@ -130,6 +131,66 @@ BEGIN {
         *{"${caller}::from_json"} = sub { JSON::PP::decode_json($_[0]) };
     }
     $INC{'JSON/XS/VersionOneAndTwo.pm'} = __FILE__;
+
+    package Plugins::BlissMixer::CandidateSelection;
+    our @calls;
+    sub candidatePoolMultiplier {
+        my ($lastfm, $playcount) = @_;
+        return 10 if $lastfm || $playcount;
+        return 1;
+    }
+    sub selectCandidates {
+        my ($tracks, $finalCount, $playcount, $artists, $target, $random,
+            $extraWeight) = @_;
+        push @calls, [@_];
+        my @entries;
+        my $unknown = 0;
+        for my $index (0 .. $#$tracks) {
+            my $track = $tracks->[$index];
+            my $raw = $track->playcount;
+            $unknown++ unless defined $raw;
+            my $artist = lc($track->artistName || '');
+            $artist =~ s/^\s+|\s+$//g;
+            my $entry = {
+                track => $track,
+                rank => $index + 1,
+                playcount => defined $raw ? $raw : 0,
+                endorsed => $artists && $artists->{$artist} ? 1 : 0,
+                similarity_weight => 1,
+                playcount_weight => 1,
+                lastfm_weight => 1,
+            };
+            my $weight = $extraWeight ? $extraWeight->($track, $entry) : 1;
+            $entry->{weight} = $weight;
+            push @entries, $entry;
+        }
+        my @selected = sort {
+            $b->{weight} <=> $a->{weight} || $a->{rank} <=> $b->{rank}
+        } @entries;
+        splice(@selected, $finalCount) if @selected > $finalCount;
+        return {
+            entries => \@entries,
+            selected => \@selected,
+            pool_size => scalar(@entries),
+            reranked => scalar(grep { $_->{weight} != 1 } @entries) ? 1 : 0,
+            effective_playcount_influence => $playcount,
+            unknown_playcounts => $unknown,
+            endorsed_count => scalar(grep { $_->{endorsed} } @entries),
+        };
+    }
+    $INC{'Plugins/BlissMixer/CandidateSelection.pm'} = __FILE__;
+
+    package Plugins::BlissMixer::Plugin;
+    sub _lastfmNormalizeArtist {
+        my $artist = shift;
+        my $normalized = lc($artist || '');
+        $normalized =~ s/^\s+|\s+$//g;
+        return $normalized;
+    }
+    sub _fetchSimilarArtistsForSeeds {
+        my ($seedInfo, $resultHash, $cb, $stats) = @_;
+        $cb->(0, $stats || {succeeded => 1, failed => 0});
+    }
 
     package Plugins::BlissMixerLab::Settings;
     sub new { return bless {}, $_[0] }
@@ -237,14 +298,6 @@ cmp_ok(abs($custom_weights[0] - 6.25), '<', 0.000001,
 cmp_ok(abs($custom_weights[1] - (25 / 30)), '<', 0.000001,
     'timbre feature weights are derived from the upstream slider');
 
-is(Plugins::BlissMixerLab::Plugin::_lastfmEndorsedWeightForPercent(50, 2, 8), 4,
-    'Last.fm weighting solves the requested endorsed share');
-is(Plugins::BlissMixerLab::Plugin::_lastfmEndorsedWeightForPercent(100, 2, 8), 1_000_000,
-    'a 100 percent target uses the finite upper bound');
-is(Plugins::BlissMixerLab::Plugin::_lastfmEndorsedWeightForPercent(50, 0, 8), 1,
-    'an empty endorsed set keeps neutral weighting');
-is(Plugins::BlissMixerLab::Plugin::_lastfmNormalizeArtist('  The Artist  '), 'the artist',
-    'Last.fm artist keys are normalized consistently');
 is(Plugins::BlissMixerLab::Plugin::_lastfmTrackWeight(1, 0), 1,
     'zero Last.fm track guidance is neutral');
 cmp_ok(abs(Plugins::BlissMixerLab::Plugin::_lastfmTrackWeight(1, 100) - 10),
@@ -253,71 +306,10 @@ $TestPrefs::values{'plugin.blissmixerlab'}{lastfm_track_guidance_percent} = 125;
 is(Plugins::BlissMixerLab::Plugin::_lastfmTrackGuidance(), 100,
     'Last.fm similar-track guidance is clamped at the positive limit');
 
-$TestPrefs::values{'plugin.blissmixerlab'}{playcount_influence} = 55;
-is(Plugins::BlissMixerLab::Plugin::_playCountInfluence(), 55,
-    'configured play-count influence is available when LMS statistics are enabled');
-$TestPrefs::values{'plugin.blissmixerlab'}{playcount_influence} = 123;
-is(Plugins::BlissMixerLab::Plugin::_playCountInfluence(), 100,
-    'play-count influence is clamped at the positive limit');
-{
-    no warnings 'redefine';
-    local *Plugins::BlissMixerLab::Plugin::_statisticsEnabled = sub { return 0 };
-    is(Plugins::BlissMixerLab::Plugin::_playCountInfluence(), 0,
-        'play-count influence is inactive when LMS listening statistics are disabled');
-}
-is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(0), 1,
-    'disabled play-count influence does not expand the candidate pool');
-is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(5), 2,
-    'any non-zero play-count influence expands the candidate pool');
-is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(-100), 10,
-    'maximum negative influence uses the maximum candidate pool');
-is(Plugins::BlissMixerLab::Plugin::_playCountPoolMultiplier(100), 10,
-    'maximum positive influence uses the maximum candidate pool');
-is(Plugins::BlissMixerLab::Plugin::_candidatePoolMultiplier(1, 100), 10,
-    'Last.fm and play count share one 10x pool instead of multiplying pools');
-cmp_ok(
-    Plugins::BlissMixerLab::Plugin::_playCountWeight(1, 100),
-    '>',
-    Plugins::BlissMixerLab::Plugin::_playCountWeight(-1, 100),
-    'positive influence gives frequently played tracks more weight',
-);
-cmp_ok(
-    Plugins::BlissMixerLab::Plugin::_playCountWeight(-1, -100),
-    '>',
-    Plugins::BlissMixerLab::Plugin::_playCountWeight(1, -100),
-    'negative influence gives less-played tracks more weight',
-);
-
-my @playcount_tracks = (
-    TestTrack->new('low', 0),
-    TestTrack->new('middle', 5),
-    TestTrack->new('high', 100),
-);
-is_deeply(
-    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
-        \@playcount_tracks, 1, 100, undef, undef, sub { 0.5 },
-    ),
-    ['high'],
-    'positive influence can promote a frequently played candidate over Bliss rank',
-);
-is_deeply(
-    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
-        \@playcount_tracks, 1, -100, undef, undef, sub { 0.5 },
-    ),
-    ['low'],
-    'negative influence keeps a less-played candidate ahead',
-);
-my @equal_playcount_tracks = (
-    TestTrack->new('first', 0),
-    TestTrack->new('second', undef),
-);
-is_deeply(
-    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
-        \@equal_playcount_tracks, 1, 100, undef, undef, sub { 0.5 },
-    ),
-    ['first'],
-    'missing and zero play counts are equivalent and preserve Bliss order',
-);
+is(Plugins::BlissMixerLab::Plugin::_upstreamLastfmProbability(), 25,
+    'Last.fm artist probability is inherited from upstream Bliss Mixer');
+is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
+    'play-count influence is inherited from upstream Bliss Mixer');
 my @lastfm_track_candidates = (
     TestTrack->new('unmatched', 0, 'Artist', 'Unmatched'),
     TestTrack->new('track-match', 0, 'Artist', 'Matched'),
@@ -332,9 +324,15 @@ is_deeply(
         sub { 0.5 },
         {mbid => {}, name => {'artist|matched' => 1}},
         100,
+        'static weights',
     ),
     ['track-match'],
     'Last.fm recording evidence can promote a matching Bliss candidate',
+);
+is(
+    $Plugins::BlissMixer::CandidateSelection::calls[-1][2],
+    0,
+    'Lab delegates candidate selection to the upstream component',
 );
 
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),

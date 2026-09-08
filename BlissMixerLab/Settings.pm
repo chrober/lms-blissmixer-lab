@@ -19,7 +19,6 @@ use Slim::Utils::Strings qw(string);
 use Slim::Utils::Versions;
 
 my $prefs = preferences('plugin.blissmixerlab');
-my $upstreamPrefs = preferences('plugin.blissmixer');
 my $serverprefs = preferences('server');
 
 sub name {
@@ -31,8 +30,8 @@ sub page {
 }
 
 sub prefs {
-    return ($prefs, 'learned_blend', 'playcount_influence',
-        'lastfm_track_guidance_percent', 'triplets_backup_path');
+    return ($prefs, 'learned_blend', 'lastfm_track_guidance_percent',
+        'triplets_backup_path');
 }
 
 sub beforeRender {
@@ -48,16 +47,15 @@ sub beforeRender {
     $paramRef->{upstream_enabled} = $manifest ? 1 : 0;
     $paramRef->{upstream_version} = $manifest ? ($manifest->{version} || 'unknown') : '';
     $paramRef->{upstream_compatible} = $manifest
-        && Slim::Utils::Versions->compareVersions($manifest->{version} || '0', '0.10.0') >= 0 ? 1 : 0;
+        && Slim::Utils::Versions->compareVersions($manifest->{version} || '0', '0.10.0') >= 0
+        && eval { require Plugins::BlissMixer::CandidateSelection; 1 }
+        && Plugins::BlissMixer::Plugin->can('_fetchSimilarArtistsForSeeds')
+        && Plugins::BlissMixer::Plugin->can('_lastfmNormalizeArtist') ? 1 : 0;
     $paramRef->{database_exists} = -e File::Spec->catfile($dbDir, 'bliss.db') ? 1 : 0;
     $paramRef->{matrix_exists} = -e File::Spec->catfile($dbDir, 'learned_matrix.json') ? 1 : 0;
-    $paramRef->{statistics_enabled} = main::STATISTICS ? 1 : 0;
     $paramRef->{lastmix_available} = Slim::Utils::PluginManager->isEnabled(
         'Plugins::LastMix::Plugin'
     ) ? 1 : 0;
-    $paramRef->{upstream_lastfm_enabled} =
-        $upstreamPrefs->get('use_adaptive_weights')
-        && $upstreamPrefs->get('use_lastfm_weighting') ? 1 : 0;
     $paramRef->{no_learner_binary} = !Slim::Utils::Misc::findbin('bliss-learner');
     $paramRef->{learning_start_text} = string('BLISSMIXERLAB_LEARNING_START_TIME');
     $paramRef->{learning_duration_text} = string('BLISSMIXERLAB_LEARNING_DURATION');
@@ -75,7 +73,6 @@ sub handler {
     my ($class, $client, $paramRef) = @_;
     for my $setting (
         ['pref_learned_blend', 0, 100],
-        ['pref_playcount_influence', -100, 100],
         ['pref_lastfm_track_guidance_percent', 0, 100],
     ) {
         my ($name, $minimum, $maximum) = @$setting;

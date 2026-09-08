@@ -38,8 +38,9 @@ required = {
     "canonical training triplets": "'training_triplets.json'",
     "legacy data migration": "_migrateLearningFile",
     "sidecar learner notifications": '"--lms-command", "blissmixerlab"',
-    "runtime statistics gate": "return 0 unless _statisticsEnabled()",
-    "shared Last.fm/play-count pool": "_candidatePoolMultiplier",
+    "shared upstream candidate reranker": "Plugins::BlissMixer::CandidateSelection::selectCandidates",
+    "upstream Last.fm artist lookup": "Plugins::BlissMixer::Plugin::_fetchSimilarArtistsForSeeds",
+    "upstream play-count preference": "$prefs->get('playcount_influence')",
     "Last.fm similar-track lookup": "getSimilarTracks",
     "bounded Last.fm evidence deadline": "LASTFM_EVIDENCE_TIMEOUT",
     "Lab mix context action": "BLISSMIXERLAB_CREATE_MIX",
@@ -73,6 +74,9 @@ for forbidden in (
     "registerInfoProvider( blisssimilarity =>",
     "registerInfoProvider( blisssimilaritybyartist =>",
     "registerHandler(\n        blissmixer =>",
+    "$labprefs->get('playcount_influence')",
+    "sub _fetchSimilarArtistsForSeeds",
+    "sub _lastfmNormalizeArtist",
 ):
     if forbidden in plugin_source:
         fail(f"sidecar contains conflicting registration: {forbidden}")
@@ -96,20 +100,16 @@ if 'blissmixer-triplets-${ts}.zip' not in survey_source:
 settings = (PLUGIN / "HTML/EN/plugins/BlissMixerLab/settings/blissmixerlab.html").read_text(encoding="utf-8")
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref not in {
-        "learned_blend", "playcount_influence",
-        "lastfm_track_guidance_percent", "triplets_backup_path",
+        "learned_blend", "lastfm_track_guidance_percent",
+        "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
 if 'name="pref_mixer_port"' in settings:
     fail("settings page must not expose the sidecar's internal mixer port")
 if "sliderInput_0_100_1" not in settings:
     fail("learned matrix influence must use the LMS slider control")
-if "sliderInput_-100_100_1" not in settings:
-    fail("play-count influence must use the bidirectional LMS slider control")
-if not re.search(r'id="playcount_influence"[^>]+\[% UNLESS statistics_enabled %\]disabled', settings):
-    fail("play-count influence slider must be disabled without LMS statistics")
-if "sliderInput_-100_100_5" in settings or 'step="5"' in settings:
-    fail("play-count influence must use one-point steps")
+if 'pref_playcount_influence' in settings:
+    fail("play-count influence belongs to upstream Bliss Mixer, not the Lab settings")
 if 'id="lastfm_track_guidance_percent"' not in settings:
     fail("settings page must expose Last.fm similar-track guidance")
 for section in ("status-section", "mix-section", "learning-section"):
@@ -147,10 +147,8 @@ if "protectName('BLISSMIXERLAB')" not in settings_source:
     fail("settings menu name must use the BLISSMIXERLAB localization token")
 if "$paramRef->{host}" not in settings_source:
     fail("settings JSON-RPC URL must prefer the browser-facing LMS request host")
-if "$paramRef->{statistics_enabled} = main::STATISTICS ? 1 : 0" not in settings_source:
-    fail("settings must expose live LMS statistics availability")
-if "$paramRef->{upstream_lastfm_enabled}" not in settings_source:
-    fail("settings must expose the upstream Last.fm configuration")
+if "require Plugins::BlissMixer::CandidateSelection" not in settings_source:
+    fail("settings compatibility must require upstream candidate-reranking support")
 
 strings_path = PLUGIN / "strings.txt"
 strings_source = strings_path.read_text(encoding="utf-8")
@@ -189,6 +187,8 @@ for implementation_detail in (
 ):
     if implementation_detail in strings_source:
         fail(f"play-count help must omit implementation detail: {implementation_detail}")
+if "BLISSMIXERLAB_PLAYCOUNT" in strings_source:
+    fail("Lab strings must not expose the upstream play-count feature")
 
 referenced_tokens = {
     manifest.findtext("name"),

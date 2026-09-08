@@ -34,11 +34,6 @@
     [% ELSE %]
         <p style="color:#c9302c">[% "BLISSMIXERLAB_DATABASE_MISSING" | string %]</p>
     [% END %]
-    [% IF statistics_enabled %]
-        <p style="color:#398439">[% "BLISSMIXERLAB_STATISTICS_OK" | string %]</p>
-    [% ELSE %]
-        <p style="color:#c9302c">[% "BLISSMIXERLAB_STATISTICS_UNAVAILABLE" | string %]</p>
-    [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>
 
@@ -49,17 +44,9 @@
         <input type="number" min="0" max="100" class="stdedit sliderInput_0_100_1" name="pref_learned_blend" id="learned_blend" value="[% prefs.learned_blend %]" size="5">
     [% END %]
 
-    [% WRAPPER settingGroup title="BLISSMIXERLAB_PLAYCOUNT_INFLUENCE" desc="BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_DESC" %]
-        <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_playcount_influence" id="playcount_influence" value="[% prefs.playcount_influence %]" size="5" [% UNLESS statistics_enabled %]disabled[% END %]>
-        [% UNLESS statistics_enabled %]
-            <input type="hidden" name="pref_playcount_influence" value="[% prefs.playcount_influence %]">
-            <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_UNAVAILABLE" | string %]</div>
-        [% END %]
-    [% END %]
-
     [% WRAPPER settingGroup title="BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE" desc="BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_DESC" %]
-        <input type="number" min="0" max="100" step="1" class="stdedit sliderInput_0_100_1" name="pref_lastfm_track_guidance_percent" id="lastfm_track_guidance_percent" value="[% prefs.lastfm_track_guidance_percent %]" size="5" [% UNLESS lastmix_available && upstream_lastfm_enabled %]disabled[% END %]>
-        [% UNLESS lastmix_available && upstream_lastfm_enabled %]
+        <input type="number" min="0" max="100" step="1" class="stdedit sliderInput_0_100_1" name="pref_lastfm_track_guidance_percent" id="lastfm_track_guidance_percent" value="[% prefs.lastfm_track_guidance_percent %]" size="5" [% UNLESS lastmix_available %]disabled[% END %]>
+        [% UNLESS lastmix_available %]
             <input type="hidden" name="pref_lastfm_track_guidance_percent" value="[% prefs.lastfm_track_guidance_percent %]">
             <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE" | string %]</div>
         [% END %]

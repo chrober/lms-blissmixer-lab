@@ -26,7 +26,7 @@ BLISSMIXERLAB_UPSTREAM_OK
 	EN	Compatible installed BlissMixer version:
 
 BLISSMIXERLAB_UPSTREAM_MISSING
-	EN	BlissMixerLab requires an enabled upstream BlissMixer 0.10.0 or newer. Detected version:
+	EN	BlissMixerLab requires an enabled upstream BlissMixer 0.10.0 or newer with candidate-reranking support. Detected version:
 
 BLISSMIXERLAB_DATABASE_OK
 	EN	The upstream analysis database is available.
@@ -34,14 +34,8 @@ BLISSMIXERLAB_DATABASE_OK
 BLISSMIXERLAB_DATABASE_MISSING
 	EN	No bliss.db was found. Run analysis from the upstream BlissMixer settings first.
 
-BLISSMIXERLAB_STATISTICS_OK
-	EN	Lyrion listening statistics are enabled; play counts are available.
-
-BLISSMIXERLAB_STATISTICS_UNAVAILABLE
-	EN	Lyrion listening statistics are disabled, so play counts are unavailable. Remove the --nostatistics server startup option and restart Lyrion to enable them.
-
 BLISSMIXERLAB_SETTINGS_NOTE
-	EN	BlissMixerLab uses the mixer, filter, seed, genre, and Last.fm settings from upstream BlissMixer. Only experimental settings are shown here.
+	EN	BlissMixerLab uses the mixing strategy, candidate-selection, filter, seed, and genre settings from upstream Bliss Mixer. Only experimental settings are shown here.
 
 BLISSMIXERLAB_MIX_SETTINGS
 	EN	Experimental mix settings
@@ -55,15 +49,6 @@ BLISSMIXERLAB_LEARNED_BLEND
 BLISSMIXERLAB_LEARNED_BLEND_DESC
 	EN	For multiple adaptive-weighting seeds, controls how strongly the learned matrix influences similarity. 0 is variance only; 100 is learned matrix only. A single seed uses the learned matrix directly.
 
-BLISSMIXERLAB_PLAYCOUNT_INFLUENCE
-	EN	Play-count influence
-
-BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_DESC
-	EN	Controls how listening history affects track selection. Negative values prefer less-played tracks, 0 ignores play counts, and positive values prefer frequently played tracks.
-
-BLISSMIXERLAB_PLAYCOUNT_INFLUENCE_UNAVAILABLE
-	EN	This setting requires Lyrion listening statistics. They are disabled when the server is started with --nostatistics.
-
 BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE
 	EN	Last.fm similar-track guidance
 
@@ -71,7 +56,7 @@ BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_DESC
 	EN	Controls the bounded influence of Last.fm track similarity among local Bliss candidates. Zero disables similar-track lookups. Default: 25.
 
 BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE
-	EN	Requires LastMix and the Adaptive weightings and Last.fm artist weighting options to be enabled in the original Bliss Mixer settings.
+	EN	Requires the LastMix plugin to be installed and enabled.
 
 BLISSMIXERLAB_LEARNING
 	EN	Metric learning
