@@ -5,7 +5,7 @@
     <icon>plugins/BlissMixerLab/html/images/blissmixerlab.png</icon>
     <name>BLISSMIXERLAB</name>
     <module>Plugins::BlissMixerLab::Plugin</module>
-    <version>0.6.0</version>
+    <version>0.6.1</version>
     <description>BLISSMIXERLAB_DESC</description>
     <creator>Christoph O'Bermair</creator>
     <defaultState>

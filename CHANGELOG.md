@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1 - 2026-09-09
+
+- Clarify Companion status by naming the upstream analysis database as
+  `bliss.db`.
+
 ## 0.6.0 - 2026-09-08
 
 - Remove the Lab-owned play-count setting now that play-count influence is

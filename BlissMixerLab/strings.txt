@@ -29,10 +29,10 @@ BLISSMIXERLAB_UPSTREAM_MISSING
 	EN	BlissMixerLab requires an enabled upstream BlissMixer 0.10.0 or newer with candidate-reranking support. Detected version:
 
 BLISSMIXERLAB_DATABASE_OK
-	EN	The upstream analysis database is available.
+	EN	The upstream analysis database (%s) is available.
 
 BLISSMIXERLAB_DATABASE_MISSING
-	EN	No bliss.db was found. Run analysis from the upstream BlissMixer settings first.
+	EN	No %s was found. Run analysis from the upstream BlissMixer settings first.
 
 BLISSMIXERLAB_SETTINGS_NOTE
 	EN	BlissMixerLab uses the mixing strategy, candidate-selection, filter, seed, and genre settings from upstream Bliss Mixer. Only experimental settings are shown here.

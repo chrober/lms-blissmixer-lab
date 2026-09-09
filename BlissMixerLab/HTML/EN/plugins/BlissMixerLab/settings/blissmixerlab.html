@@ -30,9 +30,9 @@
         <p style="color:#c9302c">[% "BLISSMIXERLAB_UPSTREAM_MISSING" | string %][% IF upstream_version %] [% upstream_version %].[% END %]</p>
     [% END %]
     [% IF database_exists %]
-        <p style="color:#398439">[% "BLISSMIXERLAB_DATABASE_OK" | string %]</p>
+        <p style="color:#398439">[% "BLISSMIXERLAB_DATABASE_OK" | string("<code>bliss.db</code>") %]</p>
     [% ELSE %]
-        <p style="color:#c9302c">[% "BLISSMIXERLAB_DATABASE_MISSING" | string %]</p>
+        <p style="color:#c9302c">[% "BLISSMIXERLAB_DATABASE_MISSING" | string("<code>bliss.db</code>") %]</p>
     [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>

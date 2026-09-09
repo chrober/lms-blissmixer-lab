@@ -98,6 +98,8 @@ if 'blissmixer-triplets-${ts}.zip' not in survey_source:
     fail("training-data backups must retain the established BlissMixer filename")
 
 settings = (PLUGIN / "HTML/EN/plugins/BlissMixerLab/settings/blissmixerlab.html").read_text(encoding="utf-8")
+if 'string("<code>bliss.db</code>")' not in settings:
+    fail("companion status must render bliss.db in a fixed-width font")
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref not in {
         "learned_blend", "lastfm_track_guidance_percent",
