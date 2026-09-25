@@ -103,6 +103,7 @@ if 'string("<code>bliss.db</code>")' not in settings:
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref not in {
         "learned_blend", "lastfm_track_guidance_percent",
+        "last_played_influence", "library_age_influence",
         "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
@@ -114,6 +115,9 @@ if 'pref_playcount_influence' in settings:
     fail("play-count influence belongs to upstream Bliss Mixer, not the Lab settings")
 if 'id="lastfm_track_guidance_percent"' not in settings:
     fail("settings page must expose Last.fm similar-track guidance")
+for local_signal in ("last_played_influence", "library_age_influence"):
+    if f'id="{local_signal}"' not in settings:
+        fail(f"settings page must expose {local_signal}")
 for section in ("status-section", "mix-section", "learning-section"):
     if f'id="{section}-header"' not in settings or f'id="{section}"' not in settings:
         fail(f"settings page is missing the {section} grouping")

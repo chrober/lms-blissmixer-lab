@@ -58,6 +58,18 @@ BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_DESC
 BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE
 	EN	Requires the LastMix plugin to be installed and enabled.
 
+BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
+	EN	Last-played influence
+
+BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC
+	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's last-played timestamp. Negative values favor songs heard longer ago; positive values favor recently played songs. Zero is neutral.
+
+BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE
+	EN	Library-age influence
+
+BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE_DESC
+	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's library-added timestamp. Negative values favor older library additions; positive values favor newer additions. Zero is neutral. A full LMS database rebuild can reset this timestamp.
+
 BLISSMIXERLAB_LEARNING
 	EN	Metric learning
 

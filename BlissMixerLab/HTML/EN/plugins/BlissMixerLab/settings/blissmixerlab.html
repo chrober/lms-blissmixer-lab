@@ -51,6 +51,14 @@
             <div style="opacity:0.6;margin-top:4px">[% "BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE" | string %]</div>
         [% END %]
     [% END %]
+
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE" desc="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC" %]
+        <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_last_played_influence" id="last_played_influence" value="[% prefs.last_played_influence %]" size="5">
+    [% END %]
+
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE" desc="BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE_DESC" %]
+        <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_library_age_influence" id="library_age_influence" value="[% prefs.library_age_influence %]" size="5">
+    [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>
 

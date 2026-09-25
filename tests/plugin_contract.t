@@ -41,6 +41,8 @@ BEGIN {
         'plugin.blissmixerlab' => {
             learned_blend => 50,
             lastfm_track_guidance_percent => 25,
+            last_played_influence => 0,
+            library_age_influence => 0,
         },
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
@@ -310,6 +312,12 @@ is(Plugins::BlissMixerLab::Plugin::_upstreamLastfmProbability(), 25,
     'Last.fm artist probability is inherited from upstream Bliss Mixer');
 is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
     'play-count influence is inherited from upstream Bliss Mixer');
+$TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
+is(Plugins::BlissMixerLab::Plugin::_lastPlayedInfluence(), -100,
+    'last-played influence is clamped to the signed preference range');
+$TestPrefs::values{'plugin.blissmixerlab'}{library_age_influence} = 125;
+is(Plugins::BlissMixerLab::Plugin::_libraryAgeInfluence(), 100,
+    'library-age influence is clamped to the signed preference range');
 my @lastfm_track_candidates = (
     TestTrack->new('unmatched', 0, 'Artist', 'Unmatched'),
     TestTrack->new('track-match', 0, 'Artist', 'Matched'),
@@ -333,6 +341,38 @@ is(
     $Plugins::BlissMixer::CandidateSelection::calls[-1][2],
     0,
     'Lab delegates candidate selection to the upstream component',
+);
+
+my @local_signal_candidates = (
+    TestTrack->new('heard-recently', 0, 'Artist', 'Recent'),
+    TestTrack->new('heard-long-ago', 0, 'Artist', 'Long ago'),
+);
+my $localSignals = Plugins::BlissMixerLab::LocalLibrarySignals::prepare(
+    \@local_signal_candidates,
+    -100,
+    0,
+    sub {
+        return {
+            'heard-recently' => { lastPlayed => 2000 },
+            'heard-long-ago' => { lastPlayed => 1000 },
+        };
+    },
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+        \@local_signal_candidates,
+        1,
+        0,
+        undef,
+        undef,
+        sub { 0.5 },
+        undef,
+        0,
+        'static weights',
+        $localSignals,
+    ),
+    ['heard-long-ago'],
+    'Lab applies last-played guidance through the shared candidate selector callback',
 );
 
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),

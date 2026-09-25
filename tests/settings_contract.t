@@ -83,7 +83,7 @@ is(
 my (undef, @preference_names) = Plugins::BlissMixerLab::Settings->prefs();
 is_deeply(
     \@preference_names,
-    [qw(learned_blend lastfm_track_guidance_percent triplets_backup_path)],
+    [qw(learned_blend lastfm_track_guidance_percent last_played_influence library_age_influence triplets_backup_path)],
     'settings expose only user-meaningful experimental preferences',
 );
 
@@ -123,9 +123,15 @@ is(
 
 my %submitted = (
     pref_lastfm_track_guidance_percent => 101,
+    pref_last_played_influence => -101,
+    pref_library_age_influence => 101,
 );
 Plugins::BlissMixerLab::Settings->handler(undef, \%submitted);
 is($submitted{pref_lastfm_track_guidance_percent}, 100,
     'submitted Last.fm track guidance is clamped');
+is($submitted{pref_last_played_influence}, -100,
+    'submitted last-played influence preserves the signed lower bound');
+is($submitted{pref_library_age_influence}, 100,
+    'submitted library-age influence preserves the signed upper bound');
 
 done_testing();

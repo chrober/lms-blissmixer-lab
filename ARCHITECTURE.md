@@ -22,20 +22,30 @@ The two preference namespaces are deliberately separate:
   genre groups, DSTM count, Last.fm artist probability, and play-count
   influence.
 - `plugin.blissmixerlab` supplies only the learned blend, Last.fm
-  similar-track guidance, and training-data backup path.
+  similar-track guidance, last-played and library-age influence, and
+  training-data backup path.
 
 ## Candidate reranking
 
 BlissMixerLab requests candidates from its sidecar mixer using the Static
 Weights, EIF, or Adaptive Weightings strategy configured in Bliss Mixer. It
 delegates Last.fm artist and play-count reranking to Bliss Mixer's shared
-candidate selector, adding only its Last.fm recording-similarity factor to the
-same selection pass. Learned-matrix weighting applies only to Adaptive
-Weightings. Last.fm recording matches prefer MusicBrainz recording IDs and fall
+candidate selector, adding its Last.fm recording-similarity factor and optional
+local listening/library factors to the same selection pass. Last-played and
+library-age values are read in one bounded lookup against Lyrion's
+`persistentdb.tracks_persistent` table for the Bliss-derived DSTM pool, not by
+scanning the library. They use the same signed `-100` through `100` preference
+semantics as upstream play-count influence. Learned-matrix weighting applies
+only to Adaptive Weightings. Last.fm recording matches prefer MusicBrainz
+recording IDs and fall
 back to normalized artist/title identity. Track and artist request lanes run
 concurrently and are bounded by a DSTM deadline; partial evidence is usable and
 provider failure falls back to the remaining signals or the original Bliss
 order.
+
+Local library signals deliberately do not rely on Alternative Play Count (APC).
+APC can later be represented by a separate provider with its own semantics;
+this Lab feature uses only Lyrion's built-in persistent metadata.
 
 The analyser and mixer may access SQLite concurrently. While upstream analysis
 is running, the sidecar keeps an existing mixer available and suppresses

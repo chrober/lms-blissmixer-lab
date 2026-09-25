@@ -31,6 +31,7 @@ sub page {
 
 sub prefs {
     return ($prefs, 'learned_blend', 'lastfm_track_guidance_percent',
+        'last_played_influence', 'library_age_influence',
         'triplets_backup_path');
 }
 
@@ -74,6 +75,8 @@ sub handler {
     for my $setting (
         ['pref_learned_blend', 0, 100],
         ['pref_lastfm_track_guidance_percent', 0, 100],
+        ['pref_last_played_influence', -100, 100],
+        ['pref_library_age_influence', -100, 100],
     ) {
         my ($name, $minimum, $maximum) = @$setting;
         next unless defined $paramRef->{$name};
