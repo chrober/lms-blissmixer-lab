@@ -1701,7 +1701,7 @@ sub _selectWeightedCandidates {
             my $signals = Plugins::BlissMixerLab::LocalLibrarySignals::forTrack(
                 $localSignals, $track
             );
-            for my $field (qw(last_played_percentile last_played_weight library_age_percentile library_age_weight)) {
+            for my $field (qw(last_played added last_played_percentile last_played_weight library_age_percentile library_age_weight)) {
                 $entry->{$field} = $signals->{$field}
                     if exists $signals->{$field};
             }
@@ -1763,31 +1763,64 @@ sub _selectWeightedCandidates {
         ));
         $log->info('Candidate refinements have no usable variation; keeping Bliss candidate order')
             unless $result->{reranked};
-        $log->info($_) for @{_selectionLogLines(
-            $selected, $poolSize, $playCountInfluence != 0
-        )};
     }
-    if (main::DEBUGLOG) {
-        for my $entry (@$selected) {
-            $log->debug(sprintf(
-                'Candidate diagnostics: strategy=%s, similarity-rank=%d/%d, similarity-weight=%.3f, playcount=%d, playcount-weight=%.3f, Last.fm-artist-endorsed=%d, Last.fm-artist-weight=%.3f, Last.fm-track-support=%.3f, Last.fm-track-weight=%.3f, last-played-percentile=%s, last-played-weight=%.3f, library-age-percentile=%s, library-age-weight=%.3f, total-weight=%.3f, track=%s - %s',
-                $strategy, $entry->{rank}, $poolSize,
-                $entry->{similarity_weight} || 1,
-                $entry->{playcount} || 0,
-                $entry->{playcount_weight} || 1,
-                $entry->{endorsed} ? 1 : 0,
-                $entry->{lastfm_weight} || 1,
-                $entry->{track_support} || 0,
-                $entry->{track_weight} || 1,
-                defined $entry->{last_played_percentile}
-                    ? sprintf('%.3f', $entry->{last_played_percentile}) : 'n/a',
-                $entry->{last_played_weight} || 1,
-                defined $entry->{library_age_percentile}
-                    ? sprintf('%.3f', $entry->{library_age_percentile}) : 'n/a',
-                $entry->{library_age_weight} || 1,
-                $entry->{weight} || 1,
-                $entry->{track}->artistName, $entry->{track}->title,
-            ));
+
+    if (main::INFOLOG || main::DEBUGLOG) {
+        my $selectionLines = _selectionLogLines(
+            $selected, $poolSize, $playCountInfluence != 0,
+            $localSignals && $localSignals->{last_played_influence},
+            $localSignals && $localSignals->{library_age_influence},
+        );
+
+        for my $index (0 .. $#$selected) {
+            my $entry = $selected->[$index];
+
+            if (main::INFOLOG) {
+                $log->info($selectionLines->[$index * 2]);
+                $log->info($selectionLines->[$index * 2 + 1]);
+            }
+
+            if (main::DEBUGLOG) {
+                my $similarityWeight = $entry->{similarity_weight} || 1;
+                my $playCountWeight = $entry->{playcount_weight} || 1;
+                my $trackWeight = $entry->{track_weight} || 1;
+                my $lastPlayedWeight = $entry->{last_played_weight} || 1;
+                my $libraryAgeWeight = $entry->{library_age_weight} || 1;
+                my $artistWeight = $entry->{lastfm_weight} || 1;
+                my $otherFactors = $similarityWeight * $playCountWeight
+                    * $trackWeight * $lastPlayedWeight * $libraryAgeWeight;
+                my $totalWeight = $entry->{weight} || 1;
+                my $key = defined $entry->{key} ? $entry->{key} : 0;
+                my $cutoff = @$selected && defined $selected->[-1]->{key}
+                    ? $selected->[-1]->{key} : 0;
+
+                my @boosts = sort { $b->[1] <=> $a->[1] } (
+                    ['playcount', $playCountWeight],
+                    ['Last.fm artist', $artistWeight],
+                    ['Last.fm track', $trackWeight],
+                    ['last-played', $lastPlayedWeight],
+                    ['library-age', $libraryAgeWeight],
+                );
+                my $dominantBoost = $boosts[0]->[1] > 1.000001
+                    ? $boosts[0]->[0] : 'none';
+
+                $log->debug(sprintf(
+                    '    Diagnostics: similarity=%.3f, playcount=%.3f, Last.fm-track=%.3f, last-played=%.3f, library-age=%.3f => pre-Last.fm=%.3f',
+                    $similarityWeight, $playCountWeight, $trackWeight,
+                    $lastPlayedWeight, $libraryAgeWeight, $otherFactors,
+                ));
+                if ($result->{reranked}) {
+                    $log->debug(sprintf(
+                        '    Selection: dominant boost=%s; pre-Last.fm=%.3f x Last.fm-artist=%.3f => total=%.3f; key=%.6f >= cutoff=%.6f',
+                        $dominantBoost, $otherFactors, $artistWeight, $totalWeight,
+                        $key, $cutoff,
+                    ));
+                } else {
+                    $log->debug(
+                        '    Selection: no effective reranking => kept Bliss candidate order'
+                    );
+                }
+            }
         }
     }
 
@@ -1795,7 +1828,7 @@ sub _selectWeightedCandidates {
 }
 
 sub _selectionLogLines {
-    my ($selected, $poolSize, $showPlayCount) = @_;
+    my ($selected, $poolSize, $showPlayCount, $showLastPlayed, $showAdded) = @_;
     my $rankWidth = length("$poolSize");
     my $tierWidth = 0;
     my $playCountWidth = 1;
@@ -1815,16 +1848,40 @@ sub _selectionLogLines {
         my $leftPadding = ' ' x int($padding / 2);
         my $rightPadding = ' ' x ($padding - int($padding / 2));
         my $playCount = $showPlayCount
-            ? sprintf('playcount=%*d | ', $playCountWidth, $entry->{playcount} || 0)
+            ? sprintf('playcount=%*d', $playCountWidth, $entry->{playcount} || 0)
             : '';
+        my $added = $showAdded && defined $entry->{added}
+            ? 'added=' . _selectionDate($entry->{added})
+            : '';
+        my $lastPlayed = '';
+        if ($showLastPlayed) {
+            my $lastPlayedValue = defined $entry->{last_played}
+                ? _selectionDate($entry->{last_played})
+                : (($entry->{playcount} || 0) == 0 ? 'never' : 'unknown');
+            $lastPlayed = sprintf('last-played=%-10s', $lastPlayedValue);
+        }
+        my @metadata = (
+            sprintf('similarity-rank %*d/%d', $rankWidth, $entry->{rank}, $poolSize),
+            $leftPadding . $tier . $rightPadding,
+        );
+        push @metadata, $added if length $added;
+        push @metadata, $lastPlayed if length $lastPlayed;
+        push @metadata, $playCount if length $playCount;
+
         push @lines, sprintf(
-            '  [%s%s%s| %ssimilarity-rank %*d/%d ] %s - %s',
-            $leftPadding, $tier, $rightPadding, $playCount,
-            $rankWidth, $entry->{rank}, $poolSize,
+            '  %s - %s',
             $entry->{track}->artistName, $entry->{track}->title,
         );
+        push @lines, '    [ ' . join(' | ', @metadata) . ' ]';
     }
     return \@lines;
+}
+
+sub _selectionDate {
+    my $epoch = int($_[0] || 0);
+    return 'never' unless $epoch > 0;
+    my @parts = localtime($epoch);
+    return sprintf('%04d-%02d-%02d', $parts[5] + 1900, $parts[4] + 1, $parts[3]);
 }
 
 sub _selectionEvidenceTier {

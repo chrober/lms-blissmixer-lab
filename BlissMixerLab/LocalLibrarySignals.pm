@@ -57,6 +57,8 @@ sub prepare {
             ? _weight($libraryAgePercentiles->{$url}, $libraryAgeInfluence)
             : 1;
         $byUrl{$url} = {
+            last_played => $lastPlayed{$url},
+            added => $libraryAge{$url},
             last_played_percentile => $lastPlayedPercentiles->{$url},
             last_played_weight => $lastPlayedWeight,
             library_age_percentile => $libraryAgePercentiles->{$url},
