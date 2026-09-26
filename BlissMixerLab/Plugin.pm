@@ -102,6 +102,8 @@ sub initPlugin {
     $labprefs->init({
         learned_blend    => 50,
         lastfm_track_guidance_percent => 25,
+        lastfm_artist_reranking_strategy => 'bounded_influence',
+        lastfm_artist_influence_percent => 25,
         last_played_influence => 0,
         library_age_influence => 0,
         triplets_backup_path => ''
@@ -1235,7 +1237,13 @@ sub _dstmMix {
             my $dstm_tracks = $prefs->get('dstm_tracks') || DEF_NUM_DSTM_TRACKS;
             my $lastfmAvailable = exists $INC{'Plugins/LastMix/LFM.pm'};
             my $lastfmProbability = _upstreamLastfmProbability();
-            my $lastfmWeighting = $lastfmAvailable && $lastfmProbability > 0;
+            my $lastfmArtistStrategy = _lastfmArtistRerankingStrategy();
+            my $lastfmArtistInfluence = _lastfmArtistInfluence();
+            my $lastfmArtistWeighting = $lastfmAvailable && (
+                ($lastfmArtistStrategy eq 'target_share' && $lastfmProbability > 0)
+                || ($lastfmArtistStrategy eq 'bounded_influence' && $lastfmArtistInfluence > 0)
+            );
+            my $lastfmWeighting = $lastfmArtistWeighting;
             my $lastfmTrackGuidance = $lastfmAvailable
                 ? _lastfmTrackGuidance() : 0;
             my $playCountInfluence = _upstreamPlayCountInfluence();
@@ -1256,10 +1264,12 @@ sub _dstmMix {
                 || $lastfmTrackGuidance || $localLibraryWeighting;
             my $shuffle = $expandedSelection ? 0 : 1;
             main::DEBUGLOG && $log->debug(sprintf(
-                'Candidate generation: strategy=%s, seeds=%d, requested=%d, selecting=%d, pool multiplier=%d, shuffle=%d, Last.fm artist probability=%d%%, play-count influence=%+d, Last.fm track influence=%d%%, last-played influence=%+d, library-age influence=%+d',
+                'Candidate generation: strategy=%s, seeds=%d, requested=%d, selecting=%d, pool multiplier=%d, shuffle=%d, Last.fm artist mode=%s, artist probability=%d%%, artist influence=%d%%, play-count influence=%+d, Last.fm track influence=%d%%, last-played influence=%+d, library-age influence=%+d',
                 $strategy, scalar(@seedsToUse), $requestCount, $dstm_tracks,
                 $poolMultiplier, $shuffle,
-                $lastfmWeighting ? $lastfmProbability : 0,
+                $lastfmArtistStrategy,
+                $lastfmArtistStrategy eq 'target_share' ? $lastfmProbability : 0,
+                $lastfmArtistStrategy eq 'bounded_influence' ? $lastfmArtistInfluence : 0,
                 $playCountInfluence, $lastfmTrackGuidance,
                 $lastPlayedInfluence, $libraryAgeInfluence,
             ));
@@ -1428,9 +1438,13 @@ sub _dstmMix {
                                 _selectViaLastFm(\@seedsToUse, \@trackObjs, $dstm_tracks, sub {
                                     my $weightedUrls = shift;
                                     $cb->($client, $weightedUrls);
-                                }, $lastfmWeighting, $lastfmProbability,
+                                }, $lastfmWeighting,
+                                    $lastfmArtistStrategy eq 'target_share'
+                                        ? $lastfmProbability : 0,
                                     $playCountInfluence, $lastfmTrackGuidance,
-                                    $strategy, $localSignals);
+                                    $strategy, $localSignals,
+                                    $lastfmArtistStrategy eq 'bounded_influence'
+                                        ? $lastfmArtistInfluence : 0);
                             } elsif ($playCountWeighting || $localLibraryWeighting) {
                                 my $weightedUrls = _selectWeightedCandidates(
                                     \@trackObjs, $dstm_tracks, $playCountInfluence,
@@ -1498,20 +1512,23 @@ sub _dstmMix {
 sub _selectViaLastFm {
     my ($seeds, $trackObjs, $finalCount, $cb, $artistWeighting,
         $targetPercent, $playCountInfluence, $trackGuidance, $strategy,
-        $localSignals) = @_;
+    $localSignals, $artistInfluence) = @_;
     $artistWeighting ||= 0;
     $targetPercent ||= 0;
     $playCountInfluence ||= 0;
     $trackGuidance ||= 0;
+    $artistInfluence ||= 0;
 
     my @seedInfo;
     my %lastfmArtists;
     my %seenArtists;
 
     main::DEBUGLOG && $log->debug(sprintf(
-        'Last.fm evidence: %d seeds, %d Bliss candidates, artist probability=%d%%, track influence=%d%%, selecting=%d',
+        'Last.fm evidence: %d seeds, %d Bliss candidates, artist mode=%s, artist probability=%d%%, artist influence=%d%%, track influence=%d%%, selecting=%d',
         scalar(@$seeds), scalar(@$trackObjs),
-        $artistWeighting ? $targetPercent : 0,
+        $artistInfluence ? 'bounded-influence' : ($artistWeighting ? 'target-share' : 'disabled'),
+        $artistWeighting && !$artistInfluence ? $targetPercent : 0,
+        $artistInfluence,
         $trackGuidance, $finalCount,
     ));
 
@@ -1566,7 +1583,8 @@ sub _selectViaLastFm {
             );
             $cb->(_selectWeightedCandidates(
                 $trackObjs, $finalCount, $playCountInfluence,
-                undef, 0, undef, undef, 0, $strategy, $localSignals
+                undef, 0, undef, undef, 0, $strategy, $localSignals,
+                $artistInfluence
             ));
             return;
         }
@@ -1588,6 +1606,7 @@ sub _selectViaLastFm {
             $trackGuidance,
             $strategy,
             $localSignals,
+            $artistInfluence,
         ));
     };
 
@@ -1652,6 +1671,18 @@ sub _upstreamLastfmProbability {
     return $probability;
 }
 
+sub _lastfmArtistRerankingStrategy {
+    my $strategy = $labprefs->get('lastfm_artist_reranking_strategy') || 'bounded_influence';
+    return $strategy eq 'target_share' ? 'target_share' : 'bounded_influence';
+}
+
+sub _lastfmArtistInfluence {
+    my $influence = int($labprefs->get('lastfm_artist_influence_percent') || 0);
+    $influence = 0 if $influence < 0;
+    $influence = 100 if $influence > 100;
+    return $influence;
+}
+
 sub _upstreamPlayCountInfluence {
     return 0 unless main::STATISTICS;
     my $influence = int($prefs->get('playcount_influence') || 0);
@@ -1677,14 +1708,31 @@ sub _libraryAgeInfluence {
 sub _selectWeightedCandidates {
     my ($trackObjs, $finalCount, $playCountInfluence, $lastfmArtists,
         $lastfmTarget, $random, $lastfmTracks, $trackGuidance, $strategy,
-        $localSignals) = @_;
+        $localSignals, $artistInfluence) = @_;
     $trackGuidance ||= 0;
     $strategy ||= 'unknown';
+    $artistInfluence ||= 0;
+    # Bounded artist influence is a per-candidate multiplier.  Do not also
+    # pass the upstream target-share percentage, or the same evidence would
+    # be applied twice by CandidateSelection.
+    $lastfmTarget = 0 if $artistInfluence;
 
-    my $trackWeightCallback = $trackGuidance
+    my $trackWeightCallback = $trackGuidance || $artistInfluence
         || ($localSignals && $localSignals->{active}) ? sub {
         my ($track, $entry) = @_;
         my $weight = 1;
+        if ($artistInfluence && $lastfmArtists) {
+            my $artistKey = Plugins::BlissMixer::Plugin::_lastfmNormalizeArtist(
+                eval { $track->artistName } || ''
+            );
+            my $artistMatch = exists $lastfmArtists->{$artistKey} ? 1 : 0;
+            my $artistWeight = _lastfmTrackWeight($artistMatch, $artistInfluence);
+            $entry->{endorsed} = $artistMatch;
+            $entry->{lastfm_artist_match} = $artistMatch;
+            $entry->{lastfm_artist_weight} = $artistWeight;
+            $entry->{lastfm_weight} = $artistWeight;
+            $weight *= $artistWeight;
+        }
         if ($trackGuidance) {
             my $trackSupport =
                 Plugins::BlissMixerLab::LastFmTrackSimilarity::candidateSupport(
@@ -1723,10 +1771,26 @@ sub _selectWeightedCandidates {
 
     if (main::INFOLOG) {
         my @details;
-        push @details, sprintf(
-            'Last.fm artists=%d/%d (target=%d%%)',
-            $result->{endorsed_count}, $poolSize, $lastfmTarget
-        ) if $lastfmArtists;
+        my $artistMode = $artistInfluence ? 'bounded-influence'
+            : ($lastfmTarget ? 'target-share' : 'disabled');
+        my $artistMatches = $artistInfluence
+            ? scalar(grep { $_->{lastfm_artist_match} } @$entries)
+            : ($result->{endorsed_count} || 0);
+        if ($lastfmArtists) {
+            if ($artistInfluence) {
+                push @details, sprintf(
+                    'Last.fm artists: mode=%s, matches=%d/%d, influence=%d%%, boost range=1.000-%.3f',
+                    $artistMode, $artistMatches, $poolSize, $artistInfluence,
+                    _lastfmTrackWeight(1, $artistInfluence),
+                );
+            } else {
+                push @details, sprintf(
+                    'Last.fm artists: mode=%s, matches=%d/%d, target=%d%%, calculated boost=%.3f',
+                    $artistMode, $artistMatches, $poolSize, $lastfmTarget,
+                    $result->{lastfm_weight} || 1,
+                );
+            }
+        }
         push @details, sprintf(
             'Last.fm tracks=%d/%d (influence=%d%%)',
             $trackMatchCount, $poolSize, $trackGuidance
@@ -1811,8 +1875,10 @@ sub _selectWeightedCandidates {
                 ));
                 if ($result->{reranked}) {
                     $log->debug(sprintf(
-                        '    Selection: dominant boost=%s; pre-Last.fm=%.3f x Last.fm-artist=%.3f => total=%.3f; key=%.6f >= cutoff=%.6f',
-                        $dominantBoost, $otherFactors, $artistWeight, $totalWeight,
+                        '    Selection: dominant boost=%s; Last.fm-artist-mode=%s; pre-Last.fm=%.3f x Last.fm-artist=%.3f => total=%.3f; key=%.6f >= cutoff=%.6f',
+                        $dominantBoost,
+                        $artistInfluence ? 'bounded-influence' : ($lastfmTarget ? 'target-share' : 'disabled'),
+                        $otherFactors, $artistWeight, $totalWeight,
                         $key, $cutoff,
                     ));
                 } else {

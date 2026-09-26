@@ -41,6 +41,8 @@ BEGIN {
         'plugin.blissmixerlab' => {
             learned_blend => 50,
             lastfm_track_guidance_percent => 25,
+            lastfm_artist_reranking_strategy => 'bounded_influence',
+            lastfm_artist_influence_percent => 25,
             last_played_influence => 0,
             library_age_influence => 0,
         },
@@ -310,6 +312,10 @@ is(Plugins::BlissMixerLab::Plugin::_lastfmTrackGuidance(), 100,
 
 is(Plugins::BlissMixerLab::Plugin::_upstreamLastfmProbability(), 25,
     'Last.fm artist probability is inherited from upstream Bliss Mixer');
+is(Plugins::BlissMixerLab::Plugin::_lastfmArtistRerankingStrategy(), 'bounded_influence',
+    'Lab defaults to bounded Last.fm artist influence');
+is(Plugins::BlissMixerLab::Plugin::_lastfmArtistInfluence(), 25,
+    'bounded Last.fm artist influence is read from Lab settings');
 is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
     'play-count influence is inherited from upstream Bliss Mixer');
 $TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
@@ -342,6 +348,30 @@ is(
     0,
     'Lab delegates candidate selection to the upstream component',
 );
+my @artist_influence_candidates = (
+    TestTrack->new('artist-unmatched', 0, 'Other artist', 'Other'),
+    TestTrack->new('artist-endorsed', 0, 'Endorsed artist', 'Endorsed'),
+);
+my $artist_influence_result = Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+        \@artist_influence_candidates,
+        1,
+        0,
+        {'endorsed artist' => 1},
+        0,
+        sub { 0.5 },
+        undef,
+        0,
+        'static weights',
+        undef,
+        25,
+    );
+is_deeply(
+    $artist_influence_result,
+    ['artist-endorsed'],
+    'bounded Last.fm artist influence promotes an endorsed candidate without target-share weighting',
+);
+is($Plugins::BlissMixer::CandidateSelection::calls[-1][4], 0,
+    'bounded artist influence disables upstream target-share weighting');
 
 my @local_signal_candidates = (
     TestTrack->new('heard-recently', 0, 'Artist', 'Recent'),
@@ -424,22 +454,24 @@ my $selection_log_lines = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
     20,
     1,
 );
-like($selection_log_lines->[0], qr/bliss-only/,
-    'combined selection log retains the Bliss-only tier');
-like($selection_log_lines->[1], qr/last\.fm-endorsed \(a\)/,
-    'combined selection log marks artist endorsement');
-like($selection_log_lines->[2], qr/last\.fm-endorsed \(a\+t\)/,
-    'combined selection log distinguishes recording plus artist evidence');
-like($selection_log_lines->[3], qr/last\.fm-endorsed \(t\)/,
-    'combined selection log marks recording-only endorsement');
-like($selection_log_lines->[0], qr/^  \[ .* \| playcount=/,
-    'selection log keeps padding immediately inside the brackets');
-like($selection_log_lines->[0], qr/ similarity-rank\s+2\/20 \] /,
-    'selection log keeps the historical space before the closing bracket');
+is(scalar @$selection_log_lines, 8,
+    'selection log emits a title and metadata line for each candidate');
+like($selection_log_lines->[0], qr/^  Ten Years After - Here They Come$/,
+    'selection log starts with the candidate title');
+like($selection_log_lines->[1], qr/^    \[ .*bliss-only.* \| playcount=/,
+    'selection metadata retains the Bliss-only tier and play count');
+like($selection_log_lines->[3], qr/last\.fm-endorsed \(a\)/,
+    'selection metadata marks artist endorsement');
+like($selection_log_lines->[5], qr/last\.fm-endorsed \(a\+t\)/,
+    'selection metadata distinguishes recording plus artist evidence');
+like($selection_log_lines->[7], qr/last\.fm-endorsed \(t\)/,
+    'selection metadata marks recording-only endorsement');
+like($selection_log_lines->[1], qr/similarity-rank\s+2\/20 .* \]$/,
+    'selection metadata keeps the historical space before the closing bracket');
 unlike(join("\n", @$selection_log_lines), qr/(?:track-support|weight=)/,
     'informational selection rows omit numeric implementation diagnostics');
 my ($leftTierPadding, $rightTierPadding) =
-    $selection_log_lines->[0] =~ /^  \[(\s*)bliss-only(\s*)\|/;
+    $selection_log_lines->[1] =~ /^    \[.*?\|(\s*)bliss-only(\s*)\|/;
 ok(length($leftTierPadding) > 1 && length($rightTierPadding) > 1,
     'the shorter Bliss-only label has visible padding on both sides');
 cmp_ok(abs(length($leftTierPadding) - length($rightTierPadding)), '<=', 1,
@@ -448,10 +480,10 @@ my @first_pipes;
 my @second_pipes;
 my @third_pipes;
 my @fourth_pipes;
-while ($selection_log_lines->[0] =~ /\|/g) { push @first_pipes, pos($selection_log_lines->[0]) }
-while ($selection_log_lines->[1] =~ /\|/g) { push @second_pipes, pos($selection_log_lines->[1]) }
-while ($selection_log_lines->[2] =~ /\|/g) { push @third_pipes, pos($selection_log_lines->[2]) }
-while ($selection_log_lines->[3] =~ /\|/g) { push @fourth_pipes, pos($selection_log_lines->[3]) }
+while ($selection_log_lines->[1] =~ /\|/g) { push @first_pipes, pos($selection_log_lines->[1]) }
+while ($selection_log_lines->[3] =~ /\|/g) { push @second_pipes, pos($selection_log_lines->[3]) }
+while ($selection_log_lines->[5] =~ /\|/g) { push @third_pipes, pos($selection_log_lines->[5]) }
+while ($selection_log_lines->[7] =~ /\|/g) { push @fourth_pipes, pos($selection_log_lines->[7]) }
 is_deeply(\@first_pipes, \@second_pipes,
     'combined selection log pipe separators align between Bliss and artist tiers');
 is_deeply(\@first_pipes, \@third_pipes,
@@ -468,9 +500,11 @@ my $artist_only_log = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
     20,
     0,
 );
-like($artist_only_log->[0],
-    qr/^  \[ last\.fm-endorsed \(a\) \| similarity-rank\s+7\/20 \] /,
-    'artist-only output retains the historical centered two-column layout');
+is($artist_only_log->[0], '  Artist - Title',
+    'artist-only output starts with the candidate title');
+like($artist_only_log->[1],
+    qr/^    \[.*\|\s*last\.fm-endorsed \(a\)\s*\]$/,
+    'artist-only metadata retains the historical centered two-column layout');
 
 is_deeply(
     Plugins::BlissMixerLab::Plugin::_genreGroups(),
