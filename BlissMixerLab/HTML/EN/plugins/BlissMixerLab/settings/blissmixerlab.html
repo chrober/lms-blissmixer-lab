@@ -71,8 +71,16 @@
         <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_last_played_influence" id="last_played_influence" value="[% prefs.last_played_influence %]" size="5">
     [% END %]
 
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_LAST_PLAYED_HORIZON" desc="BLISSMIXERLAB_LAST_PLAYED_HORIZON_DESC" %]
+        <input type="number" min="30" max="1825" step="1" class="stdedit sliderInput_30_1825_1" name="pref_last_played_horizon_days" id="last_played_horizon_days" value="[% prefs.last_played_horizon_days %]" size="6">
+    [% END %]
+
     [% WRAPPER settingGroup title="BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE" desc="BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE_DESC" %]
         <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_library_age_influence" id="library_age_influence" value="[% prefs.library_age_influence %]" size="5">
+    [% END %]
+
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_LIBRARY_AGE_HORIZON" desc="BLISSMIXERLAB_LIBRARY_AGE_HORIZON_DESC" %]
+        <input type="number" min="30" max="3650" step="1" class="stdedit sliderInput_30_3650_1" name="pref_library_age_horizon_days" id="library_age_horizon_days" value="[% prefs.library_age_horizon_days %]" size="6">
     [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>

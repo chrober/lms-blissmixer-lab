@@ -82,11 +82,23 @@ BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
 BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC
 	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's last-played timestamp. Negative values favor songs heard longer ago; positive values favor recently played songs. Zero is neutral.
 
+BLISSMIXERLAB_LAST_PLAYED_HORIZON
+	EN	Last-played saturation horizon (days)
+
+BLISSMIXERLAB_LAST_PLAYED_HORIZON_DESC
+	EN	Controls how quickly last-played differences saturate. After one horizon, the remaining time signal is roughly halved; songs played much longer ago become increasingly similar. Default: 180 days.
+
 BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE
 	EN	Library-age influence
 
 BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE_DESC
 	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's library-added timestamp. Negative values favor older library additions; positive values favor newer additions. Zero is neutral. A full LMS database rebuild can reset this timestamp.
+
+BLISSMIXERLAB_LIBRARY_AGE_HORIZON
+	EN	Library-age saturation horizon (days)
+
+BLISSMIXERLAB_LIBRARY_AGE_HORIZON_DESC
+	EN	Controls how quickly library-age differences saturate. After one horizon, the remaining age signal is roughly halved; very old additions become increasingly similar. Default: 365 days.
 
 BLISSMIXERLAB_LEARNING
 	EN	Metric learning

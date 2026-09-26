@@ -44,7 +44,9 @@ BEGIN {
             lastfm_artist_reranking_strategy => 'bounded_influence',
             lastfm_artist_influence_percent => 25,
             last_played_influence => 0,
+            last_played_horizon_days => 180,
             library_age_influence => 0,
+            library_age_horizon_days => 365,
         },
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
@@ -316,6 +318,10 @@ is(Plugins::BlissMixerLab::Plugin::_lastfmArtistRerankingStrategy(), 'bounded_in
     'Lab defaults to bounded Last.fm artist influence');
 is(Plugins::BlissMixerLab::Plugin::_lastfmArtistInfluence(), 25,
     'bounded Last.fm artist influence is read from Lab settings');
+is(Plugins::BlissMixerLab::Plugin::_lastPlayedHorizonDays(), 180,
+    'last-played horizon is read from Lab settings');
+is(Plugins::BlissMixerLab::Plugin::_libraryAgeHorizonDays(), 365,
+    'library-age horizon is read from Lab settings');
 is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
     'play-count influence is inherited from upstream Bliss Mixer');
 $TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
@@ -383,10 +389,13 @@ my $localSignals = Plugins::BlissMixerLab::LocalLibrarySignals::prepare(
     0,
     sub {
         return {
-            'heard-recently' => { lastPlayed => 2000 },
-            'heard-long-ago' => { lastPlayed => 1000 },
+            'heard-recently' => { lastPlayed => 2000 * 86400 },
+            'heard-long-ago' => { lastPlayed => 1000 * 86400 },
         };
     },
+    3000 * 86400,
+    180,
+    365,
 );
 is_deeply(
     Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(

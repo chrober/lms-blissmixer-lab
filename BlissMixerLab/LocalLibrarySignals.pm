@@ -9,19 +9,34 @@ package Plugins::BlissMixerLab::LocalLibrarySignals;
 use strict;
 use warnings;
 
+use constant SECONDS_PER_DAY => 86400;
+use constant DEFAULT_LAST_PLAYED_HORIZON_DAYS => 180;
+use constant DEFAULT_LIBRARY_AGE_HORIZON_DAYS => 365;
+
 # Build one bounded profile for the Bliss-derived candidate pool.  The caller
 # may inject a lookup for tests; production uses Lyrion's attached persistent
 # database to resolve only the supplied URLs.
 sub prepare {
-    my ($tracks, $lastPlayedInfluence, $libraryAgeInfluence, $lookup) = @_;
+    my ($tracks, $lastPlayedInfluence, $libraryAgeInfluence, $lookup,
+        $asOf, $lastPlayedHorizonDays, $libraryAgeHorizonDays) = @_;
     $lastPlayedInfluence = _signedInfluence($lastPlayedInfluence);
     $libraryAgeInfluence = _signedInfluence($libraryAgeInfluence);
+    $asOf = time() unless defined $asOf && $asOf =~ /^\d+(?:\.\d+)?$/;
+    $lastPlayedHorizonDays = _horizonDays(
+        $lastPlayedHorizonDays, DEFAULT_LAST_PLAYED_HORIZON_DAYS
+    );
+    $libraryAgeHorizonDays = _horizonDays(
+        $libraryAgeHorizonDays, DEFAULT_LIBRARY_AGE_HORIZON_DAYS
+    );
 
     return {
         active => 0,
         by_url => {},
         known_last_played => 0,
         known_library_age => 0,
+        as_of => 0 + $asOf,
+        last_played_horizon_days => $lastPlayedHorizonDays,
+        library_age_horizon_days => $libraryAgeHorizonDays,
     } unless $lastPlayedInfluence || $libraryAgeInfluence;
 
     my @urls = grep { defined && length } map {
@@ -43,25 +58,38 @@ sub prepare {
             if defined $row->{added} && $row->{added} =~ /^-?\d+(?:\.\d+)?$/;
     }
 
-    my ($lastPlayedPercentiles, $lastPlayedDistinct) = _percentiles(\%lastPlayed);
-    my ($libraryAgePercentiles, $libraryAgeDistinct) = _percentiles(\%libraryAge);
+    my (%lastPlayedSignals, %libraryAgeSignals);
+    for my $url (keys %lastPlayed) {
+        my $signal = _timeSignal(
+            $lastPlayed{$url}, $asOf, $lastPlayedHorizonDays, 1
+        );
+        $lastPlayedSignals{$url} = $signal if defined $signal;
+    }
+    for my $url (keys %libraryAge) {
+        my $signal = _timeSignal(
+            $libraryAge{$url}, $asOf, $libraryAgeHorizonDays, 0
+        );
+        $libraryAgeSignals{$url} = $signal if defined $signal;
+    }
+    my $lastPlayedDistinct = _distinctCount(\%lastPlayedSignals);
+    my $libraryAgeDistinct = _distinctCount(\%libraryAgeSignals);
     my %byUrl;
 
     for my $url (@urls) {
-        my $lastPlayedWeight = exists $lastPlayedPercentiles->{$url}
+        my $lastPlayedWeight = exists $lastPlayedSignals{$url}
             && $lastPlayedDistinct > 1
-            ? _weight($lastPlayedPercentiles->{$url}, $lastPlayedInfluence)
+            ? _weight($lastPlayedSignals{$url}, $lastPlayedInfluence)
             : 1;
-        my $libraryAgeWeight = exists $libraryAgePercentiles->{$url}
+        my $libraryAgeWeight = exists $libraryAgeSignals{$url}
             && $libraryAgeDistinct > 1
-            ? _weight($libraryAgePercentiles->{$url}, $libraryAgeInfluence)
+            ? _weight($libraryAgeSignals{$url}, $libraryAgeInfluence)
             : 1;
         $byUrl{$url} = {
             last_played => $lastPlayed{$url},
             added => $libraryAge{$url},
-            last_played_percentile => $lastPlayedPercentiles->{$url},
+            last_played_signal => $lastPlayedSignals{$url},
             last_played_weight => $lastPlayedWeight,
-            library_age_percentile => $libraryAgePercentiles->{$url},
+            library_age_signal => $libraryAgeSignals{$url},
             library_age_weight => $libraryAgeWeight,
             combined_weight => $lastPlayedWeight * $libraryAgeWeight,
         };
@@ -77,6 +105,9 @@ sub prepare {
         known_library_age => scalar keys %libraryAge,
         distinct_last_played => $lastPlayedDistinct,
         distinct_library_age => $libraryAgeDistinct,
+        as_of => 0 + $asOf,
+        last_played_horizon_days => $lastPlayedHorizonDays,
+        library_age_horizon_days => $libraryAgeHorizonDays,
     };
 }
 
@@ -94,31 +125,36 @@ sub _signedInfluence {
     return $influence;
 }
 
+sub _horizonDays {
+    my ($horizon, $default) = @_;
+    $horizon = int($horizon || $default);
+    $horizon = 1 if $horizon < 1;
+    $horizon = 3650 if $horizon > 3650;
+    return $horizon;
+}
+
+sub _timeSignal {
+    my ($timestamp, $asOf, $horizonDays, $zeroMeansNever) = @_;
+    return undef unless defined $timestamp;
+    return undef if !$zeroMeansNever && $timestamp <= 0;
+    return -1 if $zeroMeansNever && $timestamp <= 0;
+
+    my $ageDays = ($asOf - $timestamp) / SECONDS_PER_DAY;
+    $ageDays = 0 if $ageDays < 0;
+    my $remaining = exp(-$ageDays / $horizonDays);
+    return (2 * $remaining) - 1;
+}
+
+sub _distinctCount {
+    my $values = shift || {};
+    my %distinct;
+    $distinct{sprintf('%.12f', $_)} = 1 for values %$values;
+    return scalar keys %distinct;
+}
+
 sub _weight {
     my ($percentile, $influence) = @_;
     return exp(log(10) * ($influence / 100) * $percentile);
-}
-
-sub _percentiles {
-    my $values = shift;
-    my @ordered = sort {
-        $values->{$a} <=> $values->{$b} || $a cmp $b;
-    } keys %{ $values || {} };
-    return ({}, 0) unless @ordered;
-
-    my (%percentiles, $distinct, $position);
-    $position = 0;
-    while ($position < @ordered) {
-        my $end = $position;
-        $end++ while $end + 1 < @ordered
-            && $values->{$ordered[$end + 1]} == $values->{$ordered[$position]};
-        my $average = ($position + $end) / 2;
-        my $percentile = @ordered > 1 ? (2 * $average / $#ordered) - 1 : 0;
-        $percentiles{$_} = $percentile for @ordered[$position .. $end];
-        $distinct++;
-        $position = $end + 1;
-    }
-    return (\%percentiles, $distinct);
 }
 
 sub _persistentRows {

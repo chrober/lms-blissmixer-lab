@@ -83,7 +83,7 @@ is(
 my (undef, @preference_names) = Plugins::BlissMixerLab::Settings->prefs();
 is_deeply(
     \@preference_names,
-    [qw(learned_blend lastfm_track_guidance_percent lastfm_artist_reranking_strategy lastfm_artist_influence_percent last_played_influence library_age_influence triplets_backup_path)],
+    [qw(learned_blend lastfm_track_guidance_percent lastfm_artist_reranking_strategy lastfm_artist_influence_percent last_played_influence last_played_horizon_days library_age_influence library_age_horizon_days triplets_backup_path)],
     'settings expose only user-meaningful experimental preferences',
 );
 
@@ -126,7 +126,9 @@ my %submitted = (
     pref_lastfm_artist_reranking_strategy => 'invalid',
     pref_lastfm_artist_influence_percent => 101,
     pref_last_played_influence => -101,
+    pref_last_played_horizon_days => 1,
     pref_library_age_influence => 101,
+    pref_library_age_horizon_days => 10000,
 );
 Plugins::BlissMixerLab::Settings->handler(undef, \%submitted);
 is($submitted{pref_lastfm_track_guidance_percent}, 100,
@@ -137,7 +139,11 @@ is($submitted{pref_lastfm_artist_influence_percent}, 100,
     'submitted artist influence is clamped');
 is($submitted{pref_last_played_influence}, -100,
     'submitted last-played influence preserves the signed lower bound');
+is($submitted{pref_last_played_horizon_days}, 30,
+    'submitted last-played horizon preserves the lower bound');
 is($submitted{pref_library_age_influence}, 100,
     'submitted library-age influence preserves the signed upper bound');
+is($submitted{pref_library_age_horizon_days}, 3650,
+    'submitted library-age horizon preserves the upper bound');
 
 done_testing();

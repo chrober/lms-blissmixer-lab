@@ -104,7 +104,8 @@ for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref not in {
         "learned_blend", "lastfm_track_guidance_percent",
         "lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent",
-        "last_played_influence", "library_age_influence",
+        "last_played_influence", "last_played_horizon_days",
+        "library_age_influence", "library_age_horizon_days",
         "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
@@ -119,7 +120,10 @@ if 'id="lastfm_track_guidance_percent"' not in settings:
 for artist_setting in ("lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent"):
     if f'id="{artist_setting}"' not in settings:
         fail(f"settings page must expose {artist_setting}")
-for local_signal in ("last_played_influence", "library_age_influence"):
+for local_signal in (
+    "last_played_influence", "last_played_horizon_days",
+    "library_age_influence", "library_age_horizon_days",
+):
     if f'id="{local_signal}"' not in settings:
         fail(f"settings page must expose {local_signal}")
 for section in ("status-section", "mix-section", "learning-section"):
