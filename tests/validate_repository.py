@@ -126,6 +126,20 @@ for local_signal in (
 ):
     if f'id="{local_signal}"' not in settings:
         fail(f"settings page must expose {local_signal}")
+
+for local_influence in ("last_played_influence", "library_age_influence"):
+    match = re.search(
+        rf'<input[^>]+name="pref_{local_influence}"[^>]*>',
+        settings,
+    )
+    if not match:
+        fail(f"settings page must expose pref_{local_influence}")
+    if "sliderInput_" in match.group(0):
+        fail(f"{local_influence} must remain a plain numeric input, not a slider")
+if "strategy.value === 'target_share'" not in settings:
+    fail("artist boost control must be disabled for target-share mode")
+if "data-lastmix-available" not in settings:
+    fail("artist boost control must retain LastMix availability state")
 for section in ("status-section", "mix-section", "learning-section"):
     if f'id="{section}-header"' not in settings or f'id="{section}"' not in settings:
         fail(f"settings page is missing the {section} grouping")

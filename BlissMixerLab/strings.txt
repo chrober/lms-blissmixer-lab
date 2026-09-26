@@ -59,22 +59,22 @@ BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE
 	EN	Requires the LastMix plugin to be installed and enabled.
 
 BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY
-	EN	Last.fm artist reranking strategy
+	EN	How Last.fm artist matches affect candidates
 
 BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_DESC
-	EN	Choose how Last.fm artist matches affect Lab candidate selection. Bounded influence uses a comparable per-candidate boost; target share preserves BlissMixer's existing percentage semantics.
+	EN	Choose how Last.fm artist matches affect candidate selection. Per-candidate boost scores each endorsed candidate individually and uses the Lab setting below. BlissMixer target share instead uses BlissMixer's existing Last.fm artist percentage; the Lab boost setting is disabled in that mode.
 
 BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_INFLUENCE
-	EN	Bounded artist influence (recommended)
+	EN	Per-candidate boost (Lab mode, recommended)
 
 BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_TARGET
-	EN	Target endorsed share (BlissMixer compatible)
+	EN	Target share from BlissMixer's setting
 
 BLISSMIXERLAB_LASTFM_ARTIST_INFLUENCE
-	EN	Last.fm artist influence
+	EN	Last.fm artist boost strength
 
 BLISSMIXERLAB_LASTFM_ARTIST_INFLUENCE_DESC
-	EN	Controls the bounded per-candidate boost for Last.fm artist matches. Zero disables artist guidance. At 25 the maximum boost is about 1.8x; at 50 about 3.2x; at 100 up to 10x. This applies when Bounded artist influence is selected.
+	EN	Sets the maximum boost for a candidate whose artist is endorsed by Last.fm. Zero disables artist guidance; 25 is about 1.8x, 50 about 3.2x, and 100 up to 10x. This control applies only to Per-candidate boost; BlissMixer target share uses the percentage configured by BlissMixer instead.
 
 BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
 	EN	Last-played influence
