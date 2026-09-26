@@ -1892,9 +1892,16 @@ sub _selectWeightedCandidates {
                 );
                 my $dominantBoost = $boosts[0]->[1] > 1.000001
                     ? $boosts[0]->[0] : 'none';
+                my $diagnosticScoreLabel = $artistInfluence
+                    ? 'final score'
+                    : ($lastfmTarget
+                        ? 'score before Last.fm artist share'
+                        : 'combined score');
+                my $diagnosticScore = $artistInfluence
+                    ? $totalWeight : $otherFactors;
 
                 $log->debug(sprintf(
-                    '    Diagnostics: similarity=%.3f, playcount=%.3f, Last.fm-track=%.3f, last-played=%.3f (signal=%s), library-age=%.3f (signal=%s) => pre-Last.fm=%.3f',
+                    '    Diagnostics: similarity=%.3f, playcount=%.3f, Last.fm-track=%.3f, last-played=%.3f (signal=%s), library-age=%.3f (signal=%s) => %s=%.3f',
                     $similarityWeight, $playCountWeight, $trackWeight,
                     $lastPlayedWeight,
                     defined $entry->{last_played_signal}
@@ -1902,16 +1909,27 @@ sub _selectWeightedCandidates {
                     $libraryAgeWeight,
                     defined $entry->{library_age_signal}
                         ? sprintf('%.3f', $entry->{library_age_signal}) : 'n/a',
-                    $otherFactors,
+                    $diagnosticScoreLabel, $diagnosticScore,
                 ));
                 if ($result->{reranked}) {
-                    $log->debug(sprintf(
-                        '    Selection: dominant boost=%s; Last.fm-artist-mode=%s; pre-Last.fm=%.3f x Last.fm-artist=%.3f => total=%.3f; key=%.6f >= cutoff=%.6f',
-                        $dominantBoost,
-                        $artistInfluence ? 'bounded-influence' : ($lastfmTarget ? 'target-share' : 'disabled'),
-                        $otherFactors, $artistWeight, $totalWeight,
-                        $key, $cutoff,
-                    ));
+                    if ($artistInfluence) {
+                        $log->debug(sprintf(
+                            '    Selection: dominant boost=%s; Last.fm artist mode=bounded-influence; Last.fm artist boost=%.3f => final score=%.3f; key=%.6f >= cutoff=%.6f',
+                            $dominantBoost, $artistWeight, $totalWeight,
+                            $key, $cutoff,
+                        ));
+                    } elsif ($lastfmTarget) {
+                        $log->debug(sprintf(
+                            '    Selection: dominant boost=%s; Last.fm artist mode=target-share; score before Last.fm artist share=%.3f x Last.fm artist share multiplier=%.3f => final score=%.3f; key=%.6f >= cutoff=%.6f',
+                            $dominantBoost, $otherFactors, $artistWeight,
+                            $totalWeight, $key, $cutoff,
+                        ));
+                    } else {
+                        $log->debug(sprintf(
+                            '    Selection: dominant boost=%s; no Last.fm artist adjustment; final score=%.3f; key=%.6f >= cutoff=%.6f',
+                            $dominantBoost, $totalWeight, $key, $cutoff,
+                        ));
+                    }
                 } else {
                     $log->debug(
                         '    Selection: no effective reranking => kept Bliss candidate order'
