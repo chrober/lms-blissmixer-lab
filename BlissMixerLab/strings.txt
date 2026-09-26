@@ -43,6 +43,15 @@ BLISSMIXERLAB_MIX_SETTINGS
 BLISSMIXERLAB_MIX_SETTINGS_NOTE
 	EN	These settings extend the candidate selection produced by Bliss Mixer.
 
+BLISSMIXERLAB_MIX_GROUP_BASE
+	EN	Matrix and base mixing
+
+BLISSMIXERLAB_MIX_GROUP_LASTFM
+	EN	Last.fm guidance
+
+BLISSMIXERLAB_MIX_GROUP_LOCAL
+	EN	Local library signals
+
 BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
 

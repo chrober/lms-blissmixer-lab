@@ -134,12 +134,24 @@ for local_influence in ("last_played_influence", "library_age_influence"):
     )
     if not match:
         fail(f"settings page must expose pref_{local_influence}")
+    if "sliderInput_" not in match.group(0):
+        fail(f"{local_influence} must remain a slider input")
+for local_horizon in ("last_played_horizon_days", "library_age_horizon_days"):
+    match = re.search(
+        rf'<input[^>]+name="pref_{local_horizon}"[^>]*>',
+        settings,
+    )
+    if not match:
+        fail(f"settings page must expose pref_{local_horizon}")
     if "sliderInput_" in match.group(0):
-        fail(f"{local_influence} must remain a plain numeric input, not a slider")
+        fail(f"{local_horizon} must remain a plain numeric input, not a slider")
 if "strategy.value === 'target_share'" not in settings:
     fail("artist boost control must be disabled for target-share mode")
 if "data-lastmix-available" not in settings:
     fail("artist boost control must retain LastMix availability state")
+for mix_group in ("MIX_GROUP_BASE", "MIX_GROUP_LASTFM", "MIX_GROUP_LOCAL"):
+    if f'BLISSMIXERLAB_{mix_group}' not in settings:
+        fail(f"settings page must expose the {mix_group} subgroup")
 for section in ("status-section", "mix-section", "learning-section"):
     if f'id="{section}-header"' not in settings or f'id="{section}"' not in settings:
         fail(f"settings page is missing the {section} grouping")
