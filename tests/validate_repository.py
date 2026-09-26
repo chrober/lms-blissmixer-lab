@@ -162,8 +162,10 @@ for diagnostic_label in (
 ):
     if diagnostic_label not in plugin_source:
         fail(f"candidate diagnostics must name {diagnostic_label}")
-if "Last.fm-artist=%.3f (mode=%s)" not in plugin_source:
-    fail("candidate diagnostics must include the Last.fm artist multiplier and mode")
+if "Last.fm-artist=%.3f" not in plugin_source:
+    fail("candidate diagnostics must include the Last.fm artist multiplier")
+if "Last.fm-artist=%.3f (mode=%s)" in plugin_source:
+    fail("candidate diagnostics must not repeat the Last.fm artist mode")
 for section in ("status-section", "mix-section", "learning-section"):
     if f'id="{section}-header"' not in settings or f'id="{section}"' not in settings:
         fail(f"settings page is missing the {section} grouping")

@@ -1903,9 +1903,9 @@ sub _selectWeightedCandidates {
                     ? $totalWeight : $otherFactors;
 
                 $log->debug(sprintf(
-                    '    Diagnostics: similarity=%.3f, playcount=%.3f, Last.fm-track=%.3f, Last.fm-artist=%.3f (mode=%s), last-played=%.3f (signal=%s), library-age=%.3f (signal=%s) => %s=%.3f',
+                    '    Diagnostics: similarity=%.3f, playcount=%.3f, Last.fm-track=%.3f, Last.fm-artist=%.3f, last-played=%.3f (signal=%s), library-age=%.3f (signal=%s) => %s=%.3f',
                     $similarityWeight, $playCountWeight, $trackWeight,
-                    $artistWeight, $artistMode,
+                    $artistWeight,
                     $lastPlayedWeight,
                     defined $entry->{last_played_signal}
                         ? sprintf('%.3f', $entry->{last_played_signal}) : 'n/a',
