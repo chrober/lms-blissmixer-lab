@@ -131,13 +131,44 @@ The result must identify, per provider and channel:
 
 ## Host integration
 
-Both native hosts use the same provider contract but apply signals at different
-boundaries:
+Better Call Bliss and both native hosts use the same provider contract but apply
+signals at different boundaries.
+
+### Better Call Bliss integration
+
+Better Call Bliss remains the Lyrion-facing owner of user intent and job
+policy. Its integration responsibilities are:
+
+- discover registered guidance providers through the Lyrion registry;
+- show each discovered provider as disabled by default and let the user enable
+  it explicitly for the host or a job;
+- render provider-declared influence, horizon, target-share, and timeout fields
+  through the host's schema-driven settings section;
+- keep provider-owned credentials and acquisition settings out of the host
+  preference namespace;
+- capture the immutable source snapshot, candidate identity map, selected
+  virtual-library boundary, and one `as_of` timestamp;
+- translate the effective host/job settings into the optimizer's generic
+  provider policy without embedding provider-specific ranking code;
+- provide Last.fm evidence artifacts and trusted Lyrion resource descriptors as
+  required by the selected providers; and
+- render provider availability, contribution counts, neutralized failures,
+  effective settings, and provenance in the preview report.
+
+Better Call Bliss does not perform the final reranking after the optimizer
+returns. The optimizer applies the guidance while choosing additions, bridge
+tracks, partial paths, and completed routes. Better Call Bliss persists or
+queues only the optimizer's resulting Bliss-valid route.
+
+The three hosts share the same policy vocabulary, but their outer workflows
+remain distinct:
 
 - `bliss-playlist-optimizer` applies guidance while choosing additions,
   bridge paths, partial routes, and completed routes;
 - `bliss-mixer` applies guidance while reranking its existing Bliss-derived DSTM
   candidate pool.
+- Better Call Bliss captures Lyrion context and presents the optimizer's
+  guidance-aware preview and diagnostics to the user.
 
 Host settings must remain explicit and disabled by default. Provider-owned
 source settings stay in the provider; host settings control enablement,
@@ -153,10 +184,12 @@ influence, horizon, target mode, timeout, and per-job overrides.
    `bliss-guidance-library-signals`, adding the two saturating date channels.
 4. Add shared Rust aggregation helpers for bounded influence and target-share
    policies; do not duplicate them in each host.
-5. Integrate the optimizer host and compare Perl/Rust decisions on frozen
+5. Integrate Better Call Bliss with provider discovery, host policy, trusted
+   artifacts/resources, preview provenance, and Bliss-only fallback.
+6. Integrate the optimizer host and compare Perl/Rust decisions on frozen
    candidate fixtures.
-6. Integrate the `bliss-mixer` fork as the second host.
-7. Remove duplicated Perl-side reranking only after parity, failure, and
+7. Integrate the `bliss-mixer` fork as the second native host.
+8. Remove duplicated Perl-side reranking only after parity, failure, and
    performance tests pass.
 
 ## Acceptance criteria
@@ -172,4 +205,3 @@ influence, horizon, target mode, timeout, and per-job overrides.
 - Candidate batches remain bounded; no full-library date artifact is required.
 - Multi-core or asynchronous provider work is used where it helps, without
   unbounded memory growth or request fan-out.
-
