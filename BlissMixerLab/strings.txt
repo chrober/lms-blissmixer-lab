@@ -86,7 +86,7 @@ BLISSMIXERLAB_LAST_PLAYED_HORIZON
 	EN	Last-played saturation horizon (days)
 
 BLISSMIXERLAB_LAST_PLAYED_HORIZON_DESC
-	EN	Controls how quickly last-played differences saturate. After one horizon, the remaining time signal is roughly halved; songs played much longer ago become increasingly similar. Default: 180 days.
+	EN	Controls how quickly last-played differences saturate. After one horizon, the raw time signal is about 36.8% of its starting value; songs played much longer ago become increasingly similar. Default: 180 days.
 
 BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE
 	EN	Library-age influence
@@ -98,7 +98,7 @@ BLISSMIXERLAB_LIBRARY_AGE_HORIZON
 	EN	Library-age saturation horizon (days)
 
 BLISSMIXERLAB_LIBRARY_AGE_HORIZON_DESC
-	EN	Controls how quickly library-age differences saturate. After one horizon, the remaining age signal is roughly halved; very old additions become increasingly similar. Default: 365 days.
+	EN	Controls how quickly library-age differences saturate. After one horizon, the raw age signal is about 36.8% of its starting value; very old additions become increasingly similar. Default: 365 days.
 
 BLISSMIXERLAB_LEARNING
 	EN	Metric learning
