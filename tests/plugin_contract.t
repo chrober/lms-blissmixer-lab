@@ -378,6 +378,20 @@ is_deeply(
 );
 is($Plugins::BlissMixer::CandidateSelection::calls[-1][4], 0,
     'bounded artist influence disables upstream target-share weighting');
+is(
+    Plugins::BlissMixerLab::Plugin::_lastfmArtistWeightForDiagnostics(
+        { lastfm_weight => 1, lastfm_artist_weight => 7.943 }, 90
+    ),
+    7.943,
+    'bounded artist diagnostics retain the Lab callback multiplier after upstream resets the generic field',
+);
+is(
+    Plugins::BlissMixerLab::Plugin::_lastfmArtistWeightForDiagnostics(
+        { lastfm_weight => 3.25, lastfm_artist_weight => 7.943 }, 0
+    ),
+    3.25,
+    'target-share diagnostics retain the upstream generic artist multiplier',
+);
 
 my @local_signal_candidates = (
     TestTrack->new('heard-recently', 0, 'Artist', 'Recent'),

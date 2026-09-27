@@ -1692,6 +1692,15 @@ sub _lastfmArtistInfluence {
     return $influence;
 }
 
+sub _lastfmArtistWeightForDiagnostics {
+    my ($entry, $artistInfluence) = @_;
+    return 1 unless $entry;
+    my $field = $artistInfluence
+        ? 'lastfm_artist_weight' : 'lastfm_weight';
+    my $weight = $entry->{$field};
+    return defined $weight && $weight > 0 ? $weight : 1;
+}
+
 sub _upstreamPlayCountInfluence {
     return 0 unless main::STATISTICS;
     my $influence = int($prefs->get('playcount_influence') || 0);
@@ -1875,7 +1884,9 @@ sub _selectWeightedCandidates {
                 my $trackWeight = $entry->{track_weight} || 1;
                 my $lastPlayedWeight = $entry->{last_played_weight} || 1;
                 my $libraryAgeWeight = $entry->{library_age_weight} || 1;
-                my $artistWeight = $entry->{lastfm_weight} || 1;
+                my $artistWeight = _lastfmArtistWeightForDiagnostics(
+                    $entry, $artistInfluence
+                );
                 my $otherFactors = $similarityWeight * $playCountWeight
                     * $trackWeight * $lastPlayedWeight * $libraryAgeWeight;
                 my $totalWeight = $entry->{weight} || 1;
