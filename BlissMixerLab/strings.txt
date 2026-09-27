@@ -71,7 +71,7 @@ BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY
 	EN	How Last.fm artist matches affect candidates
 
 BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_DESC
-	EN	Choose how Last.fm artist matches affect candidate selection. Per-candidate boost scores each endorsed candidate individually and uses the Lab setting below. BlissMixer target share instead uses BlissMixer's existing Last.fm artist percentage; the Lab boost setting is disabled in that mode.
+	EN	Per-candidate boost: raises each candidate whose artist is endorsed by Last.fm by the configured strength. It works alongside acoustic rank, play count, last-played, and library-age reranking, so any of those factors can still determine the result.<br><br>Target share: uses BlissMixer's existing Last.fm artist percentage as a selection goal. It actively tries to fill that share of the chosen candidates with artist matches, so it can readily outweigh the other reranking criteria.
 
 BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_INFLUENCE
 	EN	Per-candidate boost (Lab mode, recommended)
