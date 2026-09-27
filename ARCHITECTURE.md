@@ -22,20 +22,97 @@ The two preference namespaces are deliberately separate:
   genre groups, DSTM count, Last.fm artist probability, and play-count
   influence.
 - `plugin.blissmixerlab` supplies only the learned blend, Last.fm
-  similar-track guidance, and training-data backup path.
+  similar-track guidance, Last.fm artist reranking mode and bounded influence,
+  last-played and library-age influence plus their saturation horizons, and
+  training-data backup path.
 
 ## Candidate reranking
 
 BlissMixerLab requests candidates from its sidecar mixer using the Static
 Weights, EIF, or Adaptive Weightings strategy configured in Bliss Mixer. It
 delegates Last.fm artist and play-count reranking to Bliss Mixer's shared
-candidate selector, adding only its Last.fm recording-similarity factor to the
-same selection pass. Learned-matrix weighting applies only to Adaptive
-Weightings. Last.fm recording matches prefer MusicBrainz recording IDs and fall
+candidate selector, adding its Last.fm recording-similarity factor and optional
+local listening/library factors to the same selection pass. Last-played and
+library-age values are read in one bounded lookup against Lyrion's
+`persistentdb.tracks_persistent` table for the Bliss-derived DSTM pool, not by
+scanning the library. They use the same signed `-100` through `100` preference
+semantics as upstream play-count influence. Learned-matrix weighting applies
+only to Adaptive Weightings. Last.fm recording matches prefer MusicBrainz
+recording IDs and fall
 back to normalized artist/title identity. Track and artist request lanes run
 concurrently and are bounded by a DSTM deadline; partial evidence is usable and
 provider failure falls back to the remaining signals or the original Bliss
 order.
+
+### Last.fm artist reranking
+
+BlissMixerLab offers two explicitly selected modes:
+
+| Mode | Meaning | Setting used |
+| --- | --- | --- |
+| **Bounded artist influence** (default) | Every artist-endorsed candidate receives a bounded multiplier comparable to the other reranking factors. | Lab artist influence, `0..100`; `25` is about `1.8x`, `50` about `3.2x`, and `100` up to `10x`. |
+| **Target endorsed share** | Delegates to the upstream BlissMixer percentage semantics, requesting a best-effort share of selected candidates endorsed by Last.fm artist evidence. | Upstream BlissMixer Last.fm artist probability. |
+
+The default mode prevents a single Last.fm artist match from overwhelming
+play-count, last-played, library-age, and Bliss similarity factors. In both
+modes, Last.fm only reranks the Bliss-derived pool; it cannot add a candidate
+outside that pool or bypass a hard constraint.
+
+At information level, the plugin reports the active mode, number of artist
+matches, configured influence or target, and the calculated boost range. Debug
+logging additionally reports `Last.fm-artist-mode` for every selected
+candidate and shows the artist multiplier separately from the other factors.
+
+### Saturating last-played and library-age signals
+
+The date signals are deliberately based on elapsed time rather than the rank of
+the current candidate pool. For a timestamp `t`, a run-wide reference time
+`now`, and a configured horizon `H` days, the raw signal is:
+
+```text
+remaining = exp(-(now - t) / (H days))
+signal = 2 * remaining - 1
+```
+
+The existing signed influence then converts the signal into a bounded
+multiplier:
+
+```text
+weight = 10 ^ (influence / 100 * signal)
+```
+
+Consequences:
+
+- positive last-played influence favors recent plays;
+- negative last-played influence favors tracks played longer ago;
+- positive library-age influence favors newly added tracks;
+- negative library-age influence favors older additions;
+- five- and six-year-old tracks receive nearly the same age signal when the
+  horizon is much shorter than either age;
+- missing metadata is neutral; and
+- a `lastPlayed` value of zero (“never played”) is treated as maximally
+  overdue.
+
+The settings are:
+
+| Signal | Influence range | Saturation horizon | Default |
+| --- | ---: | ---: | ---: |
+| Last played | `-100..100` | `30..1825` days | `180` days |
+| Library age | `-100..100` | `30..3650` days | `365` days |
+
+The horizon is an e-folding saturation constant: after one horizon, the raw
+exponential has fallen to about `36.8%`; dates several horizons apart are close
+to the same saturated value. Each run captures one `as_of` timestamp so all
+candidates are evaluated consistently.
+
+Information logging reports the active influence, horizon, and number of known
+timestamps. Debug logging reports each selected candidate's date-derived signal
+and multiplier, followed by the combined reranking weight and the dominant
+boost.
+
+Local library signals deliberately do not rely on Alternative Play Count (APC).
+APC can later be represented by a separate provider with its own semantics;
+this Lab feature uses only Lyrion's built-in persistent metadata.
 
 The analyser and mixer may access SQLite concurrently. While upstream analysis
 is running, the sidecar keeps an existing mixer available and suppresses

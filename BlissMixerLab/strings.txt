@@ -43,6 +43,15 @@ BLISSMIXERLAB_MIX_SETTINGS
 BLISSMIXERLAB_MIX_SETTINGS_NOTE
 	EN	These settings extend the candidate selection produced by Bliss Mixer.
 
+BLISSMIXERLAB_MIX_GROUP_BASE
+	EN	Matrix and base mixing
+
+BLISSMIXERLAB_MIX_GROUP_LASTFM
+	EN	Last.fm guidance
+
+BLISSMIXERLAB_MIX_GROUP_LOCAL
+	EN	Local library signals
+
 BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
 
@@ -57,6 +66,48 @@ BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_DESC
 
 BLISSMIXERLAB_LASTFM_TRACK_GUIDANCE_UNAVAILABLE
 	EN	Requires the LastMix plugin to be installed and enabled.
+
+BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY
+	EN	How Last.fm artist matches affect candidates
+
+BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_DESC
+	EN	Per-candidate boost: raises each candidate whose artist is endorsed by Last.fm by the configured strength. It works alongside acoustic rank, play count, last-played, and library-age reranking, so any of those factors can still determine the result.<br><br>Target share: uses BlissMixer's existing Last.fm artist percentage as a selection goal. It actively tries to fill that share of the chosen candidates with artist matches, so it can readily outweigh the other reranking criteria.
+
+BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_INFLUENCE
+	EN	Per-candidate boost (Lab mode, recommended)
+
+BLISSMIXERLAB_LASTFM_ARTIST_STRATEGY_TARGET
+	EN	Target share from BlissMixer's setting
+
+BLISSMIXERLAB_LASTFM_ARTIST_INFLUENCE
+	EN	Last.fm artist boost strength
+
+BLISSMIXERLAB_LASTFM_ARTIST_INFLUENCE_DESC
+	EN	Sets the maximum boost for a candidate whose artist is endorsed by Last.fm. Zero disables artist guidance; 25 is about 1.8x, 50 about 3.2x, and 100 up to 10x. This control applies only to Per-candidate boost; BlissMixer target share uses the percentage configured by BlissMixer instead.
+
+BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
+	EN	Last-played influence
+
+BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC
+	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's last-played timestamp. Negative values favor songs heard longer ago; positive values favor recently played songs. Zero is neutral.
+
+BLISSMIXERLAB_LAST_PLAYED_HORIZON
+	EN	Last-played saturation horizon (days)
+
+BLISSMIXERLAB_LAST_PLAYED_HORIZON_DESC
+	EN	Controls how quickly last-played differences saturate. After one horizon, the raw time signal is about 36.8% of its starting value; songs played much longer ago become increasingly similar. Default: 180 days.
+
+BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE
+	EN	Library-age influence
+
+BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE_DESC
+	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's library-added timestamp. Negative values favor older library additions; positive values favor newer additions. Zero is neutral. A full LMS database rebuild can reset this timestamp.
+
+BLISSMIXERLAB_LIBRARY_AGE_HORIZON
+	EN	Library-age saturation horizon (days)
+
+BLISSMIXERLAB_LIBRARY_AGE_HORIZON_DESC
+	EN	Controls how quickly library-age differences saturate. After one horizon, the raw age signal is about 36.8% of its starting value; very old additions become increasingly similar. Default: 365 days.
 
 BLISSMIXERLAB_LEARNING
 	EN	Metric learning

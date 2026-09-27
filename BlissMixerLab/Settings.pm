@@ -31,6 +31,9 @@ sub page {
 
 sub prefs {
     return ($prefs, 'learned_blend', 'lastfm_track_guidance_percent',
+        'lastfm_artist_reranking_strategy', 'lastfm_artist_influence_percent',
+        'last_played_influence', 'last_played_horizon_days',
+        'library_age_influence', 'library_age_horizon_days',
         'triplets_backup_path');
 }
 
@@ -74,6 +77,11 @@ sub handler {
     for my $setting (
         ['pref_learned_blend', 0, 100],
         ['pref_lastfm_track_guidance_percent', 0, 100],
+        ['pref_lastfm_artist_influence_percent', 0, 100],
+        ['pref_last_played_influence', -100, 100],
+        ['pref_last_played_horizon_days', 30, 1825],
+        ['pref_library_age_influence', -100, 100],
+        ['pref_library_age_horizon_days', 30, 3650],
     ) {
         my ($name, $minimum, $maximum) = @$setting;
         next unless defined $paramRef->{$name};
@@ -81,6 +89,11 @@ sub handler {
         $value = $minimum if $value < $minimum;
         $value = $maximum if $value > $maximum;
         $paramRef->{$name} = $value;
+    }
+    if (defined $paramRef->{pref_lastfm_artist_reranking_strategy}) {
+        $paramRef->{pref_lastfm_artist_reranking_strategy} =
+            $paramRef->{pref_lastfm_artist_reranking_strategy} eq 'target_share'
+            ? 'target_share' : 'bounded_influence';
     }
     return $class->SUPER::handler($client, $paramRef);
 }

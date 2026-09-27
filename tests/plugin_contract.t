@@ -41,6 +41,12 @@ BEGIN {
         'plugin.blissmixerlab' => {
             learned_blend => 50,
             lastfm_track_guidance_percent => 25,
+            lastfm_artist_reranking_strategy => 'bounded_influence',
+            lastfm_artist_influence_percent => 25,
+            last_played_influence => 0,
+            last_played_horizon_days => 180,
+            library_age_influence => 0,
+            library_age_horizon_days => 365,
         },
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
@@ -308,8 +314,22 @@ is(Plugins::BlissMixerLab::Plugin::_lastfmTrackGuidance(), 100,
 
 is(Plugins::BlissMixerLab::Plugin::_upstreamLastfmProbability(), 25,
     'Last.fm artist probability is inherited from upstream Bliss Mixer');
+is(Plugins::BlissMixerLab::Plugin::_lastfmArtistRerankingStrategy(), 'bounded_influence',
+    'Lab defaults to bounded Last.fm artist influence');
+is(Plugins::BlissMixerLab::Plugin::_lastfmArtistInfluence(), 25,
+    'bounded Last.fm artist influence is read from Lab settings');
+is(Plugins::BlissMixerLab::Plugin::_lastPlayedHorizonDays(), 180,
+    'last-played horizon is read from Lab settings');
+is(Plugins::BlissMixerLab::Plugin::_libraryAgeHorizonDays(), 365,
+    'library-age horizon is read from Lab settings');
 is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
     'play-count influence is inherited from upstream Bliss Mixer');
+$TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
+is(Plugins::BlissMixerLab::Plugin::_lastPlayedInfluence(), -100,
+    'last-played influence is clamped to the signed preference range');
+$TestPrefs::values{'plugin.blissmixerlab'}{library_age_influence} = 125;
+is(Plugins::BlissMixerLab::Plugin::_libraryAgeInfluence(), 100,
+    'library-age influence is clamped to the signed preference range');
 my @lastfm_track_candidates = (
     TestTrack->new('unmatched', 0, 'Artist', 'Unmatched'),
     TestTrack->new('track-match', 0, 'Artist', 'Matched'),
@@ -333,6 +353,126 @@ is(
     $Plugins::BlissMixer::CandidateSelection::calls[-1][2],
     0,
     'Lab delegates candidate selection to the upstream component',
+);
+my @artist_influence_candidates = (
+    TestTrack->new('artist-unmatched', 0, 'Other artist', 'Other'),
+    TestTrack->new('artist-endorsed', 0, 'Endorsed artist', 'Endorsed'),
+);
+my $artist_influence_result = Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+        \@artist_influence_candidates,
+        1,
+        0,
+        {'endorsed artist' => 1},
+        0,
+        sub { 0.5 },
+        undef,
+        0,
+        'static weights',
+        undef,
+        25,
+    );
+is_deeply(
+    $artist_influence_result,
+    ['artist-endorsed'],
+    'bounded Last.fm artist influence promotes an endorsed candidate without target-share weighting',
+);
+is($Plugins::BlissMixer::CandidateSelection::calls[-1][4], 0,
+    'bounded artist influence disables upstream target-share weighting');
+is(
+    Plugins::BlissMixerLab::Plugin::_lastfmArtistWeightForDiagnostics(
+        { lastfm_weight => 1, lastfm_artist_weight => 7.943 }, 90
+    ),
+    7.943,
+    'bounded artist diagnostics retain the Lab callback multiplier after upstream resets the generic field',
+);
+is(
+    Plugins::BlissMixerLab::Plugin::_lastfmArtistWeightForDiagnostics(
+        { lastfm_weight => 3.25, lastfm_artist_weight => 7.943 }, 0
+    ),
+    3.25,
+    'target-share diagnostics retain the upstream generic artist multiplier',
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_candidateSelectionSummaryDetails(
+        [
+            { playcount => 0, lastfm_artist_match => 1 },
+            { playcount => 2, lastfm_artist_match => 1 },
+            { playcount => 3, lastfm_artist_match => 1 },
+            { playcount => 8 },
+        ],
+        {
+            effective_playcount_influence => -80,
+            unknown_playcounts => 0,
+        },
+        20,
+        { 'endorsed artist' => 1 },
+        90,
+        0,
+        0,
+        25,
+        -80,
+        {
+            active => 1,
+            last_played_influence => -60,
+            last_played_horizon_days => 180,
+            known_last_played => 20,
+            library_age_influence => 70,
+            library_age_horizon_days => 365,
+            known_library_age => 20,
+        },
+    ),
+    [
+        'Last.fm artists=3/20 (bounded-influence=90%)',
+        'Last.fm tracks=0/20 (influence=25%)',
+        'play-count (influence=-80, min/median/max=0/2.5/8, unknown=0)',
+        'last-played (influence=-60, horizon=180d, known=20)',
+        'library-age (influence=+70, horizon=365d, known=20)',
+    ],
+    'candidate-selection summary groups each guidance source with its values',
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_candidateSelectionSummaryDetails(
+        [], { endorsed_count => 0 }, 20,
+        { 'endorsed artist' => 1 },
+        0, 75, 0, 0, 0, undef,
+    ),
+    ['Last.fm artists=0/20 (target-share=75%)'],
+    'target-share summary retains the compact original-style artist fragment',
+);
+
+my @local_signal_candidates = (
+    TestTrack->new('heard-recently', 0, 'Artist', 'Recent'),
+    TestTrack->new('heard-long-ago', 0, 'Artist', 'Long ago'),
+);
+my $localSignals = Plugins::BlissMixerLab::LocalLibrarySignals::prepare(
+    \@local_signal_candidates,
+    -100,
+    0,
+    sub {
+        return {
+            'heard-recently' => { lastPlayed => 2000 * 86400 },
+            'heard-long-ago' => { lastPlayed => 1000 * 86400 },
+        };
+    },
+    3000 * 86400,
+    180,
+    365,
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+        \@local_signal_candidates,
+        1,
+        0,
+        undef,
+        undef,
+        sub { 0.5 },
+        undef,
+        0,
+        'static weights',
+        $localSignals,
+    ),
+    ['heard-long-ago'],
+    'Lab applies last-played guidance through the shared candidate selector callback',
 );
 
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),
@@ -384,22 +524,24 @@ my $selection_log_lines = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
     20,
     1,
 );
-like($selection_log_lines->[0], qr/bliss-only/,
-    'combined selection log retains the Bliss-only tier');
-like($selection_log_lines->[1], qr/last\.fm-endorsed \(a\)/,
-    'combined selection log marks artist endorsement');
-like($selection_log_lines->[2], qr/last\.fm-endorsed \(a\+t\)/,
-    'combined selection log distinguishes recording plus artist evidence');
-like($selection_log_lines->[3], qr/last\.fm-endorsed \(t\)/,
-    'combined selection log marks recording-only endorsement');
-like($selection_log_lines->[0], qr/^  \[ .* \| playcount=/,
-    'selection log keeps padding immediately inside the brackets');
-like($selection_log_lines->[0], qr/ similarity-rank\s+2\/20 \] /,
-    'selection log keeps the historical space before the closing bracket');
+is(scalar @$selection_log_lines, 8,
+    'selection log emits a title and metadata line for each candidate');
+like($selection_log_lines->[0], qr/^  Ten Years After - Here They Come$/,
+    'selection log starts with the candidate title');
+like($selection_log_lines->[1], qr/^    \[ .*bliss-only.* \| playcount=/,
+    'selection metadata retains the Bliss-only tier and play count');
+like($selection_log_lines->[3], qr/last\.fm-endorsed \(a\)/,
+    'selection metadata marks artist endorsement');
+like($selection_log_lines->[5], qr/last\.fm-endorsed \(a\+t\)/,
+    'selection metadata distinguishes recording plus artist evidence');
+like($selection_log_lines->[7], qr/last\.fm-endorsed \(t\)/,
+    'selection metadata marks recording-only endorsement');
+like($selection_log_lines->[1], qr/similarity-rank\s+2\/20 .* \]$/,
+    'selection metadata keeps the historical space before the closing bracket');
 unlike(join("\n", @$selection_log_lines), qr/(?:track-support|weight=)/,
     'informational selection rows omit numeric implementation diagnostics');
 my ($leftTierPadding, $rightTierPadding) =
-    $selection_log_lines->[0] =~ /^  \[(\s*)bliss-only(\s*)\|/;
+    $selection_log_lines->[1] =~ /^    \[.*?\|(\s*)bliss-only(\s*)\|/;
 ok(length($leftTierPadding) > 1 && length($rightTierPadding) > 1,
     'the shorter Bliss-only label has visible padding on both sides');
 cmp_ok(abs(length($leftTierPadding) - length($rightTierPadding)), '<=', 1,
@@ -408,10 +550,10 @@ my @first_pipes;
 my @second_pipes;
 my @third_pipes;
 my @fourth_pipes;
-while ($selection_log_lines->[0] =~ /\|/g) { push @first_pipes, pos($selection_log_lines->[0]) }
-while ($selection_log_lines->[1] =~ /\|/g) { push @second_pipes, pos($selection_log_lines->[1]) }
-while ($selection_log_lines->[2] =~ /\|/g) { push @third_pipes, pos($selection_log_lines->[2]) }
-while ($selection_log_lines->[3] =~ /\|/g) { push @fourth_pipes, pos($selection_log_lines->[3]) }
+while ($selection_log_lines->[1] =~ /\|/g) { push @first_pipes, pos($selection_log_lines->[1]) }
+while ($selection_log_lines->[3] =~ /\|/g) { push @second_pipes, pos($selection_log_lines->[3]) }
+while ($selection_log_lines->[5] =~ /\|/g) { push @third_pipes, pos($selection_log_lines->[5]) }
+while ($selection_log_lines->[7] =~ /\|/g) { push @fourth_pipes, pos($selection_log_lines->[7]) }
 is_deeply(\@first_pipes, \@second_pipes,
     'combined selection log pipe separators align between Bliss and artist tiers');
 is_deeply(\@first_pipes, \@third_pipes,
@@ -428,9 +570,11 @@ my $artist_only_log = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
     20,
     0,
 );
-like($artist_only_log->[0],
-    qr/^  \[ last\.fm-endorsed \(a\) \| similarity-rank\s+7\/20 \] /,
-    'artist-only output retains the historical centered two-column layout');
+is($artist_only_log->[0], '  Artist - Title',
+    'artist-only output starts with the candidate title');
+like($artist_only_log->[1],
+    qr/^    \[.*\|\s*last\.fm-endorsed \(a\)\s*\]$/,
+    'artist-only metadata retains the historical centered two-column layout');
 
 is_deeply(
     Plugins::BlissMixerLab::Plugin::_genreGroups(),

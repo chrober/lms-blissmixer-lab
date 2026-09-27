@@ -103,6 +103,9 @@ if 'string("<code>bliss.db</code>")' not in settings:
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref not in {
         "learned_blend", "lastfm_track_guidance_percent",
+        "lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent",
+        "last_played_influence", "last_played_horizon_days",
+        "library_age_influence", "library_age_horizon_days",
         "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
@@ -114,6 +117,55 @@ if 'pref_playcount_influence' in settings:
     fail("play-count influence belongs to upstream Bliss Mixer, not the Lab settings")
 if 'id="lastfm_track_guidance_percent"' not in settings:
     fail("settings page must expose Last.fm similar-track guidance")
+for artist_setting in ("lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent"):
+    if f'id="{artist_setting}"' not in settings:
+        fail(f"settings page must expose {artist_setting}")
+for local_signal in (
+    "last_played_influence", "last_played_horizon_days",
+    "library_age_influence", "library_age_horizon_days",
+):
+    if f'id="{local_signal}"' not in settings:
+        fail(f"settings page must expose {local_signal}")
+
+for local_influence in ("last_played_influence", "library_age_influence"):
+    match = re.search(
+        rf'<input[^>]+name="pref_{local_influence}"[^>]*>',
+        settings,
+    )
+    if not match:
+        fail(f"settings page must expose pref_{local_influence}")
+    if "sliderInput_" not in match.group(0):
+        fail(f"{local_influence} must remain a slider input")
+for local_horizon in ("last_played_horizon_days", "library_age_horizon_days"):
+    match = re.search(
+        rf'<input[^>]+name="pref_{local_horizon}"[^>]*>',
+        settings,
+    )
+    if not match:
+        fail(f"settings page must expose pref_{local_horizon}")
+    if "sliderInput_" in match.group(0):
+        fail(f"{local_horizon} must remain a plain numeric input, not a slider")
+if "strategy.value === 'target_share'" not in settings:
+    fail("artist boost control must be disabled for target-share mode")
+if "data-lastmix-available" not in settings:
+    fail("artist boost control must retain LastMix availability state")
+for mix_group in ("MIX_GROUP_BASE", "MIX_GROUP_LASTFM", "MIX_GROUP_LOCAL"):
+    if f'BLISSMIXERLAB_{mix_group}' not in settings:
+        fail(f"settings page must expose the {mix_group} subgroup")
+plugin_source = (PLUGIN / "Plugin.pm").read_text(encoding="utf-8")
+if "pre-Last.fm=" in plugin_source:
+    fail("candidate diagnostics must not use the ambiguous pre-Last.fm label")
+for diagnostic_label in (
+    "final score",
+    "score before Last.fm artist share",
+    "Last.fm artist share multiplier",
+):
+    if diagnostic_label not in plugin_source:
+        fail(f"candidate diagnostics must name {diagnostic_label}")
+if "Last.fm-artist=%.3f" not in plugin_source:
+    fail("candidate diagnostics must include the Last.fm artist multiplier")
+if "Last.fm-artist=%.3f (mode=%s)" in plugin_source:
+    fail("candidate diagnostics must not repeat the Last.fm artist mode")
 for section in ("status-section", "mix-section", "learning-section"):
     if f'id="{section}-header"' not in settings or f'id="{section}"' not in settings:
         fail(f"settings page is missing the {section} grouping")
