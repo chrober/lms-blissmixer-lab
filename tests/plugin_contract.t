@@ -392,6 +392,53 @@ is(
     3.25,
     'target-share diagnostics retain the upstream generic artist multiplier',
 );
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_candidateSelectionSummaryDetails(
+        [
+            { playcount => 0, lastfm_artist_match => 1 },
+            { playcount => 2, lastfm_artist_match => 1 },
+            { playcount => 3, lastfm_artist_match => 1 },
+            { playcount => 8 },
+        ],
+        {
+            effective_playcount_influence => -80,
+            unknown_playcounts => 0,
+        },
+        20,
+        { 'endorsed artist' => 1 },
+        90,
+        0,
+        0,
+        25,
+        -80,
+        {
+            active => 1,
+            last_played_influence => -60,
+            last_played_horizon_days => 180,
+            known_last_played => 20,
+            library_age_influence => 70,
+            library_age_horizon_days => 365,
+            known_library_age => 20,
+        },
+    ),
+    [
+        'Last.fm artists=3/20 (bounded-influence=90%)',
+        'Last.fm tracks=0/20 (influence=25%)',
+        'play-count (influence=-80, min/median/max=0/2.5/8, unknown=0)',
+        'last-played (influence=-60, horizon=180d, known=20)',
+        'library-age (influence=+70, horizon=365d, known=20)',
+    ],
+    'candidate-selection summary groups each guidance source with its values',
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_candidateSelectionSummaryDetails(
+        [], { endorsed_count => 0 }, 20,
+        { 'endorsed artist' => 1 },
+        0, 75, 0, 0, 0, undef,
+    ),
+    ['Last.fm artists=0/20 (target-share=75%)'],
+    'target-share summary retains the compact original-style artist fragment',
+);
 
 my @local_signal_candidates = (
     TestTrack->new('heard-recently', 0, 'Artist', 'Recent'),

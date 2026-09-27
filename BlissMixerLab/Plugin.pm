@@ -1701,6 +1701,62 @@ sub _lastfmArtistWeightForDiagnostics {
     return defined $weight && $weight > 0 ? $weight : 1;
 }
 
+sub _candidateSelectionSummaryDetails {
+    my (
+        $entries, $result, $poolSize, $lastfmArtists,
+        $artistInfluence, $lastfmTarget,
+        $trackMatchCount, $trackGuidance,
+        $playCountInfluence, $localSignals,
+    ) = @_;
+
+    my @details;
+    if ($lastfmArtists) {
+        my $artistMatches = $artistInfluence
+            ? scalar(grep { $_->{lastfm_artist_match} } @$entries)
+            : ($result->{endorsed_count} || 0);
+        my $modeDetail = $artistInfluence
+            ? sprintf('bounded-influence=%d%%', $artistInfluence)
+            : sprintf('target-share=%d%%', $lastfmTarget);
+        push @details, sprintf(
+            'Last.fm artists=%d/%d (%s)',
+            $artistMatches, $poolSize, $modeDetail,
+        );
+    }
+    push @details, sprintf(
+        'Last.fm tracks=%d/%d (influence=%d%%)',
+        $trackMatchCount, $poolSize, $trackGuidance,
+    ) if $trackGuidance;
+
+    if ($playCountInfluence) {
+        my @counts = sort { $a <=> $b } map { $_->{playcount} } @$entries;
+        my $middle = int(@counts / 2);
+        my $median = @counts % 2
+            ? $counts[$middle]
+            : (($counts[$middle - 1] + $counts[$middle]) / 2);
+        push @details, sprintf(
+            'play-count (influence=%+d, min/median/max=%d/%.1f/%d, unknown=%d)',
+            $result->{effective_playcount_influence},
+            $counts[0], $median, $counts[-1],
+            $result->{unknown_playcounts},
+        );
+    }
+    if ($localSignals && $localSignals->{active}) {
+        push @details, sprintf(
+            'last-played (influence=%+d, horizon=%dd, known=%d)',
+            $localSignals->{last_played_influence},
+            $localSignals->{last_played_horizon_days} || 180,
+            $localSignals->{known_last_played},
+        ) if $localSignals->{last_played_influence};
+        push @details, sprintf(
+            'library-age (influence=%+d, horizon=%dd, known=%d)',
+            $localSignals->{library_age_influence},
+            $localSignals->{library_age_horizon_days} || 365,
+            $localSignals->{known_library_age},
+        ) if $localSignals->{library_age_influence};
+    }
+    return \@details;
+}
+
 sub _upstreamPlayCountInfluence {
     return 0 unless main::STATISTICS;
     my $influence = int($prefs->get('playcount_influence') || 0);
@@ -1802,59 +1858,13 @@ sub _selectWeightedCandidates {
     } @$entries;
 
     if (main::INFOLOG) {
-        my @details;
-        my $artistMode = $artistInfluence ? 'bounded-influence'
-            : ($lastfmTarget ? 'target-share' : 'disabled');
-        my $artistMatches = $artistInfluence
-            ? scalar(grep { $_->{lastfm_artist_match} } @$entries)
-            : ($result->{endorsed_count} || 0);
-        if ($lastfmArtists) {
-            if ($artistInfluence) {
-                push @details, sprintf(
-                    'Last.fm artists: mode=%s, matches=%d/%d, influence=%d%%, boost range=1.000-%.3f',
-                    $artistMode, $artistMatches, $poolSize, $artistInfluence,
-                    _lastfmTrackWeight(1, $artistInfluence),
-                );
-            } else {
-                push @details, sprintf(
-                    'Last.fm artists: mode=%s, matches=%d/%d, target=%d%%, calculated boost=%.3f',
-                    $artistMode, $artistMatches, $poolSize, $lastfmTarget,
-                    $result->{lastfm_weight} || 1,
-                );
-            }
-        }
-        push @details, sprintf(
-            'Last.fm tracks=%d/%d (influence=%d%%)',
-            $trackMatchCount, $poolSize, $trackGuidance
-        ) if $trackGuidance;
-        if ($playCountInfluence) {
-            my @counts = sort { $a <=> $b } map { $_->{playcount} } @$entries;
-            my $middle = int(@counts / 2);
-            my $median = @counts % 2
-                ? $counts[$middle]
-                : (($counts[$middle - 1] + $counts[$middle]) / 2);
-            push @details, sprintf(
-                'play-count influence=%+d, counts min/median/max=%d/%.1f/%d, unknown=%d',
-                $result->{effective_playcount_influence},
-                $counts[0], $median, $counts[-1],
-                $result->{unknown_playcounts}
-            );
-        }
-        if ($localSignals && $localSignals->{active}) {
-            push @details, sprintf(
-                'last-played influence=%+d, horizon=%dd, known=%d',
-                $localSignals->{last_played_influence},
-                $localSignals->{last_played_horizon_days} || 180,
-                $localSignals->{known_last_played},
-            ) if $localSignals->{last_played_influence};
-            push @details, sprintf(
-                'library-age influence=%+d, horizon=%dd, known=%d',
-                $localSignals->{library_age_influence},
-                $localSignals->{library_age_horizon_days} || 365,
-                $localSignals->{known_library_age},
-            ) if $localSignals->{library_age_influence};
-        }
-        my $suffix = @details ? ', ' . join(', ', @details) : '';
+        my $details = _candidateSelectionSummaryDetails(
+            $entries, $result, $poolSize, $lastfmArtists,
+            $artistInfluence, $lastfmTarget,
+            $trackMatchCount, $trackGuidance,
+            $playCountInfluence, $localSignals,
+        );
+        my $suffix = @$details ? ', ' . join(', ', @$details) : '';
         $log->info(sprintf(
             'Candidate selection: strategy=%s, pool=%d, selecting=%d%s',
             $strategy, $poolSize, scalar(@$selected), $suffix,
