@@ -3,7 +3,7 @@
   "upstream_repository": "CDrummond/lms-blissmixer",
   "upstream_ref": "master",
   "upstream_plugin_path": "BlissMixer/Plugin.pm",
-  "reviewed_upstream_commit": "77e12249c48297f2c4498a0b20ada6a72e1c911f",
+  "reviewed_upstream_commit": "c8f4b5556e52f7099f56eedd053e765a9adea7ff",
   "extension_plugin_path": "BlissMixerLab/Plugin.pm",
   "direct_mirrors": [
     "_weightParam",
@@ -41,11 +41,11 @@
     ["blissmixerlab", "blissmixer"]
   ],
   "intentional_adaptations": {
-    "initPlugin": "Registers uniquely named Lab context-menu providers in a deterministic chain after the upstream providers, and registers the independent blissmixerlab command without upstream analyser, importer, or protocol components.",
+    "initPlugin": "Registers uniquely named Lab context-menu providers in a deterministic chain after the upstream providers, and registers the independent blissmixerlab command without upstream analyser, importer, or protocol components. Upstream preference migration remains upstream-owned because Lab reads those settings through its compatibility wrappers.",
     "postinitPlugin": "Registers Bliss (Lab) independently and applies the upstream compatibility gate.",
     "_pathToTrack": "Carries the sidecar's Windows path existence fix until it is present upstream.",
-    "_dstmMix": "Owns the sidecar process, defers database refreshes during upstream analysis, adds learned-matrix selection and Last.fm similar-track guidance, and delegates shared artist/play-count candidate reranking to upstream Bliss Mixer.",
-    "_selectViaLastFm": "Collects Last.fm recording evidence independently, calls upstream Bliss Mixer for optional artist evidence, combines both under a bounded deadline, and delegates final selection to upstream Bliss Mixer.",
+    "_dstmMix": "Owns the sidecar process, defers database refreshes during upstream analysis, adds learned-matrix selection and Last.fm similar-track guidance, and applies the same expanded-candidate principle as upstream while retaining Lab-specific candidate refinements.",
+    "_selectViaLastFm": "Collects Last.fm recording evidence independently, calls upstream Bliss Mixer for optional artist evidence, combines both under a bounded deadline, and applies Lab's combined artist, track, and local-signal reranking. Upstream's artist/play-count-only selector is therefore not substituted here.",
     "_getMixData": "Adds the learnedblend request property.",
     "_buildComparisonJson": "Adds learnedblend overrides used by experimental comparison diagnostics.",
     "_cliCommand": "Keeps the Lab-only port and survey commands while routing interactive mix and list requests to the sidecar binary with adaptive seed settings.",
