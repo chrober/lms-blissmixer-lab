@@ -31,11 +31,15 @@ currently contributes:
   - Selectable Last.fm artist reranking: **Bounded artist influence** is the
     default and applies a comparable per-candidate boost; **Target endorsed
     share** preserves Bliss Mixer's original percentage-based behavior.
-  - Optional last-played and library-age reranking of the already bounded
-    Bliss-derived candidate pool. Negative values favor long-unheard or older
-    additions; positive values favor recently played or newly added music.
-    These date signals use configurable, saturating time horizons rather than
-    candidate-pool ranks, so very old or very long-unplayed tracks converge.
+  - Optional local listening and library-age reranking of the already bounded
+    Bliss-derived candidate pool. When **Bliss Guidance: Library Signals** is
+    installed and explicitly enabled for Lab, it supplies play-count,
+    last-played, and library-age signals through the shared guidance contract.
+    Until then, Lab retains its direct local path. Negative values favor
+    less-played, long-unheard, or older additions; positive values favor
+    frequently played, recently heard, or newly added music. Date signals use
+    configurable, saturating time horizons rather than candidate-pool ranks,
+    so very old or very long-unplayed tracks converge.
 - **Create bliss mix (Lab)** actions for tracks, albums, and artists, plus
   **Similar tracks (Lab)** and **Similar tracks by artist (Lab)** actions. These
   use the separate Lab mixer and respect the configured mixing strategy,
@@ -47,9 +51,11 @@ currently contributes:
 - BlissMixerLab reads that database and the upstream mix preferences.
 - BlissMixerLab owns the runtime processes, preferences, and data needed by its
   staged extensions.
-- Last-played and library-age signals are read from Lyrion's persistent track
-  metadata only for the DSTM candidate pool; they do not require Alternative
-  Play Count and never replace Bliss similarity.
+- Local Signals guidance reads Lyrion's persistent track metadata only for the
+  DSTM candidate pool; it does not require Alternative Play Count and never
+  replaces Bliss similarity. See
+  [GUIDANCE_PROVIDER_HOST_INTEGRATION.md](GUIDANCE_PROVIDER_HOST_INTEGRATION.md)
+  for the staged host integration and failure behavior.
 - The plugins remain separately registered and operate side by side.
 
 BlissMixerLab currently requires Bliss Mixer 0.10.0 or newer with the shared

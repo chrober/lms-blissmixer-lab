@@ -101,6 +101,8 @@ settings = (PLUGIN / "HTML/EN/plugins/BlissMixerLab/settings/blissmixerlab.html"
 if 'string("<code>bliss.db</code>")' not in settings:
     fail("companion status must render bliss.db in a fixed-width font")
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
+    if upstream_pref.startswith("guidance_provider_[% provider.provider_id | html %]_"):
+        continue
     if upstream_pref not in {
         "learned_blend", "lastfm_track_guidance_percent",
         "lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent",
@@ -109,6 +111,8 @@ for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
         "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
+if 'name="pref_guidance_provider_[% provider.provider_id | html %]_enabled"' not in settings:
+    fail("settings page must render the provider enable preference")
 if 'name="pref_mixer_port"' in settings:
     fail("settings page must not expose the sidecar's internal mixer port")
 if "sliderInput_0_100_1" not in settings:

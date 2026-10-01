@@ -32,6 +32,12 @@ use Plugins::BlissMixerLab::Settings;
 use Plugins::BlissMixerLab::Survey;
 use Plugins::BlissMixerLab::LastFmTrackSimilarity;
 use Plugins::BlissMixerLab::LocalLibrarySignals;
+use Plugins::BlissMixerLab::GuidanceProviderAdapter;
+
+use lib dirname(__FILE__);
+use Plugins::BlissGuidance::Discovery;
+use Plugins::BlissGuidance::Policy;
+use Plugins::BlissGuidance::Runtime;
 
 use constant DEF_NUM_DSTM_TRACKS => 5;
 use constant NUM_FOREST_SEED_TRACKS => 10;
@@ -108,6 +114,7 @@ sub initPlugin {
         last_played_horizon_days => 180,
         library_age_influence => 0,
         library_age_horizon_days => 365,
+        guidance_provider_state => { schema_version => 1, providers => {} },
         triplets_backup_path => ''
     });
 
@@ -1254,6 +1261,17 @@ sub _dstmMix {
             my $libraryAgeInfluence = _libraryAgeInfluence();
             my $lastPlayedHorizonDays = _lastPlayedHorizonDays();
             my $libraryAgeHorizonDays = _libraryAgeHorizonDays();
+            my $providerGuidance = _librarySignalsGuidanceContext();
+            my $providerLocalSignals = $providerGuidance->{enabled} ? 1 : 0;
+            if ($providerLocalSignals) {
+                my $effective = $providerGuidance->{resolved}{effective} || {};
+                $playCountInfluence = int($effective->{playcount_influence} || 0);
+                $lastPlayedInfluence = int($effective->{last_played_influence} || 0);
+                $libraryAgeInfluence = int($effective->{library_age_influence} || 0);
+                $lastPlayedHorizonDays = int($effective->{last_played_horizon_days} || 180);
+                $libraryAgeHorizonDays = int($effective->{library_age_horizon_days} || 365);
+                $playCountWeighting = $playCountInfluence != 0;
+            }
             my $localLibraryWeighting = $lastPlayedInfluence
                 || $libraryAgeInfluence;
             my $poolMultiplier =
@@ -1432,7 +1450,21 @@ sub _dstmMix {
                     } else {
                         main::DEBUGLOG && $log->debug("Num tracks to use:" . scalar(@$tracks));
                         if (scalar @$tracks > 0) {
-                            my $localSignals = $localLibraryWeighting
+                            my $localSignals = $providerLocalSignals
+                                ? Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_provider(
+                                    \@trackObjs,
+                                    $providerGuidance->{provider},
+                                    $providerGuidance->{resolved},
+                                    int(time()),
+                                    {
+                                        native_config => sub {
+                                            return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
+                                        },
+                                        score_batch => sub {
+                                            return Plugins::BlissGuidance::Runtime::score_batch(@_);
+                                        },
+                                    },
+                                ) : $localLibraryWeighting
                                 ? Plugins::BlissMixerLab::LocalLibrarySignals::prepare(
                                     \@trackObjs,
                                     $lastPlayedInfluence,
@@ -1453,12 +1485,13 @@ sub _dstmMix {
                                     $playCountInfluence, $lastfmTrackGuidance,
                                     $strategy, $localSignals,
                                     $lastfmArtistStrategy eq 'bounded_influence'
-                                        ? $lastfmArtistInfluence : 0);
-                            } elsif ($playCountWeighting || $localLibraryWeighting) {
+                                        ? $lastfmArtistInfluence : 0,
+                                    $providerLocalSignals);
+                            } elsif ($playCountWeighting || $localLibraryWeighting || $providerLocalSignals) {
                                 my $weightedUrls = _selectWeightedCandidates(
                                     \@trackObjs, $dstm_tracks, $playCountInfluence,
                                     undef, 0, undef, undef, 0, $strategy,
-                                    $localSignals,
+                                    $localSignals, 0, $providerLocalSignals,
                                 );
                                 $cb->($client, $weightedUrls);
                             } else {
@@ -1521,12 +1554,13 @@ sub _dstmMix {
 sub _selectViaLastFm {
     my ($seeds, $trackObjs, $finalCount, $cb, $artistWeighting,
         $targetPercent, $playCountInfluence, $trackGuidance, $strategy,
-    $localSignals, $artistInfluence) = @_;
+    $localSignals, $artistInfluence, $providerSignals) = @_;
     $artistWeighting ||= 0;
     $targetPercent ||= 0;
     $playCountInfluence ||= 0;
     $trackGuidance ||= 0;
     $artistInfluence ||= 0;
+    $providerSignals ||= 0;
 
     my @seedInfo;
     my %lastfmArtists;
@@ -1593,7 +1627,7 @@ sub _selectViaLastFm {
             $cb->(_selectWeightedCandidates(
                 $trackObjs, $finalCount, $playCountInfluence,
                 undef, 0, undef, undef, 0, $strategy, $localSignals,
-                $artistInfluence
+                $artistInfluence, $providerSignals
             ));
             return;
         }
@@ -1616,6 +1650,7 @@ sub _selectViaLastFm {
             $strategy,
             $localSignals,
             $artistInfluence,
+            $providerSignals,
         ));
     };
 
@@ -1735,7 +1770,7 @@ sub _candidateSelectionSummaryDetails {
             : (($counts[$middle - 1] + $counts[$middle]) / 2);
         push @details, sprintf(
             'play-count (influence=%+d, min/median/max=%d/%.1f/%d, unknown=%d)',
-            $result->{effective_playcount_influence},
+            $playCountInfluence,
             $counts[0], $median, $counts[-1],
             $result->{unknown_playcounts},
         );
@@ -1755,6 +1790,36 @@ sub _candidateSelectionSummaryDetails {
         ) if $localSignals->{library_age_influence};
     }
     return \@details;
+}
+
+sub _librarySignalsGuidanceContext {
+    my $all_state = $labprefs->get('guidance_provider_state');
+    $all_state = { schema_version => 1, providers => {} }
+        unless ref($all_state) eq 'HASH';
+    my $host_state = Plugins::BlissGuidance::Policy::host_state(
+        $all_state, 'library-signals',
+    );
+    return { enabled => 0 } unless $host_state->{enabled};
+
+    my $discovery = Plugins::BlissGuidance::Discovery::discover();
+    my ($provider) = grep {
+        ($_->{provider_id} || '') eq 'library-signals'
+    } @{$discovery->{providers} || []};
+    # Once the user enables the coherent provider layer, it must either score
+    # through that layer or remain neutral.  It must not quietly restore the
+    # legacy direct SQLite path merely because discovery/runtime failed.
+    return { enabled => 1, provider => undef, resolved => { effective => {} } }
+        unless $provider && $provider->{available};
+    my $resolved = Plugins::BlissGuidance::Policy::resolve(
+        $provider, $host_state, {},
+    );
+    return { enabled => 1, provider => undef, resolved => { effective => {} } }
+        unless $resolved->{valid} && $resolved->{enabled};
+    return {
+        enabled => 1,
+        provider => $provider,
+        resolved => $resolved,
+    };
 }
 
 sub _upstreamPlayCountInfluence {
@@ -1796,10 +1861,11 @@ sub _libraryAgeHorizonDays {
 sub _selectWeightedCandidates {
     my ($trackObjs, $finalCount, $playCountInfluence, $lastfmArtists,
         $lastfmTarget, $random, $lastfmTracks, $trackGuidance, $strategy,
-        $localSignals, $artistInfluence) = @_;
+        $localSignals, $artistInfluence, $providerSignals) = @_;
     $trackGuidance ||= 0;
     $strategy ||= 'unknown';
     $artistInfluence ||= 0;
+    $providerSignals ||= 0;
     # Bounded artist influence is a per-candidate multiplier.  Do not also
     # pass the upstream target-share percentage, or the same evidence would
     # be applied twice by CandidateSelection.
@@ -1834,10 +1900,14 @@ sub _selectWeightedCandidates {
             $weight *= $trackWeight;
         }
         if ($localSignals && $localSignals->{active}) {
-            my $signals = Plugins::BlissMixerLab::LocalLibrarySignals::forTrack(
-                $localSignals, $track
-            );
-            for my $field (qw(last_played added last_played_signal last_played_weight library_age_signal library_age_weight)) {
+            my $signals = $providerSignals
+                ? Plugins::BlissMixerLab::GuidanceProviderAdapter::for_track(
+                    $localSignals, $track
+                )
+                : Plugins::BlissMixerLab::LocalLibrarySignals::forTrack(
+                    $localSignals, $track
+                );
+            for my $field (qw(playcount playcount_signal playcount_weight last_played added last_played_signal last_played_weight library_age_signal library_age_weight)) {
                 $entry->{$field} = $signals->{$field}
                     if exists $signals->{$field};
             }
@@ -1847,10 +1917,21 @@ sub _selectWeightedCandidates {
     } : undef;
 
     my $result = Plugins::BlissMixer::CandidateSelection::selectCandidates(
-        $trackObjs, $finalCount, $playCountInfluence, $lastfmArtists,
+        $trackObjs, $finalCount, $providerSignals ? 0 : $playCountInfluence, $lastfmArtists,
         $lastfmTarget, $random, $trackWeightCallback
     );
     my $entries = $result->{entries};
+    if ($providerSignals && $localSignals) {
+        for my $entry (@$entries) {
+            my $signals = Plugins::BlissMixerLab::GuidanceProviderAdapter::for_track(
+                $localSignals, $entry->{track},
+            );
+            for my $field (qw(playcount playcount_signal playcount_weight last_played added last_played_signal last_played_weight library_age_signal library_age_weight)) {
+                $entry->{$field} = $signals->{$field}
+                    if exists $signals->{$field};
+            }
+        }
+    }
     my $selected = $result->{selected};
     my $poolSize = $result->{pool_size};
     my $trackMatchCount = scalar grep {

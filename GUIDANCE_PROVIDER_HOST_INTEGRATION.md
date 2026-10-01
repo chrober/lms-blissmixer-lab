@@ -36,7 +36,6 @@ It provides these provider-neutral Perl modules:
 | `Plugins::BlissGuidance::Discovery` | Enumerate enabled Lyrion plugins that expose the v1 provider methods; validate descriptors, defaults, status, duplicate IDs, and native SPI metadata. |
 | `Plugins::BlissGuidance::Policy` | Resolve provider default, host override, and optional invocation override values with their provenance. |
 | `Plugins::BlissGuidance::Runtime` | Start one bounded JSONL SPI session, send `describe`, `prepare`, `score`, and `close`, validate replies, enforce a deadline, and return neutral failure diagnostics. |
-| `Plugins::BlissGuidance::Scoring` | Apply shared bounded-influence and saturating-time policy semantics to normalized provider signals, with per-candidate provenance. |
 
 The package is not a Lyrion extension and has no settings page or runtime
 registration.  Both hosts bundle the same tested source revision, so users do
@@ -77,8 +76,8 @@ database path or executable.
 The normal DSTM pool is small.  Lab must impose a strict provider deadline and
 fall back safely if it expires, returns malformed data, or is unavailable.  The
 initial deadline is 500 ms for the complete `describe`/`prepare`/`score` session
-on a local server. It is a host constant, logged at debug level, and is not a
-user setting in this slice.
+on a local server. It is a host constant, verified by the host/provider tests,
+and is not a user setting in this slice.
 
 ## Settings and migration
 

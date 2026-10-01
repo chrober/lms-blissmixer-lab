@@ -23,6 +23,7 @@ BEGIN {
         server => {httpport => 9000},
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
+    sub set { $values{$_[0]->{name}}{$_[1]} = $_[2] }
 
     package Slim::Utils::Prefs;
     sub preferences { return bless {name => $_[0]}, 'TestSettingsPrefs' }
@@ -48,6 +49,7 @@ BEGIN {
     package Slim::Utils::PluginManager;
     sub dataForPlugin { return {version => '0.10.0'} }
     sub isEnabled { return 1 }
+    sub enabledPlugins { return ('Plugins::LibrarySignals::Plugin') }
     $INC{'Slim/Utils/PluginManager.pm'} = __FILE__;
 
     package Slim::Utils::Strings;
@@ -68,6 +70,43 @@ BEGIN {
     package Plugins::BlissMixer::Plugin;
     sub _lastfmNormalizeArtist { return }
     sub _fetchSimilarArtistsForSeeds { return }
+
+    package Plugins::LibrarySignals::Plugin;
+    sub guidance_provider_descriptor_v1 {
+        return {
+            protocol_version => 1,
+            provider_id => 'library-signals',
+            display_name => 'Bliss Guidance: Library Signals',
+            settings_uri => 'plugins/LibrarySignals/settings/librarysignals.html',
+            capabilities => [qw(play_count last_played library_age)],
+            scopes => ['global_candidate'],
+            settings_schema_version => 1,
+            controls => [
+                { key => 'playcount_influence', type => 'integer', minimum => -100, maximum => 100, factory_default => 0, host_overridable => 1, guidance_channel => 'playcount', render_as => 'slider' },
+                { key => 'last_played_influence', type => 'integer', minimum => -100, maximum => 100, factory_default => 0, host_overridable => 1, guidance_channel => 'last_played', render_as => 'slider' },
+                { key => 'last_played_horizon_days', type => 'integer', minimum => 30, maximum => 1825, factory_default => 180, host_overridable => 1, render_as => 'number' },
+                { key => 'library_age_influence', type => 'integer', minimum => -100, maximum => 100, factory_default => 0, host_overridable => 1, guidance_channel => 'library_age', render_as => 'slider' },
+                { key => 'library_age_horizon_days', type => 'integer', minimum => 30, maximum => 3650, factory_default => 365, host_overridable => 1, render_as => 'number' },
+            ],
+            native_spi => {
+                provider_id => 'library-signals-guidance', spi_version => 2,
+                protocol => 'bliss-guidance-jsonl-v2',
+                channels => { play_count => 'playcount', last_played => 'last_played', library_age => 'library_age' },
+                artifact_kinds => ['eligible-candidate-identities-v1'], resource_kinds => ['lms-persist-sqlite-v1'],
+            },
+        };
+    }
+    sub guidance_provider_defaults_v1 {
+        return {
+            playcount_influence => 0,
+            last_played_influence => 0,
+            last_played_horizon_days => 180,
+            library_age_influence => 0,
+            library_age_horizon_days => 365,
+            settings_revision => 1,
+        };
+    }
+    sub guidance_provider_status_v1 { return { available => 1 } }
 }
 
 use lib "$FindBin::Bin/..";
@@ -112,6 +151,20 @@ is($request_host{learning_duration_text},
 is($request_host{learning_status_text},
     'localized:BLISSMIXERLAB_LEARNING_STATUS',
     'live learner progress label is localized before rendering');
+is(
+    $request_host{guidance_provider_sections}->[0]->{provider_id},
+    'library-signals',
+    'the discoverable Library Signals provider is rendered for an opt-in host',
+);
+ok(
+    !$request_host{guidance_provider_sections}->[0]->{enabled},
+    'a newly discovered provider remains disabled until Lab explicitly enables it',
+);
+is(
+    $request_host{guidance_provider_sections}->[0]->{controls}->[2]->{render_as},
+    'number',
+    'Lab preserves the provider-declared control presentation',
+);
 
 my %fallback_host;
 Plugins::BlissMixerLab::Settings->beforeRender(\%fallback_host);
@@ -145,5 +198,38 @@ is($submitted{pref_library_age_influence}, 100,
     'submitted library-age influence preserves the signed upper bound');
 is($submitted{pref_library_age_horizon_days}, 3650,
     'submitted library-age horizon preserves the upper bound');
+
+$TestSettingsPrefs::values{'plugin.blissmixer'}{playcount_influence} = -80;
+$TestSettingsPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -60;
+$TestSettingsPrefs::values{'plugin.blissmixerlab'}{last_played_horizon_days} = 180;
+$TestSettingsPrefs::values{'plugin.blissmixerlab'}{library_age_influence} = 70;
+$TestSettingsPrefs::values{'plugin.blissmixerlab'}{library_age_horizon_days} = 365;
+my %enable_provider = ('pref_guidance_provider_library-signals_enabled' => 1);
+Plugins::BlissMixerLab::Settings->handler(undef, \%enable_provider);
+my $provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
+is_deeply(
+    $provider_state->{providers}{'library-signals'}{overrides},
+    {
+        playcount_influence => -80,
+        last_played_influence => -60,
+        last_played_horizon_days => 180,
+        library_age_influence => 70,
+        library_age_horizon_days => 365,
+    },
+    'first provider enable migrates the three direct local factors into explicit host overrides',
+);
+
+my $template = do {
+    local $/;
+    open my $fh, '<', "$FindBin::Bin/../BlissMixerLab/HTML/EN/plugins/BlissMixerLab/settings/blissmixerlab.html"
+        or die "cannot read settings template: $!";
+    <$fh>;
+};
+like($template, qr/guidance_provider_sections/,
+    'settings template has a dedicated discoverable-guidance section');
+like($template, qr/provider\.controls/,
+    'settings template renders controls from the provider descriptor');
+like($template, qr/control\.render_as == 'slider'/,
+    'settings template preserves provider slider versus number presentation');
 
 done_testing();

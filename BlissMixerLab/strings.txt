@@ -52,6 +52,24 @@ BLISSMIXERLAB_MIX_GROUP_LASTFM
 BLISSMIXERLAB_MIX_GROUP_LOCAL
 	EN	Local library signals
 
+BLISSMIXERLAB_MIX_GROUP_GUIDANCE_PROVIDERS
+	EN	Optional guidance providers
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED
+	EN	Use this provider
+
+BLISSMIXERLAB_OPEN_PROVIDER_SETTINGS
+	EN	Open %s settings
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_VALUE_SOURCE
+	EN	Effective value source: %s
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_USE_DEFAULT
+	EN	Use provider default
+
+BLISSMIXERLAB_LOCAL_PROVIDER_ACTIVE
+	EN	Library Signals is active. Its provider settings and any Lab-specific overrides are shown below.
+
 BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
 

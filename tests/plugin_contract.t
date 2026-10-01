@@ -475,6 +475,40 @@ is_deeply(
     'Lab applies last-played guidance through the shared candidate selector callback',
 );
 
+my $providerSignals = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_signals(
+    \@local_signal_candidates,
+    { playcount_influence => -80, last_played_influence => 0, library_age_influence => 0 },
+    [
+        { candidate_id => 'heard-recently', channel => 'playcount', score => 1, observation => { playcount => 12 } },
+        { candidate_id => 'heard-long-ago', channel => 'playcount', score => -1, observation => { playcount => 0 } },
+    ],
+    3000 * 86400,
+);
+my $candidate_selection_call_count = scalar @Plugins::BlissMixer::CandidateSelection::calls;
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+        \@local_signal_candidates,
+        1,
+        -80,
+        undef,
+        undef,
+        sub { 0.5 },
+        undef,
+        0,
+        'static weights',
+        $providerSignals,
+        0,
+        1,
+    ),
+    ['heard-long-ago'],
+    'provider play-count guidance reranks the bounded DSTM pool',
+);
+is(
+    $Plugins::BlissMixer::CandidateSelection::calls[$candidate_selection_call_count]->[2],
+    0,
+    'provider mode prevents the legacy upstream play-count factor from being applied twice',
+);
+
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),
     'defer', 'database refresh is deferred while upstream analysis is running');
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'same', 'same', 0),
