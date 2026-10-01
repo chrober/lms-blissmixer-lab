@@ -5,6 +5,11 @@ currently implemented in the BlissMixerLab Perl plugin. It is a migration plan,
 not a description of the current Perl implementation. The goal is semantic
 parity first; the Rust hosts may later optimize the execution.
 
+The separate Lab-plugin integration with discoverable Lyrion providers is
+specified in [GUIDANCE_PROVIDER_HOST_INTEGRATION.md](GUIDANCE_PROVIDER_HOST_INTEGRATION.md).
+That integration uses a native provider from Lab's Perl-side DSTM flow; it does
+not itself make the forked `bliss-mixer` binary a Rust SPI host.
+
 ## Scope
 
 The following Lab behaviors need native equivalents:
