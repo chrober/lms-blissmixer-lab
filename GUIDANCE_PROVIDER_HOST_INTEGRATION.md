@@ -104,16 +104,28 @@ to own all three signals.  The old preferences remain stored temporarily only
 so disabling the provider can restore the current Lab path during the staged
 rollout.
 
-## Failure behavior and logging
+## Failure behavior and logging compatibility
 
 If the Library Signals provider is disabled, Lab uses its current direct local
 reranking path.  If it is enabled but unavailable, times out, or returns an
 invalid response, Lab does not invoke the old path as a hidden second attempt:
 the provider's three signals are neutral for that selection, while Bliss and
-any independent Last.fm behavior continue normally.  Information-level logs
-state the provider, resolved settings, bounded pool size, elapsed time, and
-whether guidance was applied or neutralized.  Debug logs retain selected-track
-signal values, factors, provenance, and failure detail.
+any independent Last.fm behavior continue normally.
+
+Lab's current INFO and DEBUG logging is a compatibility boundary.  Its
+candidate-selection summary, selected-track lines, diagnostics, and selection
+lines must retain their current format, ordering, labels, and level.  The
+provider adapter therefore normalizes native signals into the existing Lab
+candidate-profile fields before the established logging code runs.  It must not
+append provider IDs, SPI terminology, native timing, or new provenance text to
+those lines.  A provider-enabled success should be indistinguishable in format
+from the current direct path; only the already logged values may differ when
+the effective signal differs.
+
+Provider operational detail belongs to the provider's own status surface and
+tests, not to new Lab selection log lines.  An enabled-provider failure follows
+the existing neutral-factor logging path, preserving a valid Bliss selection
+without adding a second, provider-specific Lab diagnostic line.
 
 ## Migration and removal gates
 
@@ -128,6 +140,8 @@ fallback until all gates pass:
 4. Missing metadata and `lastPlayed == 0` retain their documented behavior.
 5. Provider failure leaves a valid mix and reports neutralization.
 6. Pi measurements meet the 500 ms budget without full-library memory use.
+7. Existing Lab INFO and DEBUG selection-log fixtures remain byte-for-byte
+   stable for equivalent normalized candidate profiles.
 
 After those gates, remove the direct local-signal code and its now-obsolete Lab
 settings.  A provider-disabled Lab will then simply omit local guidance rather
