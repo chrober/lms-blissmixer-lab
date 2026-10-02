@@ -260,6 +260,11 @@ is_deeply(
     '32-bit ARM hosts register only the ARMHF Lab binary directory',
 );
 is_deeply(
+    [Plugins::BlissMixerLab::Plugin::_linuxBinaryDirectories('linux-gnueabihf-thread-multi')],
+    ['armhf-linux'],
+    'GNU EABI hard-float Perl builds register only the ARMHF Lab binary directory',
+);
+is_deeply(
     [Plugins::BlissMixerLab::Plugin::_linuxBinaryDirectories('riscv64')],
     [],
     'unknown Linux architectures never fall back to a foreign Lab binary',

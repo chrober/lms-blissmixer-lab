@@ -222,9 +222,11 @@ sub _linuxBinaryDirectories {
     my ($architecture) = @_;
     $architecture = lc($architecture // $Config::Config{archname} // '');
 
-    return ('x86_64-linux') if $architecture =~ /(?:x86_64|amd64)/;
-    return ('aarch64-linux') if $architecture =~ /(?:aarch64|arm64)/;
-    return ('armhf-linux') if $architecture =~ /(?:armv[5-8]|armhf|arm-linux)/;
+    return ('aarch64-linux') if $architecture =~ /\b(aarch64|arm64)\b/;
+    return ('x86_64-linux') if $architecture =~ /\b(x86_64|amd64)\b/;
+    return ('armhf-linux') if $architecture =~ /\barmv[5-8][[:alnum:]_]*/
+        || $architecture =~ /\barmhf\b/
+        || $architecture =~ /gnueabihf/;
     return;
 }
 
