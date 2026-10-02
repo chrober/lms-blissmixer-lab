@@ -92,55 +92,55 @@
     [% WRAPPER settingGroup title="BLISSMIXERLAB_LIBRARY_AGE_HORIZON" desc="BLISSMIXERLAB_LIBRARY_AGE_HORIZON_DESC" %]
         <input type="number" min="30" max="3650" step="1" class="stdedit" name="pref_library_age_horizon_days" id="library_age_horizon_days" value="[% prefs.library_age_horizon_days %]" size="6">
     [% END %]
-    [% ELSE %]
-    <h3 class="experimental-setting-group">[% "BLISSMIXERLAB_MIX_GROUP_LOCAL" | string %]</h3>
-    <p style="opacity:0.7">[% "BLISSMIXERLAB_LOCAL_PROVIDER_ACTIVE" | string %]</p>
-    [% END %]
-
-    [% IF guidance_provider_section_count > 0 %]
-    <h3 class="experimental-setting-group">[% "BLISSMIXERLAB_MIX_GROUP_GUIDANCE_PROVIDERS" | string %]</h3>
-    [% FOREACH provider IN guidance_provider_sections %]
-    <div class="guidance-provider-section">
-        <h4>[% provider.display_name | html %]</h4>
-        <div class="prefs">
-            <label>
-                <input type="hidden" name="pref_guidance_provider_[% provider.provider_id | html %]_enabled" value="0">
-                <input type="checkbox" class="guidance-provider-enabled"
-                    name="pref_guidance_provider_[% provider.provider_id | html %]_enabled"
-                    value="1"
-                    data-provider-id="[% provider.provider_id | html %]"
-                    [% IF provider.enabled %]checked[% END %]>
-                [% "BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED" | string %]
-            </label>
-            [% IF provider.settings_uri %]
-                <a style="margin-left:12px" href="/[% provider.settings_uri | html %]">[% "BLISSMIXERLAB_OPEN_PROVIDER_SETTINGS" | string(provider.display_name) %]</a>
-            [% END %]
-        </div>
-        <div id="guidance-provider-[% provider.provider_id | html %]-controls" class="guidance-provider-controls[% UNLESS provider.enabled %] hidden[% END %]">
-        [% FOREACH control IN provider.controls %]
-            [% WRAPPER settingGroup title=control.label_token desc=control.help_token %]
-                <input type="number" min="[% control.minimum %]" max="[% control.maximum %]" step="1"
-                    class="stdedit[% IF control.render_as == 'slider' %] sliderInput_[% control.minimum %]_[% control.maximum %]_1[% END %]"
-                    name="pref_guidance_provider_[% provider.provider_id | html %]_[% control.key | html %]"
-                    id="guidance-provider-[% provider.provider_id | html %]-[% control.key | html %]"
-                    value="[% control.value %]" size="6"
-                    data-provider-default="[% control.provider_default %]"
-                    data-guidance-inherit="inherit_guidance_provider_[% provider.provider_id | html %]_[% control.key | html %]">
-                <input type="hidden" name="inherit_guidance_provider_[% provider.provider_id | html %]_[% control.key | html %]" value="0">
-                <div class="guidance-provider-origin" style="opacity:0.7;margin-top:4px">
-                    [% "BLISSMIXERLAB_GUIDANCE_PROVIDER_VALUE_SOURCE" | string(control.origin) %]
-                    [% IF control.host_override %]
-                    <button type="button" class="guidance-provider-inherit" data-input-id="guidance-provider-[% provider.provider_id | html %]-[% control.key | html %]">[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_USE_DEFAULT" | string %]</button>
-                    [% END %]
-                </div>
-            [% END %]
-        [% END %]
-        </div>
-    </div>
-    [% END %]
     [% END %]
     <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
     </div>
+
+    <b style="font-size:125%" id="guidance-providers-section-header" class="hidden-section" onclick="toggleSection('guidance-providers-section')">[% "BLISSMIXERLAB_GUIDANCE_PROVIDERS" | string %]</b><br/><br/>
+    <div id="guidance-providers-section" class="hidden">
+        <p>[% "BLISSMIXERLAB_GUIDANCE_PROVIDERS_DESC" | string %]</p>
+        [% IF guidance_provider_section_count > 0 %]
+            [% FOREACH provider IN guidance_provider_sections %]
+                <h3>[% provider.display_name | html %]</h3>
+                [% IF provider.available %]
+                    <p style="color:#398439">[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE" | string %]</p>
+                [% ELSE %]
+                    <p style="opacity:0.7">[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE" | string(provider.diagnostic) %]</p>
+                [% END %]
+                [% IF provider.settings_uri %]
+                    <p><a href="/[% provider.settings_uri | html %]">[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS" | string(provider.display_name) %]</a></p>
+                [% END %]
+                [% WRAPPER settingGroup title="BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED" desc="BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC" %]
+                    <input type="checkbox" name="[% provider.enable_field_name | html %]" value="1" data-guidance-provider-controls="guidance-provider-controls-[% provider.provider_id | html %]" data-guidance-provider-controls-usable="[% IF provider.available && provider.policy_valid %]1[% ELSE %]0[% END %]"[% IF provider.enabled %] checked="checked"[% END %][% UNLESS provider.available && provider.policy_valid %] disabled[% END %]>
+                [% END %]
+                <div id="guidance-provider-controls-[% provider.provider_id | html %]" class="[% UNLESS provider.enabled %]hidden[% END %]">
+                    [% FOREACH control IN provider.controls %]
+                        [% WRAPPER settingGroup title=control.label_token desc=control.help_token %]
+                            [% IF control.type == 'boolean' %]
+                                <input type="checkbox" name="[% control.field_name | html %]" id="[% control.field_name | html %]" value="1"[% IF control.effective %] checked="checked"[% END %][% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+                            [% ELSIF control.type == 'enum' %]
+                                <select class="stdedit" name="[% control.field_name | html %]" id="[% control.field_name | html %]"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+                                    [% FOREACH option IN control.enum_values %]<option value="[% option | html %]"[% IF control.effective == option %] selected[% END %]>[% option | html %]</option>[% END %]
+                                </select>
+                            [% ELSE %]
+                                <input type="number" min="[% control.minimum %]" max="[% control.maximum %]" step="1" class="stdedit[% IF control.render_as == 'slider' %] sliderInput_[% control.minimum %]_[% control.maximum %]_1[% END %]" name="[% control.field_name | html %]" id="[% control.field_name | html %]" value="[% control.effective %]" size="6"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+                            [% END %]
+                            <input type="hidden" name="[% control.inherit_field_name | html %]" id="[% control.inherit_field_name | html %]" value="0"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+                            <input type="hidden" name="[% control.dirty_field_name | html %]" id="[% control.dirty_field_name | html %]" value="0"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+                            <span id="guidance-origin-[% control.field_name | html %]" style="opacity:0.7" data-guidance-origin-prefix="[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN" | string %]">[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN" | string %] [% control.origin_label_token | string %].</span>
+                            <span id="guidance-inherit-button-[% control.field_name | html %]"[% IF control.origin == 'provider_default' %] class="hidden"[% END %]>
+                                <button type="button" class="stdclick" data-guidance-inherited-field="[% control.field_name | html %]" data-guidance-inherited-marker="[% control.inherit_field_name | html %]" data-guidance-dirty-marker="[% control.dirty_field_name | html %]" data-guidance-inherited-value="[% control.inherited | html %]" data-guidance-origin="guidance-origin-[% control.field_name | html %]" data-guidance-inherit-button="guidance-inherit-button-[% control.field_name | html %]" data-guidance-inherited-origin="[% control.inherited_origin | html %]" data-guidance-inherited-origin-label="[% control.inherited_origin_label_token | string %]" data-guidance-host-origin="host_override" data-guidance-host-origin-label="[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST" | string %]" data-guidance-origin-pending="[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING" | string %]"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>[% "BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET" | string %]</button>
+                            </span>
+                        [% END %]
+                    [% END %]
+                </div>
+            [% END %]
+        [% ELSE %]
+            <p style="opacity:0.7">[% "BLISSMIXERLAB_GUIDANCE_PROVIDERS_NONE" | string %]</p>
+        [% END %]
+    </div>
+
+    <br/><hr style="opacity:0.4" class="sub-sep"/><br/>
 
     <b style="font-size:125%" id="learning-section-header" class="hidden-section" onclick="toggleSection('learning-section')">[% "BLISSMIXERLAB_LEARNING" | string %]</b><br/><br/>
     <div id="learning-section" class="hidden">
@@ -360,36 +360,96 @@
         observer.observe(document.body, {childList: true, subtree: true});
     }
 
+    function copyGuidanceInheritedDefault(button) {
+        const fieldName = button.getAttribute('data-guidance-inherited-field');
+        const value = button.getAttribute('data-guidance-inherited-value');
+        const marker = document.getElementById(
+            button.getAttribute('data-guidance-inherited-marker')
+        );
+        const dirtyMarker = document.getElementById(
+            button.getAttribute('data-guidance-dirty-marker')
+        );
+        const input = document.getElementById(fieldName);
+        if (!input) return;
+        if (input.type === 'checkbox') input.checked = value === '1';
+        else input.value = value;
+        const slider = document.getElementById('mskslider.' + fieldName);
+        if (slider) slider.value = value;
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        if (marker) marker.value = '1';
+        if (dirtyMarker) dirtyMarker.value = '0';
+        setGuidanceOrigin(
+            button,
+            button.getAttribute('data-guidance-inherited-origin-label'),
+            button.getAttribute('data-guidance-origin-pending'),
+            button.getAttribute('data-guidance-inherited-origin')
+        );
+    }
+
+    function setGuidanceOrigin(button, label, pending, sourceOrigin) {
+        const originElement = document.getElementById(
+            button.getAttribute('data-guidance-origin')
+        );
+        if (!originElement) return;
+        const prefix = originElement.getAttribute('data-guidance-origin-prefix') || '';
+        originElement.textContent = prefix + ' ' + label + (pending ? ' ' + pending : '') + '.';
+        const reset = document.getElementById(
+            button.getAttribute('data-guidance-inherit-button')
+        );
+        if (reset) reset.classList.toggle('hidden', sourceOrigin === 'provider_default');
+    }
+
+    function bindGuidanceInheritedDefaultButtons() {
+        document.querySelectorAll('[data-guidance-inherited-field]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                copyGuidanceInheritedDefault(button);
+            });
+        });
+    }
+
+    function bindGuidanceInheritedMarkers() {
+        document.querySelectorAll('[data-guidance-inherited-field]').forEach((button) => {
+            const fieldName = button.getAttribute('data-guidance-inherited-field');
+            const markerName = button.getAttribute('data-guidance-inherited-marker');
+            const dirtyMarkerName = button.getAttribute('data-guidance-dirty-marker');
+            const input = document.getElementById(fieldName);
+            const marker = document.getElementById(markerName);
+            const dirtyMarker = document.getElementById(dirtyMarkerName);
+            if (!input || !marker || !dirtyMarker) return;
+            const markHostOverride = () => {
+                marker.value = '0';
+                dirtyMarker.value = '1';
+                setGuidanceOrigin(
+                    button,
+                    button.getAttribute('data-guidance-host-origin-label'),
+                    '',
+                    button.getAttribute('data-guidance-host-origin')
+                );
+            };
+            input.addEventListener('input', markHostOverride);
+            input.addEventListener('change', markHostOverride);
+        });
+    }
+
     function updateGuidanceProviderControls(checkbox) {
         const controls = document.getElementById(
-            'guidance-provider-' + checkbox.dataset.providerId + '-controls'
+            checkbox.getAttribute('data-guidance-provider-controls')
         );
-        if (controls) controls.classList.toggle('hidden', !checkbox.checked);
+        if (!controls) return;
+        const enabled = checkbox.checked;
+        const usable = checkbox.getAttribute('data-guidance-provider-controls-usable') === '1';
+        controls.classList.toggle('hidden', !enabled);
+        controls.querySelectorAll('input, select, button').forEach((input) => {
+            input.disabled = !enabled || !usable;
+        });
     }
 
     function bindGuidanceProviderControls() {
-        document.querySelectorAll('.guidance-provider-enabled').forEach((checkbox) => {
+        document.querySelectorAll('[data-guidance-provider-controls]').forEach((checkbox) => {
             checkbox.addEventListener('change', () => updateGuidanceProviderControls(checkbox));
             updateGuidanceProviderControls(checkbox);
-        });
-        document.querySelectorAll('.guidance-provider-inherit').forEach((button) => {
-            button.addEventListener('click', () => {
-                const input = document.getElementById(button.dataset.inputId);
-                if (!input) return;
-                input.value = input.dataset.providerDefault;
-                const inherit = document.querySelector(
-                    '[name="' + input.dataset.guidanceInherit + '"]'
-                );
-                if (inherit) inherit.value = '1';
-            });
-        });
-        document.querySelectorAll('[data-guidance-inherit]').forEach((input) => {
-            input.addEventListener('input', () => {
-                const inherit = document.querySelector(
-                    '[name="' + input.dataset.guidanceInherit + '"]'
-                );
-                if (inherit) inherit.value = '0';
-            });
         });
     }
 
@@ -449,6 +509,7 @@
     window.addEventListener('load', () => {
         restoreSectionState('status-section', true);
         restoreSectionState('mix-section', true);
+        restoreSectionState('guidance-providers-section', false);
         restoreSectionState('learning-section', false);
         if (document.getElementById('learning-button')) {
             refreshLearning();
@@ -456,6 +517,8 @@
         }
         updateBackupButtonState();
         watchLastfmArtistInfluenceSlider();
+        bindGuidanceInheritedDefaultButtons();
+        bindGuidanceInheritedMarkers();
         bindGuidanceProviderControls();
         const artistStrategy = document.getElementById('lastfm_artist_reranking_strategy');
         if (artistStrategy) artistStrategy.addEventListener('change', updateLastfmArtistInfluenceState);

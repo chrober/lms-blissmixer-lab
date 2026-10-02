@@ -111,7 +111,7 @@ for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
         "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
-if 'name="pref_guidance_provider_[% provider.provider_id | html %]_enabled"' not in settings:
+if 'name="[% provider.enable_field_name | html %]"' not in settings:
     fail("settings page must render the provider enable preference")
 if 'name="pref_mixer_port"' in settings:
     fail("settings page must not expose the sidecar's internal mixer port")

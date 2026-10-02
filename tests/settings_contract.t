@@ -170,6 +170,32 @@ is(
     'number',
     'Lab preserves the provider-declared control presentation',
 );
+is(
+    $request_host{guidance_provider_sections}->[0]->{enable_field_name},
+    'pref_guidance_provider_library-signals_enabled',
+    'provider enable field follows the shared host contract',
+);
+my $playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+is(
+    $playcount_control->{field_name},
+    'pref_guidance_provider_library-signals_playcount_influence',
+    'provider control field follows the shared host contract',
+);
+is(
+    $playcount_control->{inherit_field_name},
+    'inherit_guidance_provider_library-signals_playcount_influence',
+    'provider control has Better Call Bliss style inheritance marker',
+);
+is(
+    $playcount_control->{dirty_field_name},
+    'dirty_guidance_provider_library-signals_playcount_influence',
+    'provider control has Better Call Bliss style dirty marker',
+);
+is($playcount_control->{origin}, 'provider_default',
+    'a new provider control reports its provider setting origin');
+is($playcount_control->{origin_label_token},
+    'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PROVIDER',
+    'provider origin is rendered with the Lab-localized human label');
 
 my %fallback_host;
 Plugins::BlissMixerLab::Settings->beforeRender(\%fallback_host);
@@ -209,20 +235,53 @@ $TestSettingsPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -60;
 $TestSettingsPrefs::values{'plugin.blissmixerlab'}{last_played_horizon_days} = 180;
 $TestSettingsPrefs::values{'plugin.blissmixerlab'}{library_age_influence} = 70;
 $TestSettingsPrefs::values{'plugin.blissmixerlab'}{library_age_horizon_days} = 365;
-my %enable_provider = ('pref_guidance_provider_library-signals_enabled' => 1);
+my %enable_provider = (
+    saveSettings => 1,
+    'pref_guidance_provider_library-signals_enabled' => 1,
+);
 Plugins::BlissMixerLab::Settings->handler(undef, \%enable_provider);
 my $provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
 is_deeply(
     $provider_state->{providers}{'library-signals'}{overrides},
-    {
-        playcount_influence => -80,
-        last_played_influence => -60,
-        last_played_horizon_days => 180,
-        library_age_influence => 70,
-        library_age_horizon_days => 365,
-    },
-    'first provider enable migrates the three direct local factors into explicit host overrides',
+    {},
+    'first provider enable starts from provider settings like Better Call Bliss',
 );
+
+Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
+$playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+is($playcount_control->{origin}, 'provider_default',
+    'first provider enable visibly inherits the provider setting');
+
+my %save_host_override = (
+    saveSettings => 1,
+    'pref_guidance_provider_library-signals_enabled' => 1,
+    'pref_guidance_provider_library-signals_playcount_influence' => -80,
+    'dirty_guidance_provider_library-signals_playcount_influence' => 1,
+);
+Plugins::BlissMixerLab::Settings->handler(undef, \%save_host_override);
+Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
+$playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+is($playcount_control->{origin}, 'host_override',
+    'an explicitly saved Lab value reports Bliss Mixer Lab setting as its origin');
+is($playcount_control->{origin_label_token},
+    'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST',
+    'the Lab override uses the Lab-localized origin annotation');
+
+my %use_inherited_default = (
+    saveSettings => 1,
+    'pref_guidance_provider_library-signals_enabled' => 1,
+    'inherit_guidance_provider_library-signals_playcount_influence' => 1,
+    'dirty_guidance_provider_library-signals_playcount_influence' => 0,
+);
+Plugins::BlissMixerLab::Settings->handler(undef, \%use_inherited_default);
+$provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
+ok(!exists $provider_state->{providers}{'library-signals'}{overrides}{playcount_influence},
+    'explicit save after Use inherited default clears the Lab override');
+
+Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
+$playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+is($playcount_control->{origin}, 'provider_default',
+    'cleared host override returns the visible origin to Provider setting');
 
 my $template = do {
     local $/;
@@ -238,5 +297,23 @@ like($template, qr/provider\.controls/,
     'settings template renders controls from the provider descriptor');
 like($template, qr/control\.render_as == 'slider'/,
     'settings template preserves provider slider versus number presentation');
+like($template, qr/guidance-providers-section-header/,
+    'provider controls use their own collapsible section like Better Call Bliss');
+like($template, qr/data-guidance-provider-controls=/,
+    'provider enable controls use the Better Call Bliss data contract');
+like($template, qr/data-guidance-inherited-field=/,
+    'provider controls expose the Better Call Bliss inherited-default contract');
+like($template, qr/data-guidance-dirty-marker=/,
+    'provider controls expose the Better Call Bliss dirty-marker contract');
+like($template, qr/guidance-origin-\[\% control\.field_name/,
+    'provider controls render the Better Call Bliss value-origin annotation');
+like($template, qr/BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET/,
+    'provider reset control uses the same user-facing action as Better Call Bliss');
+like($template, qr/bindGuidanceInheritedDefaultButtons\(\)/,
+    'provider reset buttons use the Better Call Bliss client-side handler');
+like($template, qr/bindGuidanceInheritedMarkers\(\)/,
+    'provider controls use the Better Call Bliss dirty-state handler');
+like($template, qr/restoreSectionState\('guidance-providers-section', false\)/,
+    'provider section restores its collapse state like Better Call Bliss');
 
 done_testing();

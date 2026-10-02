@@ -52,23 +52,50 @@ BLISSMIXERLAB_MIX_GROUP_LASTFM
 BLISSMIXERLAB_MIX_GROUP_LOCAL
 	EN	Local library signals
 
-BLISSMIXERLAB_MIX_GROUP_GUIDANCE_PROVIDERS
+BLISSMIXERLAB_GUIDANCE_PROVIDERS
 	EN	Optional guidance providers
+
+BLISSMIXERLAB_GUIDANCE_PROVIDERS_DESC
+	EN	Guidance providers contribute optional secondary ranking signals. Bliss remains the primary similarity authority. Provider settings are inherited unless overridden here.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED
 	EN	Use this provider
 
-BLISSMIXERLAB_OPEN_PROVIDER_SETTINGS
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC
+	EN	Enable this provider for Lab candidate selection. Its settings below stay local to Bliss Mixer Lab until you save this page.
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE
+	EN	This provider is available.
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE
+	EN	This provider is unavailable: %s
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS
 	EN	Open %s settings
 
-BLISSMIXERLAB_GUIDANCE_PROVIDER_VALUE_SOURCE
-	EN	Effective value source: %s
+BLISSMIXERLAB_GUIDANCE_PROVIDERS_NONE
+	EN	No compatible guidance providers are currently discovered.
 
-BLISSMIXERLAB_GUIDANCE_PROVIDER_USE_DEFAULT
-	EN	Use provider default
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN
+	EN	Effective value source:
 
-BLISSMIXERLAB_LOCAL_PROVIDER_ACTIVE
-	EN	Library Signals is active. Its provider settings and any Lab-specific overrides are shown below.
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PROVIDER
+	EN	Provider setting
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST
+	EN	Bliss Mixer Lab setting
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_FACTORY
+	EN	Provider factory setting
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_JOB
+	EN	Job setting
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING
+	EN	(will apply when saved)
+
+BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET
+	EN	Use inherited default
 
 BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
