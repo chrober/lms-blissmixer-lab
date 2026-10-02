@@ -107,6 +107,10 @@ my $provider_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_
                 signals => [
                     { candidate_id => 'file:///library/a.flac', channel => 'playcount', score => -0.5, observation => { playcount => 3 } },
                     { candidate_id => 'file:///library/b.flac', channel => 'playcount', score => 0.5, observation => { playcount => 12 } },
+                    { candidate_id => 'file:///library/a.flac', channel => 'last_played', score => -1, observation => { last_played => 0 } },
+                    { candidate_id => 'file:///library/b.flac', channel => 'last_played', score => 0.5, observation => { last_played => 100 } },
+                    { candidate_id => 'file:///library/a.flac', channel => 'library_age', score => -0.75, observation => { added => 50 } },
+                    { candidate_id => 'file:///library/b.flac', channel => 'library_age', score => 0.25, observation => { added => 200 } },
                 ],
             };
         },
@@ -120,10 +124,17 @@ is($score_request->{deadline_ms}, 500,
     'Lab enforces its 500ms complete provider session deadline');
 is_deeply(
     $score_request->{candidates},
-    [{ candidate_id => 'file:///library/a.flac' }, { candidate_id => 'file:///library/b.flac' }],
-    'native provider scores only the DSTM candidate pool',
+    [
+        { candidate_id => 'file:///library/a.flac', lms_urlmd5 => 'a1' },
+        { candidate_id => 'file:///library/b.flac', lms_urlmd5 => 'b2' },
+    ],
+    'native provider scores the DSTM candidate pool with its trusted Lyrion identities',
 );
 is($provider_profile->{by_url}{'file:///library/a.flac'}{playcount}, 3,
     'provider results are normalized into the existing local profile');
+is($provider_profile->{by_url}{'file:///library/b.flac'}{last_played}, 100,
+    'provider last-played observations are retained for the selection log');
+is($provider_profile->{by_url}{'file:///library/b.flac'}{added}, 200,
+    'provider library-age observations are retained for the selection log');
 
 done_testing();

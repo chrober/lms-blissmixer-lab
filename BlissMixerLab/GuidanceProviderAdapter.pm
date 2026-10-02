@@ -68,8 +68,10 @@ sub profile_from_provider {
         });
         my @candidates = map {
             my $candidate_id = eval { $_->url };
+            my $urlmd5 = eval { $_->urlmd5 };
             defined($candidate_id) && length($candidate_id)
-                ? ({ candidate_id => "$candidate_id" }) : ()
+                && defined($urlmd5) && $urlmd5 =~ /^[a-f0-9]+$/i
+                ? ({ candidate_id => "$candidate_id", lms_urlmd5 => "$urlmd5" }) : ()
         } @$tracks;
         $result = $score_batch->($config, {
             job_id => 'blissmixerlab',

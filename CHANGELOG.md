@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0 - 2026-10-02
+
+- Add the optional **Bliss Guidance: Library Signals** provider host. When it
+  is installed and enabled, Lab obtains play-count, last-played, and
+  library-age candidate refinements through the shared guidance protocol.
+- Render provider controls with inherited defaults and host overrides, while
+  retaining the direct local fallback only when no provider is discovered.
+- Preserve trusted Lyrion URL-MD5 identities through the provider score
+  request, restoring play-count, last-played, and library-age refinements and
+  their established candidate-log metadata.
+- Select the native mixer binary strictly for the current Linux architecture,
+  including GNU ARMHF hosts.
+
 ## 0.6.1 - 2026-09-09
 
 - Clarify Companion status by naming the upstream analysis database as
