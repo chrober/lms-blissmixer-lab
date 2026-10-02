@@ -244,6 +244,27 @@ BEGIN {
 use lib "$FindBin::Bin/..";
 require Plugins::BlissMixerLab::Plugin;
 
+is_deeply(
+    [Plugins::BlissMixerLab::Plugin::_linuxBinaryDirectories('aarch64-linux-gnu')],
+    ['aarch64-linux'],
+    'ARM64 hosts register only the ARM64 Lab binary directory',
+);
+is_deeply(
+    [Plugins::BlissMixerLab::Plugin::_linuxBinaryDirectories('x86_64-linux-thread-multi')],
+    ['x86_64-linux'],
+    'x86_64 hosts register only the x86_64 Lab binary directory',
+);
+is_deeply(
+    [Plugins::BlissMixerLab::Plugin::_linuxBinaryDirectories('armv7l')],
+    ['armhf-linux'],
+    '32-bit ARM hosts register only the ARMHF Lab binary directory',
+);
+is_deeply(
+    [Plugins::BlissMixerLab::Plugin::_linuxBinaryDirectories('riscv64')],
+    [],
+    'unknown Linux architectures never fall back to a foreign Lab binary',
+);
+
 $Slim::Utils::PluginManager::manifest = undef;
 ok(!Plugins::BlissMixerLab::Plugin::_upstreamCompatible(),
     'missing upstream BlissMixer is rejected');

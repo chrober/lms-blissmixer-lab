@@ -11,6 +11,7 @@ package Plugins::BlissMixerLab::Plugin;
 
 use strict;
 
+use Config ();
 use Scalar::Util qw(blessed);
 use IO::Socket::INET;
 use LWP::UserAgent;
@@ -192,12 +193,13 @@ sub _initBinaries {
     } elsif (main::ISMAC) {
         Slim::Utils::Misc::addFindBinPaths(catdir($dir, 'Bin', 'mac'));
     } else {
-        my @linuxPaths = (
-            catdir($dir, 'Bin', 'x86_64-linux'),
-            catdir($dir, 'Bin', 'aarch64-linux'),
-            catdir($dir, 'Bin', 'armhf-linux'),
-        );
-        for my $p (@linuxPaths) {
+        my @linuxDirectories = _linuxBinaryDirectories();
+        if (!@linuxDirectories) {
+            my $architecture = $Config::Config{archname} || 'unknown';
+            $log->warn("No BlissMixerLab binary is available for Linux architecture $architecture");
+        }
+        for my $linuxDirectory (@linuxDirectories) {
+            my $p = catdir($dir, 'Bin', $linuxDirectory);
             Slim::Utils::Misc::addFindBinPaths($p);
         }
     }
@@ -214,6 +216,16 @@ sub _initBinaries {
         catfile($prefsDir, 'blissmixer-lab-triplets.json'), $tripletsPath,
     );
     Plugins::BlissMixerLab::Survey::init($dbPath, $matrixPath, $tripletsPath);
+}
+
+sub _linuxBinaryDirectories {
+    my ($architecture) = @_;
+    $architecture = lc($architecture // $Config::Config{archname} // '');
+
+    return ('x86_64-linux') if $architecture =~ /(?:x86_64|amd64)/;
+    return ('aarch64-linux') if $architecture =~ /(?:aarch64|arm64)/;
+    return ('armhf-linux') if $architecture =~ /(?:armv[5-8]|armhf|arm-linux)/;
+    return;
 }
 
 sub _migrateLearningFile {
