@@ -98,7 +98,7 @@ sub _section {
         display_name => $display_name,
         available => $provider->{available} ? 1 : 0,
         diagnostic => $provider->{diagnostic} || '',
-        enabled => $host_state->{enabled} ? 1 : 0,
+        enabled => $resolved->{enabled} ? 1 : 0,
         policy_valid => $resolved->{valid} ? 1 : 0,
         policy_diagnostic => $resolved->{diagnostic} || '',
         enable_field_name => $enabled_field,

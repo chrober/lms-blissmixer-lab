@@ -24,7 +24,7 @@ my @assets = (
     [
         'Plugins/BlissGuidance/SettingsModel.pm',
         'BlissMixerLab/Plugins/BlissGuidance/SettingsModel.pm',
-        'a049ec77985627e022d6d7599e814b72604919b29227c3bfb74fffdb05be6ffc',
+        '22646fb99551748cac14df242a1b2281eb569b295b2e82d1296370222afa4e31',
     ],
     [
         'HTML/settings/guidance-provider-controls.html',
