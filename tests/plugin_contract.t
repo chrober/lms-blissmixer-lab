@@ -7,6 +7,21 @@ use Test::More;
 use JSON::PP ();
 
 BEGIN {
+    # Source checkouts keep plugin modules directly below the repository root,
+    # while LMS loads them through the Plugins:: namespace. Make the contract
+    # test use the same namespace without requiring an installed copy.
+    my $source_root = "$FindBin::Bin/..";
+    unshift @INC, sub {
+        my (undef, $filename) = @_;
+        return unless $filename =~ m{^Plugins/(.+)$};
+        my $relative = $1;
+        my $path = $filename =~ m{^Plugins/BlissGuidance/}
+            ? "$source_root/BlissMixerLab/Plugins/$relative"
+            : "$source_root/$relative";
+        open my $fh, '<', $path or return;
+        return $fh;
+    };
+
     package main;
     sub INFOLOG () { 0 }
     sub DEBUGLOG () { 0 }
@@ -535,6 +550,51 @@ is(
     'provider mode prevents the legacy upstream play-count factor from being applied twice',
 );
 
+my $legacy_log_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_signals(
+    [TestTrack->new('library-signal-fixture', 0, 'Fixture Artist', 'Fixture Title')],
+    { playcount_influence => -80, last_played_influence => -60, library_age_influence => 70 },
+    [
+        { candidate_id => 'library-signal-fixture', channel => 'playcount', score => -1, observation => { playcount => 0 } },
+        { candidate_id => 'library-signal-fixture', channel => 'last_played', score => -1, observation => { last_played => 0 } },
+        { candidate_id => 'library-signal-fixture', channel => 'library_age', score => 0.5, observation => { added => 1_700_000_000 } },
+    ],
+    1_800_000_000,
+);
+my $native_log_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_native_result(
+    [TestTrack->new('library-signal-fixture', 0, 'Fixture Artist', 'Fixture Title')],
+    { playcount_influence => -80, last_played_influence => -60, library_age_influence => 70 },
+    {
+        valid => 1,
+        signals => [
+            { candidate_id => 'library-signal-fixture', channel => 'playcount', score => -1, observation => { playcount => 0 } },
+            { candidate_id => 'library-signal-fixture', channel => 'last_played', score => -1, observation => { last_played => 0 } },
+            { candidate_id => 'library-signal-fixture', channel => 'library_age', score => 0.5, observation => { added => 1_700_000_000 } },
+        ],
+        selection_trace => {
+            trace_version => 'selection_trace_v1', provider_id => 'library-signals-guidance',
+            host => 'bliss-mixer', policy => {}, candidates => [],
+        },
+    },
+    1_800_000_000,
+);
+my $fixture_track = TestTrack->new('library-signal-fixture', 0, 'Fixture Artist', 'Fixture Title');
+my $legacy_fixture_values = Plugins::BlissMixerLab::GuidanceProviderAdapter::for_track(
+    $legacy_log_profile, $fixture_track,
+);
+my $native_fixture_values = Plugins::BlissMixerLab::GuidanceProviderAdapter::for_track(
+    $native_log_profile, $fixture_track,
+);
+my $legacy_fixture_lines = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
+    [{ track => $fixture_track, rank => 1, endorsed => 0, track_support => 0, %$legacy_fixture_values }],
+    20, 1, 1, 1,
+);
+my $native_fixture_lines = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
+    [{ track => $fixture_track, rank => 1, endorsed => 0, track_support => 0, %$native_fixture_values }],
+    20, 1, 1, 1,
+);
+is(join("\n", @$native_fixture_lines), join("\n", @$legacy_fixture_lines),
+    'Library Signals native-host trace preserves existing Lab selection logs byte-for-byte');
+
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),
     'defer', 'database refresh is deferred while upstream analysis is running');
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'same', 'same', 0),
@@ -641,6 +701,33 @@ is_deeply(
     [['Rock', 'Hard Rock'], ['Jazz*'], ['Ambient']],
     'genre groups are inherited from BlissMixer and trimmed without losing patterns',
 );
+
+my $native_guidance_payload = Plugins::BlissMixerLab::Plugin::_guidanceHostPayload(
+    {
+        id => 'library-signals-guidance',
+        program => '/trusted/bliss-guidance-library-signals',
+        options => { as_of_unix_seconds => 1_000 },
+        artifacts => [{ kind => 'eligible-candidate-identities-v1', path => '/trusted/candidates.json', sha256 => ('a' x 64) }],
+        resources => [{ kind => 'lms-persist-sqlite-v1', path => '/trusted/persist.db', access => 'read_only' }],
+        timeout_ms => 500,
+    },
+    {
+        job_id => 'blissmixerlab',
+        request_id => 'dstm-candidate-pool',
+        context => { scope => 'global', left_anchor_id => undef, right_anchor_id => undef, context_track_ids => [] },
+        candidates => [{ candidate_id => 'file:///music/example.flac', lms_urlmd5 => 'aabbcc' }],
+    },
+    { playcount_influence => -80 },
+);
+is($native_guidance_payload->{request_version}, 'guidance_host_request_v1',
+    'Lab identifies the native guidance-host request version');
+is($native_guidance_payload->{provider}{provider_id}, 'library-signals-guidance',
+    'Lab forwards only the resolved trusted provider identity');
+is_deeply($native_guidance_payload->{policy}, { playcount_influence => -80 },
+    'Lab forwards host-owned policy facts for the native selection trace');
+is_deeply($native_guidance_payload->{candidates},
+    [{ candidate_id => 'file:///music/example.flac', lms_urlmd5 => 'aabbcc' }],
+    'Lab sends the same bounded candidate batch to the native host');
 
 my $menu_track = TestTrack->new('seed.flac', 0, 'Seed Artist', 'Seed Title');
 my $create_track = Plugins::BlissMixerLab::Plugin::trackInfoHandler(

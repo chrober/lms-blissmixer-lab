@@ -86,7 +86,26 @@ sub profile_from_provider {
             candidates => \@candidates,
         });
     };
-    return $neutral->() if $@ || ref($result) ne 'HASH' || !$result->{valid};
+    return profile_from_native_result($tracks, $effective, $result, $as_of);
+}
+
+sub profile_from_native_result {
+    my ($tracks, $effective, $result, $as_of) = @_;
+    $tracks = [] unless ref($tracks) eq 'ARRAY';
+    $effective = {} unless ref($effective) eq 'HASH';
+    my $neutral = sub { return profile_from_signals($tracks, $effective, [], $as_of); };
+    return $neutral->()
+        unless ref($result) eq 'HASH' && $result->{valid};
+
+    # A native host supplies data only. It must never supply rendered LMS log
+    # text; the existing Lab selection formatter remains authoritative.
+    my $trace = $result->{selection_trace};
+    return $neutral->()
+        if defined $trace && (
+            ref($trace) ne 'HASH'
+            || ($trace->{trace_version} || '') ne 'selection_trace_v1'
+            || ref($trace->{candidates}) ne 'ARRAY'
+        );
     return profile_from_signals($tracks, $effective, $result->{signals}, $as_of);
 }
 

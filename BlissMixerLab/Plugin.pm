@@ -38,7 +38,6 @@ use Plugins::BlissMixerLab::GuidanceProviderAdapter;
 use lib dirname(__FILE__);
 use Plugins::BlissGuidance::Discovery;
 use Plugins::BlissGuidance::Policy;
-use Plugins::BlissGuidance::Runtime;
 
 use constant DEF_NUM_DSTM_TRACKS => 5;
 use constant NUM_FOREST_SEED_TRACKS => 10;
@@ -1475,7 +1474,9 @@ sub _dstmMix {
                                             return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
                                         },
                                         score_batch => sub {
-                                            return Plugins::BlissGuidance::Runtime::score_batch(@_);
+                                            return _scoreGuidanceThroughMixer(
+                                                $mixerPort, @_, $providerGuidance->{resolved}{effective},
+                                            );
                                         },
                                     },
                                 ) : $localLibraryWeighting
@@ -1563,6 +1564,56 @@ sub _dstmMix {
             _mixFailed($client, $cb, $numSpot);
         }
     }
+}
+
+sub _scoreGuidanceThroughMixer {
+    my ($port, $config, $request, $policy) = @_;
+    return { valid => 0, signals => [], diagnostic => 'native mixer port is unavailable' }
+        unless defined $port && $port =~ /^\d+$/ && $port > 0;
+    $config = {} unless ref($config) eq 'HASH';
+    $request = {} unless ref($request) eq 'HASH';
+    $policy = {} unless ref($policy) eq 'HASH';
+    my $payload = _guidanceHostPayload($config, $request, $policy);
+    my $deadline_seconds = ($payload->{deadline_ms} / 1000) + 1;
+    my $ua = LWP::UserAgent->new(timeout => $deadline_seconds);
+    my $response = $ua->post(
+        "http://localhost:$port/api/guidance/score",
+        'Content-Type' => 'application/json;charset=utf-8',
+        Content => to_json($payload),
+    );
+    return { valid => 0, signals => [], diagnostic => $response->status_line }
+        unless $response->is_success;
+    my $result = eval { from_json($response->decoded_content) };
+    return { valid => 0, signals => [], diagnostic => 'native mixer returned invalid guidance JSON' }
+        unless ref($result) eq 'HASH';
+    return $result;
+}
+
+sub _guidanceHostPayload {
+    my ($config, $request, $policy) = @_;
+    $config = {} unless ref($config) eq 'HASH';
+    $request = {} unless ref($request) eq 'HASH';
+    $policy = {} unless ref($policy) eq 'HASH';
+    return {
+        request_version => 'guidance_host_request_v1',
+        job_id => $request->{job_id} || 'blissmixerlab',
+        request_id => $request->{request_id} || 'dstm-candidate-pool',
+        deadline_ms => int($request->{deadline_ms} || $config->{timeout_ms} || 500),
+        provider => {
+            provider_id => $config->{id} || '',
+            program => $config->{program} || '',
+            argv => ref($config->{argv}) eq 'ARRAY' ? $config->{argv} : [],
+            options => ref($config->{options}) eq 'HASH' ? $config->{options} : {},
+            artifacts => ref($config->{artifacts}) eq 'ARRAY' ? $config->{artifacts} : [],
+            resources => ref($config->{resources}) eq 'ARRAY' ? $config->{resources} : [],
+        },
+        policy => $policy,
+        context => ref($request->{context}) eq 'HASH' ? $request->{context} : {
+            scope => 'global', left_anchor_id => undef,
+            right_anchor_id => undef, context_track_ids => [],
+        },
+        candidates => ref($request->{candidates}) eq 'ARRAY' ? $request->{candidates} : [],
+    };
 }
 
 sub _selectViaLastFm {
