@@ -165,6 +165,14 @@ ok(
     !$request_host{guidance_provider_sections}->[0]->{enabled},
     'a newly discovered provider remains disabled until Lab explicitly enables it',
 );
+ok(
+    exists $request_host{legacy_local_signals_visible},
+    'Lab explicitly supplies the legacy-local-signals visibility state',
+);
+ok(
+    !$request_host{legacy_local_signals_visible},
+    'a discovered Library Signals provider replaces the legacy direct control group even while disabled',
+);
 is(
     $request_host{guidance_provider_sections}->[0]->{controls}->[2]->{render_as},
     'number',

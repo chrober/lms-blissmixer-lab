@@ -75,7 +75,7 @@
         [% END %]
     [% END %]
 
-    [% IF legacy_local_signals_enabled %]
+    [% IF legacy_local_signals_visible %]
     <h3 class="experimental-setting-group">[% "BLISSMIXERLAB_MIX_GROUP_LOCAL" | string %]</h3>
     [% WRAPPER settingGroup title="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE" desc="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC" %]
         <input type="number" min="-100" max="100" step="1" class="stdedit sliderInput_-100_100_1" name="pref_last_played_influence" id="last_played_influence" value="[% prefs.last_played_influence %]" size="5">

@@ -156,6 +156,8 @@ if "data-lastmix-available" not in settings:
 for mix_group in ("MIX_GROUP_BASE", "MIX_GROUP_LASTFM", "MIX_GROUP_LOCAL"):
     if f'BLISSMIXERLAB_{mix_group}' not in settings:
         fail(f"settings page must expose the {mix_group} subgroup")
+if "legacy_local_signals_visible" not in settings:
+    fail("legacy local settings must render only when Library Signals is undiscovered")
 plugin_source = (PLUGIN / "Plugin.pm").read_text(encoding="utf-8")
 if "pre-Last.fm=" in plugin_source:
     fail("candidate diagnostics must not use the ambiguous pre-Last.fm label")

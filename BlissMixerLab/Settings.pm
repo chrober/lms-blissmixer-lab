@@ -81,8 +81,11 @@ sub beforeRender {
     my $guidanceProviderSections = _guidance_provider_sections();
     $paramRef->{guidance_provider_sections} = $guidanceProviderSections;
     $paramRef->{guidance_provider_section_count} = scalar @{$guidanceProviderSections};
-    $paramRef->{legacy_local_signals_enabled} = !grep {
-        $_->{provider_id} eq 'library-signals' && $_->{enabled}
+    # Once Library Signals is discovered, its provider-owned section is the
+    # single source of truth.  The legacy Lab controls remain only as a
+    # compatibility fallback for installations without that provider.
+    $paramRef->{legacy_local_signals_visible} = !grep {
+        $_->{provider_id} eq 'library-signals'
     } @{$guidanceProviderSections};
 }
 
