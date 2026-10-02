@@ -1,0 +1,41 @@
+[%#
+  Canonical schema-driven guidance-provider controls. The host supplies
+  guidance_provider_sections and host-localized guidance_ui string tokens.
+  The DOM/data contract deliberately preserves the established Better Call
+  Bliss and Lab Material Skin UX.
+%]
+[% FOREACH provider IN guidance_provider_sections %]
+  <h3>[% provider.display_name | html %]</h3>
+  [% IF provider.available %]
+    <p style="color:#398439">[% guidance_ui.available_token | string %]</p>
+  [% ELSE %]
+    <p style="opacity:0.7">[% guidance_ui.unavailable_token | string(provider.diagnostic) %]</p>
+  [% END %]
+  [% IF provider.settings_uri %]
+    <p><a href="/[% provider.settings_uri | html %]">[% guidance_ui.settings_token | string(provider.display_name) %]</a></p>
+  [% END %]
+  [% WRAPPER settingGroup title=guidance_ui.enabled_token desc=guidance_ui.enabled_desc_token %]
+    <input type="checkbox" name="[% provider.enable_field_name | html %]" value="1" data-guidance-provider-controls="guidance-provider-controls-[% provider.provider_id | html %]" data-guidance-provider-controls-usable="[% IF provider.available && provider.policy_valid %]1[% ELSE %]0[% END %]"[% IF provider.enabled %] checked="checked"[% END %][% UNLESS provider.available && provider.policy_valid %] disabled[% END %]>
+  [% END %]
+  <div id="guidance-provider-controls-[% provider.provider_id | html %]" class="[% UNLESS provider.enabled %]hidden[% END %]">
+    [% FOREACH control IN provider.controls %]
+      [% WRAPPER settingGroup title=control.label_token desc=control.help_token %]
+        [% IF control.type == 'boolean' %]
+          <input type="checkbox" name="[% control.field_name | html %]" id="[% control.field_name | html %]" value="1"[% IF control.effective %] checked="checked"[% END %][% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+        [% ELSIF control.type == 'enum' %]
+          <select class="stdedit" name="[% control.field_name | html %]" id="[% control.field_name | html %]"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+            [% FOREACH option IN control.enum_values %]<option value="[% option | html %]"[% IF control.effective == option %] selected[% END %]>[% option | html %]</option>[% END %]
+          </select>
+        [% ELSE %]
+          <input type="number" min="[% control.minimum %]" max="[% control.maximum %]" step="[% control.step %]" class="stdedit[% IF control.render_as == 'slider' %] sliderInput_[% control.minimum %]_[% control.maximum %]_[% control.step %][% END %]" name="[% control.field_name | html %]" id="[% control.field_name | html %]" value="[% control.effective %]" size="6"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+        [% END %]
+        <input type="hidden" name="[% control.inherit_field_name | html %]" id="[% control.inherit_field_name | html %]" value="0"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+        <input type="hidden" name="[% control.dirty_field_name | html %]" id="[% control.dirty_field_name | html %]" value="0"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>
+        <span id="guidance-origin-[% control.field_name | html %]" style="opacity:0.7" data-guidance-origin-prefix="[% guidance_ui.origin_prefix_token | string %]">[% guidance_ui.origin_prefix_token | string %] [% control.origin_label_token | string %].</span>
+        <span id="guidance-inherit-button-[% control.field_name | html %]"[% IF control.origin == 'provider_default' %] class="hidden"[% END %]>
+          <button type="button" class="stdclick" data-guidance-inherited-field="[% control.field_name | html %]" data-guidance-inherited-marker="[% control.inherit_field_name | html %]" data-guidance-dirty-marker="[% control.dirty_field_name | html %]" data-guidance-inherited-value="[% control.inherited | html %]" data-guidance-origin="guidance-origin-[% control.field_name | html %]" data-guidance-inherit-button="guidance-inherit-button-[% control.field_name | html %]" data-guidance-inherited-origin="[% control.inherited_origin | html %]" data-guidance-inherited-origin-label="[% control.inherited_origin_label_token | string %]" data-guidance-host-origin="host_override" data-guidance-host-origin-label="[% guidance_ui.host_origin_token | string %]" data-guidance-origin-pending="[% guidance_ui.origin_pending_token | string %]"[% UNLESS provider.enabled && provider.available && provider.policy_valid %] disabled[% END %]>[% guidance_ui.reset_token | string %]</button>
+        </span>
+      [% END %]
+    [% END %]
+  </div>
+[% END %]

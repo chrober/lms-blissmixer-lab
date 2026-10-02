@@ -297,30 +297,44 @@ my $template = do {
         or die "cannot read settings template: $!";
     <$fh>;
 };
-like($template, qr/guidance_provider_sections/,
+my $guidance_partial = do {
+    local $/;
+    open my $fh, '<', "$FindBin::Bin/../BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html"
+        or die "cannot read shared guidance partial: $!";
+    <$fh>;
+};
+my $guidance_script = do {
+    local $/;
+    open my $fh, '<', "$FindBin::Bin/../BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.js"
+        or die "cannot read shared guidance script: $!";
+    <$fh>;
+};
+like($template, qr/PROCESS\s+"plugins\/BlissGuidance\/settings\/guidance-provider-controls\.html"/,
     'settings template has a dedicated discoverable-guidance section');
 like($template, qr/IF\s+guidance_provider_section_count\s*>\s*0/,
     'settings template gates the discoverable-guidance section on the explicit count');
-like($template, qr/provider\.controls/,
+like($guidance_partial, qr/provider\.controls/,
     'settings template renders controls from the provider descriptor');
-like($template, qr/control\.render_as == 'slider'/,
+like($guidance_partial, qr/control\.render_as == 'slider'/,
     'settings template preserves provider slider versus number presentation');
 like($template, qr/guidance-providers-section-header/,
     'provider controls use their own collapsible section like Better Call Bliss');
-like($template, qr/data-guidance-provider-controls=/,
+like($guidance_partial, qr/data-guidance-provider-controls=/,
     'provider enable controls use the Better Call Bliss data contract');
-like($template, qr/data-guidance-inherited-field=/,
+like($guidance_partial, qr/data-guidance-inherited-field=/,
     'provider controls expose the Better Call Bliss inherited-default contract');
-like($template, qr/data-guidance-dirty-marker=/,
+like($guidance_partial, qr/data-guidance-dirty-marker=/,
     'provider controls expose the Better Call Bliss dirty-marker contract');
-like($template, qr/guidance-origin-\[\% control\.field_name/,
+like($guidance_partial, qr/guidance-origin-\[\% control\.field_name/,
     'provider controls render the Better Call Bliss value-origin annotation');
-like($template, qr/BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET/,
+like($guidance_partial, qr/guidance_ui\.reset_token/,
     'provider reset control uses the same user-facing action as Better Call Bliss');
-like($template, qr/bindGuidanceInheritedDefaultButtons\(\)/,
+like($template, qr/BlissGuidanceHostControls\.bindGuidanceInheritedDefaultButtons\(document\)/,
     'provider reset buttons use the Better Call Bliss client-side handler');
-like($template, qr/bindGuidanceInheritedMarkers\(\)/,
+like($template, qr/BlissGuidanceHostControls\.bindGuidanceInheritedMarkers\(document\)/,
     'provider controls use the Better Call Bliss dirty-state handler');
+like($guidance_script, qr/bindGuidanceProviderControls/,
+    'shared guidance script preserves immediate provider-toggle handling');
 like($template, qr/restoreSectionState\('guidance-providers-section', false\)/,
     'provider section restores its collapse state like Better Call Bliss');
 
