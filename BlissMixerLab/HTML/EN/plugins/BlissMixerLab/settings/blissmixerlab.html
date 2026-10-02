@@ -97,7 +97,7 @@
     <p style="opacity:0.7">[% "BLISSMIXERLAB_LOCAL_PROVIDER_ACTIVE" | string %]</p>
     [% END %]
 
-    [% IF guidance_provider_sections.size %]
+    [% IF guidance_provider_section_count > 0 %]
     <h3 class="experimental-setting-group">[% "BLISSMIXERLAB_MIX_GROUP_GUIDANCE_PROVIDERS" | string %]</h3>
     [% FOREACH provider IN guidance_provider_sections %]
     <div class="guidance-provider-section">

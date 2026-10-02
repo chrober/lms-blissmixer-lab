@@ -78,10 +78,12 @@ sub beforeRender {
     $paramRef->{backup_now_text} = string('BLISSMIXERLAB_BACKUP_NOW');
     $paramRef->{backup_success_text} = string('BLISSMIXERLAB_BACKUP_SUCCESS');
     $paramRef->{backup_failed_text} = string('BLISSMIXERLAB_BACKUP_FAILED');
-    $paramRef->{guidance_provider_sections} = _guidance_provider_sections();
+    my $guidanceProviderSections = _guidance_provider_sections();
+    $paramRef->{guidance_provider_sections} = $guidanceProviderSections;
+    $paramRef->{guidance_provider_section_count} = scalar @{$guidanceProviderSections};
     $paramRef->{legacy_local_signals_enabled} = !grep {
         $_->{provider_id} eq 'library-signals' && $_->{enabled}
-    } @{$paramRef->{guidance_provider_sections}};
+    } @{$guidanceProviderSections};
 }
 
 sub handler {

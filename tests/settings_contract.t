@@ -156,6 +156,11 @@ is(
     'library-signals',
     'the discoverable Library Signals provider is rendered for an opt-in host',
 );
+is(
+    $request_host{guidance_provider_section_count},
+    1,
+    'Lab supplies an explicit provider-section count for settings rendering',
+);
 ok(
     !$request_host{guidance_provider_sections}->[0]->{enabled},
     'a newly discovered provider remains disabled until Lab explicitly enables it',
@@ -227,6 +232,8 @@ my $template = do {
 };
 like($template, qr/guidance_provider_sections/,
     'settings template has a dedicated discoverable-guidance section');
+like($template, qr/IF\s+guidance_provider_section_count\s*>\s*0/,
+    'settings template gates the discoverable-guidance section on the explicit count');
 like($template, qr/provider\.controls/,
     'settings template renders controls from the provider descriptor');
 like($template, qr/control\.render_as == 'slider'/,
