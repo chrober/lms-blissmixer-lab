@@ -3,8 +3,8 @@
 Deployable executables are not committed to this repository. Release packages
 consume checksum-verified assets from the native component repositories.
 
-- Mixer release: `v0.10.1`
-- Mixer commit: `c554b4f1a9bcd2e950c4a984d1d5a82c31846c38`
+- Mixer release: `v0.11.4`
+- Mixer commit: `bd22573ebfac7d47d3667b1365d6ec11453c52a9`
 - Learner release: `v0.1.1`
 - Learner commit: `2b92fdfb96192e2d6cc690383894fcb255d5d1c0`
 

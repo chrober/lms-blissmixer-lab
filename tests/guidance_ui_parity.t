@@ -1,0 +1,80 @@
+use strict;
+use warnings;
+use Digest::SHA qw(sha256_hex);
+use File::Spec;
+use FindBin;
+use Test::More;
+
+my $repo = File::Spec->catdir($FindBin::Bin, '..');
+my $host = File::Spec->catdir($repo, '..', 'lms-bliss-guidance-host');
+
+sub file_hash {
+    my ($path) = @_;
+    return 'missing' unless -f $path;
+    open my $fh, '<:raw', $path or die "cannot read $path: $!";
+    return sha256_hex(do { local $/; <$fh> });
+}
+
+my @assets = (
+    [
+        'Plugins/BlissGuidance/Policy.pm',
+        'BlissMixerLab/Plugins/BlissGuidance/Policy.pm',
+        'f25caefbea85a538ccfa05c851e78d10bfb7a4f8dbb0f9a01347931adffaf461',
+    ],
+    [
+        'Plugins/BlissGuidance/SettingsModel.pm',
+        'BlissMixerLab/Plugins/BlissGuidance/SettingsModel.pm',
+        '22c6b7cfcfb180ef0de67424087c4587b5f6e6900b2448654281cb53cb40cea1',
+    ],
+    [
+        'HTML/settings/guidance-provider-controls.html',
+        'BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html',
+        'd836cc6c1341cb2064330cdd1d753be689dd745855ff4365724d41679e09e8e9',
+    ],
+    [
+        'HTML/settings/guidance-provider-controls.js',
+        'BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.js',
+        '0957041d2ace48096e9ec101006a8f7185ade8e467b13a130170fb3488672c4e',
+    ],
+);
+
+for my $asset (@assets) {
+    my ($canonical, $vendored, $expected) = @$asset;
+    is(
+        file_hash(File::Spec->catfile($host, split m{/}, $canonical)),
+        $expected,
+        "canonical $canonical remains the reviewed host contract",
+    );
+    is(
+        file_hash(File::Spec->catfile($repo, split m{/}, $vendored)),
+        $expected,
+        "Lab vendors canonical $canonical byte-for-byte",
+    );
+}
+
+my $settings_path = File::Spec->catfile($repo, 'BlissMixerLab', 'Settings.pm');
+open my $settings_fh, '<', $settings_path or die "cannot read $settings_path: $!";
+my $settings = do { local $/; <$settings_fh> };
+like($settings, qr/use\s+Plugins::BlissGuidance::SettingsModel;/,
+    'Lab builds provider sections through the canonical settings model');
+like($settings, qr/Plugins::BlissGuidance::SettingsModel::provider_sections/,
+    'Lab delegates descriptor rendering state to the canonical model');
+
+my $template_path = File::Spec->catfile(
+    $repo, 'BlissMixerLab', 'HTML', 'EN', 'plugins', 'BlissMixerLab',
+    'settings', 'blissmixerlab.html',
+);
+open my $template_fh, '<', $template_path or die "cannot read $template_path: $!";
+my $template = do { local $/; <$template_fh> };
+like($template, qr/PROCESS\s+"plugins\/BlissGuidance\/settings\/guidance-provider-controls\.html"/,
+    'Lab settings page renders canonical provider controls');
+like($template, qr/PROCESS\s+"plugins\/BlissGuidance\/settings\/guidance-provider-controls\.js"/,
+    'Lab settings page loads canonical provider-control behavior');
+unlike($template, qr/function\s+copyGuidanceInheritedDefault\s*\(/,
+    'Lab no longer carries a divergent inherited-default handler');
+unlike($template, qr/function\s+updateGuidanceProviderControls\s*\(/,
+    'Lab no longer carries a divergent provider-toggle handler');
+like($template, qr/SET\s+guidance_ui\.available_token\s*=\s*"BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE"/,
+    'settings page supplies the established Lab labels for installed Settings.pm compatibility');
+
+done_testing();

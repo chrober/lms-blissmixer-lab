@@ -65,6 +65,13 @@ sub host_state {
     };
 }
 
+sub submitted_value_differs_from_effective {
+    my ($effective, $submitted) = @_;
+    return 0 unless defined $submitted;
+    return 1 unless defined $effective;
+    return "$effective" ne "$submitted" ? 1 : 0;
+}
+
 sub replace_host_state {
     my ($all_state, $provider_id, $state) = @_;
     $all_state = {} unless ref($all_state) eq 'HASH';

@@ -137,4 +137,42 @@ is($provider_profile->{by_url}{'file:///library/b.flac'}{last_played}, 100,
 is($provider_profile->{by_url}{'file:///library/b.flac'}{added}, 200,
     'provider library-age observations are retained for the selection log');
 
+my $native_host_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_native_result(
+    [
+        TestTrack->new('file:///library/a.flac', 'a1'),
+        TestTrack->new('file:///library/b.flac', 'b2'),
+    ],
+    {
+        playcount_influence => -80,
+        last_played_influence => -60,
+        last_played_horizon_days => 180,
+        library_age_influence => 70,
+        library_age_horizon_days => 365,
+    },
+    {
+        valid => 1,
+        signals => [
+            { candidate_id => 'file:///library/a.flac', channel => 'playcount', score => -0.5, observation => { playcount => 3 } },
+            { candidate_id => 'file:///library/b.flac', channel => 'playcount', score => 0.5, observation => { playcount => 12 } },
+            { candidate_id => 'file:///library/a.flac', channel => 'last_played', score => -1, observation => { last_played => 0 } },
+            { candidate_id => 'file:///library/b.flac', channel => 'last_played', score => 0.5, observation => { last_played => 100 } },
+            { candidate_id => 'file:///library/a.flac', channel => 'library_age', score => -0.75, observation => { added => 50 } },
+            { candidate_id => 'file:///library/b.flac', channel => 'library_age', score => 0.25, observation => { added => 200 } },
+        ],
+        selection_trace => {
+            trace_version => 'selection_trace_v1',
+            provider_id => 'library-signals-guidance',
+            host => 'bliss-mixer',
+            policy => {},
+            candidates => [],
+        },
+    },
+    1_000,
+);
+is_deeply(
+    $native_host_profile,
+    $provider_profile,
+    'native host response yields byte-for-byte identical Lab profile data for the existing formatter',
+);
+
 done_testing();

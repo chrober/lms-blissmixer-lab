@@ -25,6 +25,7 @@ use Slim::Utils::Versions;
 use lib dirname(__FILE__);
 use Plugins::BlissGuidance::Discovery;
 use Plugins::BlissGuidance::Policy;
+use Plugins::BlissGuidance::SettingsModel;
 
 my $prefs = preferences('plugin.blissmixerlab');
 my $serverprefs = preferences('server');
@@ -119,57 +120,40 @@ sub handler {
 sub _guidance_provider_sections {
     my $discovery = Plugins::BlissGuidance::Discovery::discover();
     my $all_state = _guidance_provider_state();
-    my @sections;
-    for my $provider (@{$discovery->{providers} || []}) {
-        my $provider_id = $provider->{provider_id};
-        next unless $provider_id;
-        my $descriptor = ref($provider->{descriptor}) eq 'HASH'
-            ? $provider->{descriptor} : {};
-        my $state = Plugins::BlissGuidance::Policy::host_state(
-            $all_state, $provider_id,
-        );
-        my $resolved = Plugins::BlissGuidance::Policy::resolve(
-            $provider, $state, {},
-        );
-        my @controls;
-        for my $definition (@{$descriptor->{controls} || []}) {
-            next unless ref($definition) eq 'HASH' && $definition->{key};
-            my $key = $definition->{key};
-            my $origin = $resolved->{origins}{$key} || 'factory_default';
-            my $inherited_is_provider = exists $provider->{defaults}{$key};
-            push @controls, {
-                %$definition,
-                effective => $resolved->{effective}{$key},
-                origin => $origin,
-                origin_label_token => _origin_label_token($origin),
-                field_name => _provider_control_name($provider_id, $key),
-                inherit_field_name => _provider_inherit_name($provider_id, $key),
-                dirty_field_name => _provider_dirty_name($provider_id, $key),
-                inherited => $inherited_is_provider
-                    ? $provider->{defaults}{$key} : $definition->{factory_default},
-                inherited_origin => $inherited_is_provider
-                    ? 'provider_default' : 'factory_default',
-                inherited_origin_label_token => $inherited_is_provider
-                    ? 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PROVIDER'
-                    : 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_FACTORY',
-                render_as => $definition->{render_as}
-                    || ($definition->{type} eq 'integer' ? 'slider' : ''),
-            };
-        }
-        push @sections, {
-            provider_id => $provider_id,
-            display_name => $descriptor->{display_name} || $provider_id,
-            settings_uri => $descriptor->{settings_uri} || '',
-            available => $provider->{available} ? 1 : 0,
-            diagnostic => $provider->{diagnostic} || '',
-            enabled => $resolved->{enabled} ? 1 : 0,
-            policy_valid => $resolved->{valid} ? 1 : 0,
-            policy_diagnostic => $resolved->{diagnostic} || '',
-            enable_field_name => _provider_enabled_name($provider_id),
-            controls => \@controls,
-        };
-    }
-    return \@sections;
+    return Plugins::BlissGuidance::SettingsModel::provider_sections(
+        $discovery,
+        $all_state,
+        {
+            source_labels => {
+                host_override => 'Bliss Mixer Lab setting',
+                provider_default => 'Provider setting',
+                factory_default => 'Provider factory setting',
+                job_override => 'Job setting',
+            },
+            field_names => {
+                enabled => \&_provider_enabled_name,
+                control => \&_provider_control_name,
+                inherit => \&_provider_inherit_name,
+                dirty => \&_provider_dirty_name,
+            },
+            origin_label_token => \&_origin_label_token,
+            ui_labels => {
+                available => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE'),
+                unavailable => sub {
+                    return string('BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE', $_[0]);
+                },
+                settings => sub {
+                    return string('BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS', $_[0]);
+                },
+                enabled => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED'),
+                enabled_desc => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC'),
+                origin_prefix => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN'),
+                host_origin => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST'),
+                origin_pending => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING'),
+                reset => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET'),
+            },
+        },
+    );
 }
 
 sub _apply_guidance_provider_settings {
@@ -184,6 +168,9 @@ sub _apply_guidance_provider_settings {
         my $enabled_name = _provider_enabled_name($provider_id);
         my $current = Plugins::BlissGuidance::Policy::host_state(
             $all_state, $provider_id,
+        );
+        my $current_resolved = Plugins::BlissGuidance::Policy::resolve(
+            $provider, $current, {},
         );
         my $next = {
             enabled => exists($params->{$enabled_name}) ? 1 : 0,
@@ -201,7 +188,10 @@ sub _apply_guidance_provider_settings {
             }
             my $name = _provider_control_name($provider_id, $key);
             next unless exists $params->{$name}
-                && (!exists $params->{$dirty_name} || $params->{$dirty_name});
+                && (!exists $params->{$dirty_name} || $params->{$dirty_name}
+                    || Plugins::BlissGuidance::Policy::submitted_value_differs_from_effective(
+                        $current_resolved->{effective}->{$key}, $params->{$name},
+                    ));
             $next->{overrides}{$key} = $params->{$name};
         }
         my $resolved = Plugins::BlissGuidance::Policy::resolve($provider, $next, {});
