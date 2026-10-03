@@ -46,6 +46,9 @@
   }
 
   function bindGuidanceInheritedMarkers(root) {
+    if (root.__blissGuidanceInheritedMarkersBound) return;
+    root.__blissGuidanceInheritedMarkersBound = true;
+    var materialSliderMarkers = {};
     root.querySelectorAll('[data-guidance-inherited-field]').forEach(function (button) {
       var fieldName = button.getAttribute('data-guidance-inherited-field');
       var markerName = button.getAttribute('data-guidance-inherited-marker');
@@ -64,9 +67,22 @@
           button.getAttribute('data-guidance-host-origin')
         );
       };
+      materialSliderMarkers[fieldName] = markHostOverride;
       input.addEventListener('input', markHostOverride);
       input.addEventListener('change', markHostOverride);
     });
+    // Material Skin creates its range sliders after this embedded page has
+    // loaded, and copies values without notifying the numeric input. Delegate
+    // events from later-created sliders so a drag is an explicit host override.
+    var markMaterialSliderOverride = function (event) {
+      var targetId = event.target && event.target.id ? event.target.id : '';
+      var prefix = 'mskslider.';
+      if (targetId.indexOf(prefix) !== 0) return;
+      var marker = materialSliderMarkers[targetId.substring(prefix.length)];
+      if (marker) marker();
+    };
+    root.addEventListener('input', markMaterialSliderOverride);
+    root.addEventListener('change', markMaterialSliderOverride);
   }
 
   function updateGuidanceProviderControls(checkbox) {

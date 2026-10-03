@@ -33,6 +33,8 @@ sub _section {
     );
     my $labels = ref($host_identity->{source_labels}) eq 'HASH'
         ? $host_identity->{source_labels} : {};
+    my $ui_labels = ref($host_identity->{ui_labels}) eq 'HASH'
+        ? $host_identity->{ui_labels} : {};
     my $field_names = ref($host_identity->{field_names}) eq 'HASH'
         ? $host_identity->{field_names} : {};
     my $origin_label_token = ref($host_identity->{origin_label_token}) eq 'CODE'
@@ -85,6 +87,18 @@ sub _section {
             inherited_origin_label_token => $origin_label_token
                 ? $origin_label_token->($inherited_is_provider
                     ? 'provider_default' : 'factory_default') : undef,
+            origin_prefix_label => _ui_label(
+                $ui_labels, 'origin_prefix', 'Effective value source:',
+            ),
+            host_origin_label => _ui_label(
+                $ui_labels, 'host_origin', $labels->{host_override} || 'Host setting',
+            ),
+            origin_pending_label => _ui_label(
+                $ui_labels, 'origin_pending', '(will apply when saved)',
+            ),
+            reset_label => _ui_label(
+                $ui_labels, 'reset', 'Use inherited default',
+            ),
             enum_values => ref($control->{values}) eq 'ARRAY'
                 ? $control->{values} : [],
             form_id => "guidance_${provider_id}_${key}",
@@ -103,9 +117,31 @@ sub _section {
         policy_diagnostic => $resolved->{diagnostic} || '',
         enable_field_name => $enabled_field,
         settings_uri => $descriptor->{settings_uri} || '',
-        settings_link_label => "Open $display_name settings",
+        available_label => _ui_label(
+            $ui_labels, 'available', 'Provider backend is available.', $provider->{diagnostic} || '',
+        ),
+        unavailable_label => _ui_label(
+            $ui_labels, 'unavailable', 'Provider backend is unavailable.', $provider->{diagnostic} || '',
+        ),
+        settings_link_label => _ui_label(
+            $ui_labels, 'settings', "Open $display_name settings", $display_name,
+        ),
+        enabled_label => _ui_label(
+            $ui_labels, 'enabled', 'Use this provider',
+        ),
+        enabled_desc => _ui_label(
+            $ui_labels, 'enabled_desc', '',
+        ),
         controls => \@controls,
     };
+}
+
+sub _ui_label {
+    my ($labels, $name, $fallback, @args) = @_;
+    my $label = $labels->{$name};
+    return $label->(@args) if ref($label) eq 'CODE';
+    return $label if defined $label;
+    return $fallback;
 }
 
 sub _field_name {

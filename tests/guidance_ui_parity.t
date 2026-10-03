@@ -19,22 +19,22 @@ my @assets = (
     [
         'Plugins/BlissGuidance/Policy.pm',
         'BlissMixerLab/Plugins/BlissGuidance/Policy.pm',
-        'b8e5a91ad0014cfb2a2ab1ed4dc7227bc77c23a9e605bd55fff3a593c7ec3790',
+        'f25caefbea85a538ccfa05c851e78d10bfb7a4f8dbb0f9a01347931adffaf461',
     ],
     [
         'Plugins/BlissGuidance/SettingsModel.pm',
         'BlissMixerLab/Plugins/BlissGuidance/SettingsModel.pm',
-        '22646fb99551748cac14df242a1b2281eb569b295b2e82d1296370222afa4e31',
+        '22c6b7cfcfb180ef0de67424087c4587b5f6e6900b2448654281cb53cb40cea1',
     ],
     [
         'HTML/settings/guidance-provider-controls.html',
         'BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html',
-        '6e1e58263d0313f8a0a85aca0e8da3fd1848c40d132668d5afe8ff083c2dfb24',
+        'd836cc6c1341cb2064330cdd1d753be689dd745855ff4365724d41679e09e8e9',
     ],
     [
         'HTML/settings/guidance-provider-controls.js',
         'BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.js',
-        'cdcb46a952ffc48d83948bb295312e6a0b07ed42a5bf5af7dffdb7118c247c2c',
+        '0957041d2ace48096e9ec101006a8f7185ade8e467b13a130170fb3488672c4e',
     ],
 );
 
@@ -74,5 +74,7 @@ unlike($template, qr/function\s+copyGuidanceInheritedDefault\s*\(/,
     'Lab no longer carries a divergent inherited-default handler');
 unlike($template, qr/function\s+updateGuidanceProviderControls\s*\(/,
     'Lab no longer carries a divergent provider-toggle handler');
+like($template, qr/SET\s+guidance_ui\.available_token\s*=\s*"BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE"/,
+    'settings page supplies the established Lab labels for installed Settings.pm compatibility');
 
 done_testing();

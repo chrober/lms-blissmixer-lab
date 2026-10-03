@@ -100,6 +100,15 @@
     <div id="guidance-providers-section" class="hidden">
         <p>[% "BLISSMIXERLAB_GUIDANCE_PROVIDERS_DESC" | string %]</p>
         [% IF guidance_provider_section_count > 0 %]
+            [% SET guidance_ui.available_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE" %]
+            [% SET guidance_ui.unavailable_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE" %]
+            [% SET guidance_ui.settings_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS" %]
+            [% SET guidance_ui.enabled_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED" %]
+            [% SET guidance_ui.enabled_desc_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC" %]
+            [% SET guidance_ui.origin_prefix_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN" %]
+            [% SET guidance_ui.host_origin_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST" %]
+            [% SET guidance_ui.origin_pending_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING" %]
+            [% SET guidance_ui.reset_token = "BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET" %]
             [% PROCESS "plugins/BlissGuidance/settings/guidance-provider-controls.html" %]
         [% ELSE %]
             <p style="opacity:0.7">[% "BLISSMIXERLAB_GUIDANCE_PROVIDERS_NONE" | string %]</p>

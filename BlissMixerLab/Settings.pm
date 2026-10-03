@@ -82,17 +82,6 @@ sub beforeRender {
     my $guidanceProviderSections = _guidance_provider_sections();
     $paramRef->{guidance_provider_sections} = $guidanceProviderSections;
     $paramRef->{guidance_provider_section_count} = scalar @{$guidanceProviderSections};
-    $paramRef->{guidance_ui} = {
-        available_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE',
-        unavailable_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE',
-        settings_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS',
-        enabled_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED',
-        enabled_desc_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC',
-        origin_prefix_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN',
-        host_origin_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST',
-        origin_pending_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING',
-        reset_token => 'BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET',
-    };
     # Once Library Signals is discovered, its provider-owned section is the
     # single source of truth.  The legacy Lab controls remain only as a
     # compatibility fallback for installations without that provider.
@@ -148,6 +137,21 @@ sub _guidance_provider_sections {
                 dirty => \&_provider_dirty_name,
             },
             origin_label_token => \&_origin_label_token,
+            ui_labels => {
+                available => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE'),
+                unavailable => sub {
+                    return string('BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE', $_[0]);
+                },
+                settings => sub {
+                    return string('BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS', $_[0]);
+                },
+                enabled => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED'),
+                enabled_desc => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC'),
+                origin_prefix => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN'),
+                host_origin => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST'),
+                origin_pending => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING'),
+                reset => string('BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET'),
+            },
         },
     );
 }
@@ -165,6 +169,9 @@ sub _apply_guidance_provider_settings {
         my $current = Plugins::BlissGuidance::Policy::host_state(
             $all_state, $provider_id,
         );
+        my $current_resolved = Plugins::BlissGuidance::Policy::resolve(
+            $provider, $current, {},
+        );
         my $next = {
             enabled => exists($params->{$enabled_name}) ? 1 : 0,
             overrides => { %{$current->{overrides} || {}} },
@@ -181,7 +188,10 @@ sub _apply_guidance_provider_settings {
             }
             my $name = _provider_control_name($provider_id, $key);
             next unless exists $params->{$name}
-                && (!exists $params->{$dirty_name} || $params->{$dirty_name});
+                && (!exists $params->{$dirty_name} || $params->{$dirty_name}
+                    || Plugins::BlissGuidance::Policy::submitted_value_differs_from_effective(
+                        $current_resolved->{effective}->{$key}, $params->{$name},
+                    ));
             $next->{overrides}{$key} = $params->{$name};
         }
         my $resolved = Plugins::BlissGuidance::Policy::resolve($provider, $next, {});

@@ -263,14 +263,14 @@ is($playcount_control->{origin}, 'provider_default',
 my %save_host_override = (
     saveSettings => 1,
     'pref_guidance_provider_library-signals_enabled' => 1,
-    'pref_guidance_provider_library-signals_playcount_influence' => -80,
-    'dirty_guidance_provider_library-signals_playcount_influence' => 1,
+    'pref_guidance_provider_library-signals_playcount_influence' => -79,
+    'dirty_guidance_provider_library-signals_playcount_influence' => 0,
 );
 Plugins::BlissMixerLab::Settings->handler(undef, \%save_host_override);
 Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
 $playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
 is($playcount_control->{origin}, 'host_override',
-    'an explicitly saved Lab value reports Bliss Mixer Lab setting as its origin');
+    'a changed submitted Lab value reports Bliss Mixer Lab setting even without a client-side dirty marker');
 is($playcount_control->{origin_label_token},
     'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST',
     'the Lab override uses the Lab-localized origin annotation');
