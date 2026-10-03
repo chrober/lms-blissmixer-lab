@@ -40,11 +40,15 @@ my @assets = (
 
 for my $asset (@assets) {
     my ($canonical, $vendored, $expected) = @$asset;
-    is(
-        file_hash(File::Spec->catfile($host, split m{/}, $canonical)),
-        $expected,
-        "canonical $canonical remains the reviewed host contract",
-    );
+    SKIP: {
+        skip "shared host checkout is not present in this standalone repository", 1
+            unless -d $host;
+        is(
+            file_hash(File::Spec->catfile($host, split m{/}, $canonical)),
+            $expected,
+            "canonical $canonical remains the reviewed host contract",
+        );
+    }
     is(
         file_hash(File::Spec->catfile($repo, split m{/}, $vendored)),
         $expected,
