@@ -98,6 +98,9 @@ if 'blissmixer-triplets-${ts}.zip' not in survey_source:
     fail("training-data backups must retain the established BlissMixer filename")
 
 settings = (PLUGIN / "HTML/EN/plugins/BlissMixerLab/settings/blissmixerlab.html").read_text(encoding="utf-8")
+guidance_controls = (
+    PLUGIN / "HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html"
+).read_text(encoding="utf-8")
 if 'string("<code>bliss.db</code>")' not in settings:
     fail("companion status must render bliss.db in a fixed-width font")
 for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
@@ -111,7 +114,7 @@ for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
         "triplets_backup_path",
     }:
         fail(f"settings page duplicates upstream preference: {upstream_pref}")
-if 'name="[% provider.enable_field_name | html %]"' not in settings:
+if 'name="[% provider.enable_field_name | html %]"' not in guidance_controls:
     fail("settings page must render the provider enable preference")
 if 'name="pref_mixer_port"' in settings:
     fail("settings page must not expose the sidecar's internal mixer port")
