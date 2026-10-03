@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1 - 2026-10-03
+
+- Fix shared provider controls so Material Skin slider changes immediately
+  become explicit Lab overrides and persist after save.
+- Keep the existing guidance-provider settings layout, annotations, and
+  inherited-default behavior intact.
+
 ## 0.8.0 - 2026-10-02
 
 - Add the optional **Bliss Guidance: Library Signals** provider host. When it
