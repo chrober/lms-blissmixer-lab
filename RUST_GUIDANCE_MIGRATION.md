@@ -1,5 +1,12 @@
 # Migrating Lab reranking semantics to Rust guidance hosts
 
+> **Status (2026-10-03): First native vertical slice delivered.**
+> `bliss-mixer` 0.11.4 exposes a Library Signals guidance-host endpoint with
+> bounded SPI execution and `selection_trace_v1`. Lab already submits its
+> native-provider DSTM candidate pool to that endpoint; this document tracks
+> provider parity and future trace consumption without changing Lab's existing
+> selection or logging ownership.
+
 This document plans the Rust equivalent of the experimental reranking behavior
 currently implemented in the BlissMixerLab Perl plugin. It is a migration plan,
 not a description of the current Perl implementation. The goal is semantic
@@ -39,7 +46,7 @@ acoustic similarity, repeat windows, genre filters, and route validity.
 | Library-age signal | `bliss-guidance-library-signals` | Candidate `added` timestamp, `as_of`, horizon, signed influence |
 | Play-count signal | Existing play-count provider, later generalized | Same bounded global-candidate signal model |
 
-`bliss-guidance-library-signals` is the planned evolution of the narrowly
+`bliss-guidance-library-signals` is the delivered evolution of the narrowly
 scoped play-count provider. APC remains a separate future provider; it must not
 be silently mixed into the built-in Lyrion metadata provider.
 
@@ -193,9 +200,11 @@ influence, horizon, target mode, timeout, and per-job overrides.
    artifacts/resources, preview provenance, and Bliss-only fallback.
 6. Integrate the optimizer host and compare Perl/Rust decisions on frozen
    candidate fixtures.
-7. Integrate the `bliss-mixer` fork as the second native host.
-8. Remove duplicated Perl-side reranking only after parity, failure, and
-   performance tests pass.
+7. Deliver the first `bliss-mixer` native host endpoint. **Delivered in
+   `bliss-mixer` 0.11.4.**
+8. Keep Lab's normal DSTM candidate selection and logging host-owned while
+   extending its existing endpoint path to additional providers; consume richer
+   selection traces only after parity, failure, and performance tests pass.
 
 ## Acceptance criteria
 

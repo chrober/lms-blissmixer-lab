@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This document specifies the next guidance-provider milestone: make **Bliss
-Mixer Lab** a second Lyrion host for discoverable guidance providers.
+This document records the delivered guidance-provider integration in **Bliss
+Mixer Lab**. Lab is a Lyrion host for discoverable guidance providers.
 
 The first provider is **Bliss Guidance: Library Signals**.  When enabled for
 Lab, it replaces Lab's current direct local-signal implementation for all of
@@ -18,16 +18,19 @@ qualified DSTM candidate pool from `bliss-mixer-lab`; provider signals only
 rerank that bounded pool.  They cannot add candidates, relax repeat or genre
 rules, or change the configured Bliss strategy.
 
-This is a Lab-plugin integration.  It does **not** yet make the forked native
-`bliss-mixer` binary an SPI host; that follow-up remains described in
-[RUST_GUIDANCE_MIGRATION.md](RUST_GUIDANCE_MIGRATION.md).
+This is a Lab-plugin integration. The forked native `bliss-mixer` binary now
+also exposes the first Library Signals guidance-host endpoint and
+`selection_trace_v1`. When a native provider is enabled, Lab already submits
+its bounded DSTM candidate pool to that endpoint and retains its established
+selection policy and log formatter on the Perl side.
 
-## Shared host support
+## Shared host support - delivered
 
-Better Call Bliss already contains generic provider discovery and policy
-resolution.  Lab must not copy those implementations.  Extract their reusable
-parts into a small, source-owned `lms-bliss-guidance-host` package, bundled into
-host plugin release archives rather than installed as a separate Lyrion plugin.
+The reusable discovery, policy, settings-model, and canonical settings assets
+live in the source-only `lms-bliss-guidance-host` package. Both Better Call
+Bliss and Lab vendor the same tested source in their release archives rather
+than requiring a separate Lyrion dependency. This is intentional source
+vendoring, not parallel host-side implementations.
 
 It provides these provider-neutral Perl modules:
 
@@ -38,9 +41,8 @@ It provides these provider-neutral Perl modules:
 | `Plugins::BlissGuidance::Runtime` | Start one bounded JSONL SPI session, send `describe`, `prepare`, `score`, and `close`, validate replies, enforce a deadline, and return neutral failure diagnostics. |
 
 The package is not a Lyrion extension and has no settings page or runtime
-registration.  Both hosts bundle the same tested source revision, so users do
-not need to install a hidden dependency and the discovery contract cannot drift
-between Better Call Bliss and Lab.
+registration. Provider-kit and host parity tests protect the shared contract
+against visual or behavioral drift between Better Call Bliss and Lab.
 
 ## Lab data flow
 
@@ -126,11 +128,12 @@ tests, not to new Lab selection log lines.  An enabled-provider failure follows
 the existing neutral-factor logging path, preserving a valid Bliss selection
 without adding a second, provider-specific Lab diagnostic line.
 
-## Migration and removal gates
+## Migration and cleanup status
 
 `BlissMixerLab::LocalLibrarySignals` and Lab's direct local-signal wiring are
-not removed in the first commit.  They are retained only as the disabled-provider
-fallback until all gates pass:
+retained only as the disabled-provider fallback. The enabled Library Signals
+path is the generic descriptor and native-SPI path described above. Removing
+the fallback remains a deliberate cleanup decision after these gates pass:
 
 1. Frozen candidate fixtures produce equivalent play-count, last-played, and
    library-age factors through the provider path.
