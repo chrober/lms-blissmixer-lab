@@ -81,4 +81,18 @@ unlike($template, qr/function\s+updateGuidanceProviderControls\s*\(/,
 like($template, qr/SET\s+guidance_ui\.available_token\s*=\s*"BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE"/,
     'settings page supplies the established Lab labels for installed Settings.pm compatibility');
 
+my $provider_controls_path = File::Spec->catfile(
+    $repo, 'BlissMixerLab', 'HTML', 'EN', 'plugins', 'BlissGuidance',
+    'settings', 'guidance-provider-controls.html',
+);
+open my $provider_controls_fh, '<', $provider_controls_path
+    or die "cannot read $provider_controls_path: $!";
+my $provider_controls = do { local $/; <$provider_controls_fh> };
+like($provider_controls, qr/control\.enum_options/,
+    'Lab uses descriptor enum options from the shared guidance renderer');
+like($provider_controls, qr/option\.label_token\s*\|\s*string/,
+    'Lab renders localized enum labels supplied by providers');
+unlike($provider_controls, qr/control\.enum_values/,
+    'Lab does not fall back to raw enum keys');
+
 done_testing();
