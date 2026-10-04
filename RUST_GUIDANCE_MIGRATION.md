@@ -1,11 +1,15 @@
 # Migrating Lab reranking semantics to Rust guidance hosts
 
-> **Status (2026-10-03): First native vertical slice delivered.**
+> **Status (2026-10-04): Library Signals native path delivered; Last.fm
+> artifact semantics delivered for the optimizer/Better Call Bliss path.**
 > `bliss-mixer` 0.11.4 exposes a Library Signals guidance-host endpoint with
 > bounded SPI execution and `selection_trace_v1`. Lab already submits its
 > native-provider DSTM candidate pool to that endpoint; this document tracks
 > provider parity and future trace consumption without changing Lab's existing
-> selection or logging ownership.
+> selection or logging ownership. Better Call Bliss uses the Last.fm provider's
+> artifact mode; Lab's DSTM still uses its direct LastMix adapter. Migrating
+> Lab's Last.fm path to the discoverable provider, and direct API-key
+> acquisition, are future work.
 
 This document plans the Rust equivalent of the experimental reranking behavior
 currently implemented in the BlissMixerLab Perl plugin. It is a migration plan,
@@ -205,6 +209,17 @@ influence, horizon, target mode, timeout, and per-job overrides.
 8. Keep Lab's normal DSTM candidate selection and logging host-owned while
    extending its existing endpoint path to additional providers; consume richer
    selection traces only after parity, failure, and performance tests pass.
+
+### Phase status at 2026-10-04
+
+- Phases 1-7 are delivered for the optimizer/Library Signals path and the
+  native `bliss-mixer` endpoint.
+- Lab's Library Signals migration is delivered and preserves the existing
+  Perl-side log formatter.
+- Lab's Last.fm DSTM path still uses its direct LastMix adapter; migrating it
+  to the discoverable provider is not complete.
+- The native Last.fm provider currently consumes resolved artifacts only. Its
+  provider-owned API Key acquisition/cache path is not implemented yet.
 
 ## Acceptance criteria
 

@@ -28,6 +28,9 @@ currently contributes:
   - Last.fm recording-similarity guidance, with MusicBrainz recording IDs
     preferred and normalized artist/title matching as a fallback, for Static
     Weights, EIF, and Adaptive Weightings.
+    The current Lab path uses its direct LastMix adapter. Migration to the
+    discoverable Last.fm provider is follow-up work; the provider's API Key
+    mode is not operational yet and remains neutral.
   - Selectable Last.fm artist reranking: **Bounded artist influence** is the
     default and applies a comparable per-candidate boost; **Target endorsed
     share** preserves Bliss Mixer's original percentage-based behavior.
@@ -35,6 +38,8 @@ currently contributes:
     Bliss-derived candidate pool. When **Bliss Guidance: Library Signals** is
     installed and explicitly enabled for Lab, it supplies play-count,
     last-played, and library-age signals through the shared guidance contract.
+    Lab discovers the provider descriptor and resolves the provider defaults
+    plus Lab-specific overrides at mix start.
     Until then, Lab retains its direct local path. Negative values favor
     less-played, long-unheard, or older additions; positive values favor
     frequently played, recently heard, or newly added music. Date signals use
@@ -58,7 +63,7 @@ currently contributes:
   for the staged host integration and failure behavior.
 - The plugins remain separately registered and operate side by side.
 
-BlissMixerLab currently requires Bliss Mixer 0.10.0 or newer with the shared
+BlissMixerLab 0.10.0 currently requires Bliss Mixer 0.10.0 or newer with the shared
 candidate-reranking component, and LMS 9.0 or newer.
 
 ## Installation

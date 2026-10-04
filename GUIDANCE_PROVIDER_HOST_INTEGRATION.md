@@ -5,7 +5,7 @@
 This document records the delivered guidance-provider integration in **Bliss
 Mixer Lab**. Lab is a Lyrion host for discoverable guidance providers.
 
-The first provider is **Bliss Guidance: Library Signals**.  When enabled for
+The shipped provider is **Bliss Guidance: Library Signals**. When enabled for
 Lab, it replaces Lab's current direct local-signal implementation for all of
 the following reranking inputs:
 
@@ -96,6 +96,10 @@ Bliss's behavior:
 When Library Signals is enabled, its three channels replace Lab's direct
 play-count, last-played, and library-age factors as one coherent local-signal
 layer.  Lab's existing Last.fm behavior remains independent and unchanged.
+
+Lab's existing Last.fm track/artist guidance still uses its direct LastMix
+adapter. Migrating that path to the discoverable `lms-guidance-lastfm` provider
+is follow-up work; the provider's API Key mode is not operational yet.
 
 The first enablement migrates the current Lab last-played and library-age values
 into Lab host overrides.  It copies the current upstream Bliss Mixer
