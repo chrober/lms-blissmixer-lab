@@ -44,16 +44,35 @@ sub profile_from_provider {
     my ($tracks, $provider, $resolved_policy, $as_of, $operations) = @_;
     $tracks = [] unless ref($tracks) eq 'ARRAY';
     $resolved_policy = {} unless ref($resolved_policy) eq 'HASH';
+    my $effective = ref($resolved_policy->{effective}) eq 'HASH'
+        ? $resolved_policy->{effective} : {};
+    my $result = score_from_provider(
+        $tracks, $provider, $resolved_policy, $as_of, $operations,
+    );
+    return profile_from_native_result($tracks, $effective, $result, $as_of);
+}
+
+sub lastfm_profile_from_provider {
+    my ($tracks, $provider, $resolved_policy, $as_of, $operations) = @_;
+    my $result = score_from_provider(
+        $tracks, $provider, $resolved_policy, $as_of, $operations,
+    );
+    return lastfm_profile_from_native_result($tracks, $result);
+}
+
+sub score_from_provider {
+    my ($tracks, $provider, $resolved_policy, $as_of, $operations) = @_;
+    $tracks = [] unless ref($tracks) eq 'ARRAY';
+    $resolved_policy = {} unless ref($resolved_policy) eq 'HASH';
     $operations = {} unless ref($operations) eq 'HASH';
     my $effective = ref($resolved_policy->{effective}) eq 'HASH'
         ? $resolved_policy->{effective} : {};
-    my $neutral = sub { return profile_from_signals($tracks, $effective, [], $as_of); };
-    return $neutral->()
+    return undef
         unless $resolved_policy->{valid} && $resolved_policy->{enabled}
             && ref($provider) eq 'HASH';
     my $native_config = $operations->{native_config};
     my $score_batch = $operations->{score_batch};
-    return $neutral->()
+    return undef
         unless ref($native_config) eq 'CODE' && ref($score_batch) eq 'CODE';
 
     my $directory = tempdir(CLEANUP => 1);
@@ -62,9 +81,12 @@ sub profile_from_provider {
     my $result;
     eval {
         $artifact = write_candidate_identity_artifact($tracks, $directory);
+        my $trusted_context = ref($operations->{trusted_context}) eq 'HASH'
+            ? { %{$operations->{trusted_context}} } : {};
+        $trusted_context->{candidate_identity_artifact} = $artifact;
+        $trusted_context->{as_of_unix_seconds} = int($as_of);
         $config = $native_config->($provider, $effective, {
-            candidate_identity_artifact => $artifact,
-            as_of_unix_seconds => int($as_of),
+            %$trusted_context,
         });
         my @candidates = map {
             my $candidate_id = eval { $_->url };
@@ -73,20 +95,23 @@ sub profile_from_provider {
                 && defined($urlmd5) && $urlmd5 =~ /^[a-f0-9]+$/i
                 ? ({ candidate_id => "$candidate_id", lms_urlmd5 => "$urlmd5" }) : ()
         } @$tracks;
-        $result = $score_batch->($config, {
-            job_id => 'blissmixerlab',
-            request_id => 'dstm-candidate-pool',
-            deadline_ms => 500,
-            context => {
+        my $context = ref($operations->{context}) eq 'HASH'
+            ? { %{$operations->{context}} } : {
                 scope => 'global',
                 left_anchor_id => undef,
                 right_anchor_id => undef,
                 context_track_ids => [],
-            },
+            };
+        $result = $score_batch->($config, {
+            job_id => 'blissmixerlab',
+            request_id => 'dstm-candidate-pool',
+            deadline_ms => 500,
+            context => $context,
             candidates => \@candidates,
         });
     };
-    return profile_from_native_result($tracks, $effective, $result, $as_of);
+    return undef if $@;
+    return $result;
 }
 
 sub profile_from_native_result {
@@ -107,6 +132,47 @@ sub profile_from_native_result {
             || ref($trace->{candidates}) ne 'ARRAY'
         );
     return profile_from_signals($tracks, $effective, $result->{signals}, $as_of);
+}
+
+sub lastfm_profile_from_native_result {
+    my ($tracks, $result) = @_;
+    $tracks = [] unless ref($tracks) eq 'ARRAY';
+    my %by_id;
+    if (ref($result) eq 'HASH' && $result->{valid}
+        && ref($result->{signals}) eq 'ARRAY') {
+        for my $signal (@{$result->{signals}}) {
+            next unless ref($signal) eq 'HASH';
+            my $candidate_id = $signal->{candidate_id};
+            my $channel = $signal->{channel};
+            next unless defined $candidate_id && length $candidate_id;
+            next unless defined $channel && $channel =~ /^(?:lastfm_artist|lastfm_track)$/;
+            next unless defined $signal->{score}
+                && $signal->{score} =~ /^-?(?:\d+(?:\.\d*)?|\.\d+)$/;
+            $by_id{$candidate_id}{$channel} = _bounded_score($signal->{score});
+        }
+    }
+
+    my (%by_url, $artist_match_count, $track_match_count);
+    for my $track (@$tracks) {
+        my $url = eval { $track->url };
+        next unless defined $url && length $url;
+        my $signals = $by_id{$url} || {};
+        my $artist_support = $signals->{lastfm_artist} || 0;
+        my $track_support = $signals->{lastfm_track} || 0;
+        $by_url{$url} = {
+            lastfm_artist_support => $artist_support,
+            lastfm_track_support => $track_support,
+        };
+        $artist_match_count++ if $artist_support > 0;
+        $track_match_count++ if $track_support > 0;
+    }
+
+    return {
+        active => ($artist_match_count || $track_match_count) ? 1 : 0,
+        by_url => \%by_url,
+        artist_match_count => $artist_match_count,
+        track_match_count => $track_match_count,
+    };
 }
 
 sub profile_from_signals {

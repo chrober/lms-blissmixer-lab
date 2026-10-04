@@ -49,7 +49,9 @@ BEGIN {
     package Slim::Utils::PluginManager;
     sub dataForPlugin { return {version => '0.10.0'} }
     sub isEnabled { return 1 }
-    sub enabledPlugins { return ('Plugins::LibrarySignals::Plugin') }
+    sub enabledPlugins {
+        return ('Plugins::LibrarySignals::Plugin', 'Plugins::LastFmGuidance::Plugin');
+    }
     $INC{'Slim/Utils/PluginManager.pm'} = __FILE__;
 
     package Slim::Utils::Strings;
@@ -107,6 +109,39 @@ BEGIN {
         };
     }
     sub guidance_provider_status_v1 { return { available => 1 } }
+
+    package Plugins::LastFmGuidance::Plugin;
+    sub guidance_provider_descriptor_v1 {
+        return {
+            protocol_version => 1,
+            provider_id => 'lastfm',
+            display_name => 'Bliss Guidance: Last.fm',
+            settings_uri => 'plugins/LastFmGuidance/settings/lastfmguidance.html',
+            capabilities => [qw(lastfm_similarity lastfm_acquisition)],
+            scopes => ['global_candidate'],
+            settings_schema_version => 1,
+            controls => [
+                { key => 'source', type => 'enum', values => [qw(lastmix api_key)], factory_default => 'lastmix', host_overridable => 0 },
+                { key => 'lastfm_track_influence', type => 'integer', minimum => 0, maximum => 100, factory_default => 25, host_overridable => 1, guidance_channel => 'lastfm_track', render_as => 'slider' },
+                { key => 'lastfm_artist_mode', type => 'enum', values => [qw(target_share bounded_influence)], factory_default => 'target_share', host_overridable => 1 },
+                { key => 'lastfm_artist_level', type => 'integer', minimum => 0, maximum => 100, factory_default => 75, host_overridable => 1, guidance_channel => 'lastfm_artist', render_as => 'slider' },
+            ],
+            native_spi => {
+                provider_id => 'lastfm-guidance', spi_version => 2,
+                protocol => 'bliss-guidance-jsonl-v2',
+                channels => { similar_track => 'lastfm_track', similar_artist => 'lastfm_artist' },
+                artifact_kinds => ['resolved-lastfm-evidence-v1'], resource_kinds => [],
+            },
+        };
+    }
+    sub guidance_provider_defaults_v1 {
+        return {
+            source => 'lastmix', lastfm_track_influence => 25,
+            lastfm_artist_mode => 'target_share', lastfm_artist_level => 75,
+            settings_revision => 1,
+        };
+    }
+    sub guidance_provider_status_v1 { return { available => 1 } }
 }
 
 use lib "$FindBin::Bin/..";
@@ -152,17 +187,17 @@ is($request_host{learning_status_text},
     'localized:BLISSMIXERLAB_LEARNING_STATUS',
     'live learner progress label is localized before rendering');
 is(
-    $request_host{guidance_provider_sections}->[0]->{provider_id},
-    'library-signals',
-    'the discoverable Library Signals provider is rendered for an opt-in host',
-);
-is(
     $request_host{guidance_provider_section_count},
-    1,
-    'Lab supplies an explicit provider-section count for settings rendering',
+    2,
+    'Lab renders both discoverable provider sections for an opt-in host',
+);
+is_deeply(
+    [map { $_->{provider_id} } @{$request_host{guidance_provider_sections}}],
+    [qw(lastfm library-signals)],
+    'Last.fm and Library Signals use the shared provider-settings model',
 );
 ok(
-    !$request_host{guidance_provider_sections}->[0]->{enabled},
+    !$request_host{guidance_provider_sections}->[1]->{enabled},
     'a newly discovered provider remains disabled until Lab explicitly enables it',
 );
 ok(
@@ -173,17 +208,21 @@ ok(
     !$request_host{legacy_local_signals_visible},
     'a discovered Library Signals provider replaces the legacy direct control group even while disabled',
 );
+ok(
+    !$request_host{legacy_lastfm_visible},
+    'a discovered Last.fm provider replaces the legacy direct control group even while disabled',
+);
 is(
-    $request_host{guidance_provider_sections}->[0]->{controls}->[2]->{render_as},
+    $request_host{guidance_provider_sections}->[1]->{controls}->[2]->{render_as},
     'number',
     'Lab preserves the provider-declared control presentation',
 );
 is(
-    $request_host{guidance_provider_sections}->[0]->{enable_field_name},
+    $request_host{guidance_provider_sections}->[1]->{enable_field_name},
     'pref_guidance_provider_library-signals_enabled',
     'provider enable field follows the shared host contract',
 );
-my $playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+my $playcount_control = $request_host{guidance_provider_sections}->[1]->{controls}->[0];
 is(
     $playcount_control->{field_name},
     'pref_guidance_provider_library-signals_playcount_influence',
@@ -256,7 +295,7 @@ is_deeply(
 );
 
 Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
-$playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+$playcount_control = $request_host{guidance_provider_sections}->[1]->{controls}->[0];
 is($playcount_control->{origin}, 'provider_default',
     'first provider enable visibly inherits the provider setting');
 
@@ -268,7 +307,7 @@ my %save_host_override = (
 );
 Plugins::BlissMixerLab::Settings->handler(undef, \%save_host_override);
 Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
-$playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
+$playcount_control = $request_host{guidance_provider_sections}->[1]->{controls}->[0];
 is($playcount_control->{origin}, 'host_override',
     'a changed submitted Lab value reports Bliss Mixer Lab setting even without a client-side dirty marker');
 is($playcount_control->{origin_label_token},

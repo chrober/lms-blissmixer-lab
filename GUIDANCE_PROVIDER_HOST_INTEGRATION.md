@@ -5,9 +5,10 @@
 This document records the delivered guidance-provider integration in **Bliss
 Mixer Lab**. Lab is a Lyrion host for discoverable guidance providers.
 
-The first provider is **Bliss Guidance: Library Signals**.  When enabled for
-Lab, it replaces Lab's current direct local-signal implementation for all of
-the following reranking inputs:
+The delivered providers are **Bliss Guidance: Library Signals** and **Bliss
+Guidance: Last.fm**. When enabled for Lab, Library Signals replaces Lab's
+current direct local-signal implementation for all of the following reranking
+inputs:
 
 - play count;
 - last played; and
@@ -51,14 +52,17 @@ sequenceDiagram
     participant L as Bliss Mixer Lab
     participant M as bliss-mixer-lab
     participant H as Shared host support
-    participant P as Library Signals plugin
-    participant R as Native library-signals provider
+    participant LS as Library Signals plugin
+    participant LF as Last.fm plugin
+    participant R as Native guidance providers
 
     L->>M: request Bliss candidate pool
     M-->>L: bounded acoustically qualified DSTM pool
     L->>H: discover enabled provider and resolve Lab policy
-    H->>P: descriptor, defaults, status, native SPI config
-    P-->>H: provider program, persist.db resource, controls
+    H->>LS: descriptor, defaults, status, native SPI config
+    LS-->>H: provider program, persist.db resource, controls
+    H->>LF: descriptor, defaults, status, acquisition request
+    LF-->>H: resolved LastMix relations for the bounded pool
     L->>L: freeze as_of and candidate identity artifact
     H->>R: describe, prepare with artifact and persist.db
     H->>R: score bounded candidate batch
@@ -95,7 +99,12 @@ Bliss's behavior:
 
 When Library Signals is enabled, its three channels replace Lab's direct
 play-count, last-played, and library-age factors as one coherent local-signal
-layer.  Lab's existing Last.fm behavior remains independent and unchanged.
+layer. When the Last.fm provider is installed, its provider-owned source choice
+and controls replace Lab's legacy Last.fm controls. It is independently
+disabled by default for Lab. Enabling it makes Lab obtain LastMix evidence
+through the provider, resolve that evidence only against the current bounded
+DSTM pool, and score it through the native guidance host before the existing
+Lab selection formatter applies its configured artist and track policies.
 
 The first enablement migrates the current Lab last-played and library-age values
 into Lab host overrides.  It copies the current upstream Bliss Mixer
@@ -107,11 +116,14 @@ rollout.
 
 ## Failure behavior and logging compatibility
 
-If the Library Signals provider is disabled, Lab uses its current direct local
-reranking path.  If it is enabled but unavailable, times out, or returns an
-invalid response, Lab does not invoke the old path as a hidden second attempt:
-the provider's three signals are neutral for that selection, while Bliss and
-any independent Last.fm behavior continue normally.
+If Library Signals is disabled, Lab uses its current direct local reranking
+path. If it is enabled but unavailable, times out, or returns an invalid
+response, Lab does not invoke the old path as a hidden second attempt: its
+three signals are neutral for that selection. The same rule applies to the
+installed Last.fm provider: disabled means no Last.fm guidance from that
+provider; a failed enabled run becomes neutral rather than silently using Lab's
+legacy LastMix resolver. On installations without the provider, the historical
+Lab LastMix path remains the compatibility fallback.
 
 Lab's current INFO and DEBUG logging is a compatibility boundary.  Its
 candidate-selection summary, selected-track lines, diagnostics, and selection
@@ -151,8 +163,8 @@ than keep two implementations indefinitely.
 
 ## Out of scope
 
-- Direct Last.fm acquisition by `bliss-guidance-lastfm`.
-- Replacing Lab's LastMix integration.
+- Direct API-key acquisition by `bliss-guidance-lastfm`; the first Lab slice
+  consumes the provider's LastMix artifact mode.
 - Automatic installation of provider plugins.
 - Alternative Play Count guidance; that remains a separate future provider.
 - Wiring the forked native `bliss-mixer` binary itself to the SPI.

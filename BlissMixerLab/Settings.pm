@@ -88,6 +88,12 @@ sub beforeRender {
     $paramRef->{legacy_local_signals_visible} = !grep {
         $_->{provider_id} eq 'library-signals'
     } @{$guidanceProviderSections};
+    # The standalone Last.fm provider owns source choice and default policy.
+    # Keep the historical Lab controls only for installations where that
+    # provider has not been installed yet.
+    $paramRef->{legacy_lastfm_visible} = !grep {
+        $_->{provider_id} eq 'lastfm'
+    } @{$guidanceProviderSections};
 }
 
 sub handler {

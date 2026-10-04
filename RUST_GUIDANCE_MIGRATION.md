@@ -1,11 +1,11 @@
 # Migrating Lab reranking semantics to Rust guidance hosts
 
-> **Status (2026-10-03): First native vertical slice delivered.**
+> **Status (2026-10-04): native provider slices delivered for Lab.**
 > `bliss-mixer` 0.11.4 exposes a Library Signals guidance-host endpoint with
 > bounded SPI execution and `selection_trace_v1`. Lab already submits its
-> native-provider DSTM candidate pool to that endpoint; this document tracks
-> provider parity and future trace consumption without changing Lab's existing
-> selection or logging ownership.
+> native-provider DSTM candidate pool to that endpoint. The installed Last.fm
+> provider now follows the same host path in its LastMix artifact mode; Lab
+> retains selection and logging ownership.
 
 This document plans the Rust equivalent of the experimental reranking behavior
 currently implemented in the BlissMixerLab Perl plugin. It is a migration plan,
@@ -126,8 +126,9 @@ flowchart LR
 ```
 
 The host supplies the enabled-provider policy and the bounded candidate batch.
-The Last.fm provider consumes the existing resolved evidence artifact during the
-hybrid migration; direct acquisition remains a later provider-owned option.
+The Last.fm provider consumes its own LastMix-resolved evidence artifact during
+the delivered Lab slice. Direct API-key acquisition remains a later
+provider-owned option because it needs an anchor-capable native host request.
 The library-signals provider consumes trusted Lyrion identities and performs
 bounded read-only lookups. Neither provider receives an unrestricted library
 scan or a user-supplied executable/database path.

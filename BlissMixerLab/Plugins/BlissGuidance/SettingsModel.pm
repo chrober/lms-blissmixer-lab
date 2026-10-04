@@ -20,6 +20,19 @@ sub provider_sections {
     } @providers ];
 }
 
+sub enum_options {
+    my $control = shift;
+    $control = {} unless ref($control) eq 'HASH';
+    my $labels = ref($control->{option_labels}) eq 'HASH'
+        ? $control->{option_labels} : {};
+    return [ map {
+        {
+            value => $_,
+            label_token => $labels->{$_},
+        }
+    } @{ref($control->{values}) eq 'ARRAY' ? $control->{values} : []} ];
+}
+
 sub _section {
     my ($provider, $all_host_state, $host_identity) = @_;
     my $provider_id = $provider->{provider_id} || '';
@@ -101,6 +114,7 @@ sub _section {
             ),
             enum_values => ref($control->{values}) eq 'ARRAY'
                 ? $control->{values} : [],
+            enum_options => enum_options($control),
             form_id => "guidance_${provider_id}_${key}",
             marker_id => "guidance_${provider_id}_${key}_origin",
         };

@@ -175,4 +175,81 @@ is_deeply(
     'native host response yields byte-for-byte identical Lab profile data for the existing formatter',
 );
 
+my $lastfm_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_profile_from_native_result(
+    [
+        TestTrack->new('file:///library/a.flac', 'a1'),
+        TestTrack->new('file:///library/b.flac', 'b2'),
+    ],
+    {
+        valid => 1,
+        signals => [
+            { candidate_id => 'file:///library/a.flac', channel => 'lastfm_artist', score => 1 },
+            { candidate_id => 'file:///library/a.flac', channel => 'lastfm_track', score => 0.6 },
+            { candidate_id => 'file:///library/b.flac', channel => 'lastfm_artist', score => 0 },
+        ],
+    },
+);
+ok($lastfm_profile->{active},
+    'resolved native Last.fm signals activate the Last.fm profile');
+is($lastfm_profile->{by_url}{'file:///library/a.flac'}{lastfm_artist_support}, 1,
+    'native artist evidence is retained by trusted candidate identity');
+is($lastfm_profile->{by_url}{'file:///library/a.flac'}{lastfm_track_support}, 0.6,
+    'native track evidence is retained without a Perl LastMix lookup');
+is($lastfm_profile->{by_url}{'file:///library/b.flac'}{lastfm_artist_support}, 0,
+    'non-endorsed candidates retain a neutral artist signal');
+is($lastfm_profile->{artist_match_count}, 1,
+    'profile counts candidate artist matches for the unchanged Lab summary format');
+is($lastfm_profile->{track_match_count}, 1,
+    'profile counts candidate track matches for the unchanged Lab summary format');
+
+my ($lastfm_native_context, $lastfm_score_request);
+my $lastfm_provider_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_profile_from_provider(
+    [
+        TestTrack->new('file:///library/a.flac', 'a1'),
+        TestTrack->new('file:///library/b.flac', 'b2'),
+    ],
+    { provider_id => 'lastfm' },
+    { valid => 1, enabled => 1, effective => {} },
+    1_000,
+    {
+        trusted_context => {
+            lastfm_relations_artifact => {
+                kind => 'resolved-lastfm-evidence-v1', path => '/trusted/evidence.json', sha256 => 'a' x 64,
+            },
+        },
+        context => {
+            scope => 'global',
+            context_track_ids => ['file:///seed.flac', 'artist:seed'],
+        },
+        native_config => sub {
+            (undef, undef, $lastfm_native_context) = @_;
+            return { id => 'lastfm-guidance', program => '/trusted/provider' };
+        },
+        score_batch => sub {
+            (undef, $lastfm_score_request) = @_;
+            return {
+                valid => 1,
+                signals => [
+                    { candidate_id => 'file:///library/a.flac', channel => 'lastfm_artist', score => 1 },
+                    { candidate_id => 'file:///library/b.flac', channel => 'lastfm_track', score => 0.6 },
+                ],
+            };
+        },
+    },
+);
+is(
+    $lastfm_native_context->{lastfm_relations_artifact}{kind},
+    'resolved-lastfm-evidence-v1',
+    'Last.fm provider receives the acquired and resolved relation artifact',
+);
+is_deeply(
+    $lastfm_score_request->{context}{context_track_ids},
+    ['file:///seed.flac', 'artist:seed'],
+    'Last.fm provider scores against the host-selected seed context',
+);
+is($lastfm_provider_profile->{artist_match_count}, 1,
+    'native provider scoring supplies artist evidence to the existing Lab profile');
+is($lastfm_provider_profile->{track_match_count}, 1,
+    'native provider scoring supplies track evidence to the existing Lab profile');
+
 done_testing();

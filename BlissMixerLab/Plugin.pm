@@ -18,6 +18,7 @@ use LWP::UserAgent;
 use JSON::XS::VersionOneAndTwo;
 use File::Basename;
 use File::Spec::Functions qw(catdir catfile);
+use File::Temp qw(tempdir);
 use Proc::Background;
 use Time::HiRes ();
 
@@ -1257,17 +1258,31 @@ sub _dstmMix {
             }
 
             my $dstm_tracks = $prefs->get('dstm_tracks') || DEF_NUM_DSTM_TRACKS;
-            my $lastfmAvailable = exists $INC{'Plugins/LastMix/LFM.pm'};
+            my $lastfmProviderGuidance = _lastfmGuidanceContext();
+            my $providerLastfmDiscovered = $lastfmProviderGuidance->{discovered} ? 1 : 0;
+            my $providerLastfmEnabled = $lastfmProviderGuidance->{enabled} ? 1 : 0;
+            my $providerLastfmReady = $providerLastfmEnabled
+                && $lastfmProviderGuidance->{provider} ? 1 : 0;
+            my $lastfmAvailable = $providerLastfmDiscovered
+                ? $providerLastfmReady : exists $INC{'Plugins/LastMix/LFM.pm'};
             my $lastfmProbability = _upstreamLastfmProbability();
             my $lastfmArtistStrategy = _lastfmArtistRerankingStrategy();
             my $lastfmArtistInfluence = _lastfmArtistInfluence();
+            my $lastfmTrackGuidance = $lastfmAvailable
+                ? _lastfmTrackGuidance() : 0;
+            if ($providerLastfmReady) {
+                my $effective = $lastfmProviderGuidance->{resolved}{effective} || {};
+                $lastfmArtistStrategy = ($effective->{lastfm_artist_mode} || '')
+                    eq 'target_share' ? 'target_share' : 'bounded_influence';
+                $lastfmProbability = int($effective->{lastfm_artist_level} || 0);
+                $lastfmArtistInfluence = $lastfmProbability;
+                $lastfmTrackGuidance = int($effective->{lastfm_track_influence} || 0);
+            }
             my $lastfmArtistWeighting = $lastfmAvailable && (
                 ($lastfmArtistStrategy eq 'target_share' && $lastfmProbability > 0)
                 || ($lastfmArtistStrategy eq 'bounded_influence' && $lastfmArtistInfluence > 0)
             );
             my $lastfmWeighting = $lastfmArtistWeighting;
-            my $lastfmTrackGuidance = $lastfmAvailable
-                ? _lastfmTrackGuidance() : 0;
             my $playCountInfluence = _upstreamPlayCountInfluence();
             my $playCountWeighting = $playCountInfluence != 0;
             my $lastPlayedInfluence = _lastPlayedInfluence();
@@ -1491,6 +1506,22 @@ sub _dstmMix {
                                 )
                                 : undef;
                             if ($lastfmWeighting || $lastfmTrackGuidance) {
+                                if ($providerLastfmEnabled) {
+                                    _selectViaLastFmProvider(
+                                        \@seedsToUse, \@trackObjs, $dstm_tracks, sub {
+                                            my $weightedUrls = shift;
+                                            $cb->($client, $weightedUrls);
+                                        }, $lastfmProviderGuidance,
+                                        $lastfmWeighting,
+                                        $lastfmArtistStrategy eq 'target_share'
+                                            ? $lastfmProbability : 0,
+                                        $playCountInfluence, $lastfmTrackGuidance,
+                                        $strategy, $localSignals,
+                                        $lastfmArtistStrategy eq 'bounded_influence'
+                                            ? $lastfmArtistInfluence : 0,
+                                        $providerLocalSignals,
+                                    );
+                                } else {
                                 _selectViaLastFm(\@seedsToUse, \@trackObjs, $dstm_tracks, sub {
                                     my $weightedUrls = shift;
                                     $cb->($client, $weightedUrls);
@@ -1502,6 +1533,7 @@ sub _dstmMix {
                                     $lastfmArtistStrategy eq 'bounded_influence'
                                         ? $lastfmArtistInfluence : 0,
                                     $providerLocalSignals);
+                                }
                             } elsif ($playCountWeighting || $localLibraryWeighting || $providerLocalSignals) {
                                 my $weightedUrls = _selectWeightedCandidates(
                                     \@trackObjs, $dstm_tracks, $playCountInfluence,
@@ -1614,6 +1646,108 @@ sub _guidanceHostPayload {
         },
         candidates => ref($request->{candidates}) eq 'ARRAY' ? $request->{candidates} : [],
     };
+}
+
+sub _selectViaLastFmProvider {
+    my ($seeds, $trackObjs, $finalCount, $cb, $providerGuidance,
+        $artistWeighting, $targetPercent, $playCountInfluence,
+        $trackGuidance, $strategy, $localSignals, $artistInfluence,
+        $providerSignals) = @_;
+    $artistWeighting ||= 0;
+    $targetPercent ||= 0;
+    $playCountInfluence ||= 0;
+    $trackGuidance ||= 0;
+    $artistInfluence ||= 0;
+    $providerSignals ||= 0;
+
+    my $without_lastfm = sub {
+        $cb->(_selectWeightedCandidates(
+            $trackObjs, $finalCount, $playCountInfluence,
+            undef, 0, undef, undef, 0, $strategy, $localSignals,
+            0, $providerSignals,
+        ));
+    };
+    return $without_lastfm->()
+        unless ref($providerGuidance) eq 'HASH'
+            && $providerGuidance->{provider}
+            && ref($providerGuidance->{resolved}) eq 'HASH';
+
+    main::DEBUGLOG && $log->debug(sprintf(
+        'Last.fm evidence: %d seeds, %d Bliss candidates, artist mode=%s, artist probability=%d%%, artist influence=%d%%, track influence=%d%%, selecting=%d',
+        scalar(@$seeds), scalar(@$trackObjs),
+        $artistInfluence ? 'bounded-influence' : ($artistWeighting ? 'target-share' : 'disabled'),
+        $artistWeighting && !$artistInfluence ? $targetPercent : 0,
+        $artistInfluence, $trackGuidance, $finalCount,
+    ));
+
+    my $artifact_directory = tempdir(CLEANUP => 1);
+    my $artifact_path = catfile($artifact_directory, 'lastfm-relations.json');
+    my @source_tracks = grep { defined $_ } map {
+        _guidanceTrackIdentity($_)
+    } @{$seeds || []};
+    my @candidate_tracks = grep { defined $_ } map {
+        _guidanceTrackIdentity($_)
+    } @{$trackObjs || []};
+    Plugins::BlissGuidance::Discovery::acquire_artifacts(
+        $providerGuidance->{provider},
+        $providerGuidance->{resolved},
+        {
+            artifact_path => $artifact_path,
+            source_tracks => \@source_tracks,
+            candidate_tracks => \@candidate_tracks,
+        },
+        sub {
+            my $acquisition = shift;
+            # Keep the temporary artifact directory alive through native scoring.
+            my $keep_artifact_directory_alive = $artifact_directory;
+            my ($artifact) = grep {
+                ($_->{kind} || '') eq 'resolved-lastfm-evidence-v1'
+            } @{$acquisition->{artifacts} || []};
+            unless ($acquisition->{available} && $artifact) {
+                main::INFOLOG && $log->info(
+                    'Last.fm unavailable: continuing without Last.fm evidence'
+                );
+                return $without_lastfm->();
+            }
+            my $profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_profile_from_provider(
+                $trackObjs,
+                $providerGuidance->{provider},
+                $providerGuidance->{resolved},
+                int(time()),
+                {
+                    trusted_context => {
+                        lastfm_relations_artifact => $artifact,
+                    },
+                    context => {
+                        scope => 'global',
+                        left_anchor_id => undef,
+                        right_anchor_id => undef,
+                        context_track_ids => _lastfmGuidanceContextTrackIds($seeds),
+                    },
+                    native_config => sub {
+                        return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
+                    },
+                    score_batch => sub {
+                        return _scoreGuidanceThroughMixer(
+                            $mixerPort, @_, $providerGuidance->{resolved}{effective},
+                        );
+                    },
+                },
+            );
+            if ($profile->{active} && main::INFOLOG) {
+                $log->info(
+                    'Last.fm: ' . ($profile->{artist_match_count} || 0)
+                    . ' endorsed artists (incl. seed artists)'
+                ) if $artistWeighting;
+            }
+            $cb->(_selectWeightedCandidates(
+                $trackObjs, $finalCount, $playCountInfluence,
+                undef, $artistWeighting ? $targetPercent : 0,
+                undef, undef, $trackGuidance, $strategy, $localSignals,
+                $artistInfluence, $providerSignals, $profile,
+            ));
+        },
+    );
 }
 
 sub _selectViaLastFm {
@@ -1887,12 +2021,75 @@ sub _librarySignalsGuidanceContext {
     };
 }
 
+sub _lastfmGuidanceContext {
+    my $all_state = $labprefs->get('guidance_provider_state');
+    $all_state = { schema_version => 1, providers => {} }
+        unless ref($all_state) eq 'HASH';
+    my $host_state = Plugins::BlissGuidance::Policy::host_state(
+        $all_state, 'lastfm',
+    );
+    my $discovery = Plugins::BlissGuidance::Discovery::discover();
+    my ($provider) = grep {
+        ($_->{provider_id} || '') eq 'lastfm'
+    } @{$discovery->{providers} || []};
+    return { enabled => 0, discovered => 0 } unless $provider;
+    return { enabled => 0, discovered => 1 } unless $host_state->{enabled};
+    return { enabled => 1, discovered => 1, provider => undef, resolved => { effective => {} } }
+        unless $provider && $provider->{available};
+    my $resolved = Plugins::BlissGuidance::Policy::resolve(
+        $provider, $host_state, {},
+    );
+    return { enabled => 1, discovered => 1, provider => undef, resolved => { effective => {} } }
+        unless $resolved->{valid} && $resolved->{enabled};
+    return {
+        enabled => 1,
+        discovered => 1,
+        provider => $provider,
+        resolved => $resolved,
+    };
+}
+
 sub _upstreamPlayCountInfluence {
     return 0 unless main::STATISTICS;
     my $influence = int($prefs->get('playcount_influence') || 0);
     $influence = -100 if $influence < -100;
     $influence = 100 if $influence > 100;
     return $influence;
+}
+
+sub _guidanceTrackIdentity {
+    my $track = shift;
+    my $id = eval { $track->url } || '';
+    return undef unless length $id;
+    my $artist_mbid = eval {
+        $track->artist ? $track->artist->musicbrainz_id : undef
+    } || undef;
+    my $recording_mbid = eval { $track->musicbrainz_id } || undef;
+    return {
+        candidate_id => $id,
+        id => $id,
+        artist => eval { $track->artistName } || '',
+        title => eval { $track->title } || '',
+        (defined $recording_mbid && length $recording_mbid
+            ? (recording_mbid => $recording_mbid) : ()),
+        artist_mbids => defined $artist_mbid ? [$artist_mbid] : [],
+    };
+}
+
+sub _lastfmGuidanceContextTrackIds {
+    my $tracks = shift;
+    $tracks = [] unless ref($tracks) eq 'ARRAY';
+    my (@ids, %seen);
+    for my $track (@$tracks) {
+        my $id = eval { $track->url } || '';
+        push @ids, $id if length $id && !$seen{$id}++;
+        my $artist = Plugins::BlissMixer::Plugin::_lastfmNormalizeArtist(
+            eval { $track->artistName } || ''
+        );
+        my $artist_id = length $artist ? "artist:$artist" : '';
+        push @ids, $artist_id if length $artist_id && !$seen{$artist_id}++;
+    }
+    return \@ids;
 }
 
 sub _lastPlayedInfluence {
@@ -1926,11 +2123,33 @@ sub _libraryAgeHorizonDays {
 sub _selectWeightedCandidates {
     my ($trackObjs, $finalCount, $playCountInfluence, $lastfmArtists,
         $lastfmTarget, $random, $lastfmTracks, $trackGuidance, $strategy,
-        $localSignals, $artistInfluence, $providerSignals) = @_;
+        $localSignals, $artistInfluence, $providerSignals,
+        $lastfmProviderSignals) = @_;
     $trackGuidance ||= 0;
     $strategy ||= 'unknown';
     $artistInfluence ||= 0;
     $providerSignals ||= 0;
+    $lastfmProviderSignals = undef
+        unless ref($lastfmProviderSignals) eq 'HASH'
+            && $lastfmProviderSignals->{active};
+    if ($lastfmProviderSignals && !$lastfmArtists
+        && ($artistInfluence || $lastfmTarget)) {
+        my %artists;
+        for my $track (@{$trackObjs || []}) {
+            my $url = eval { $track->url };
+            next unless defined $url && length $url;
+            my $signals = $lastfmProviderSignals->{by_url}{$url} || {};
+            next unless ($signals->{lastfm_artist_support} || 0) > 0;
+            my $artist_key = Plugins::BlissMixer::Plugin::_lastfmNormalizeArtist(
+                eval { $track->artistName } || ''
+            );
+            $artists{$artist_key} = 1 if length $artist_key;
+        }
+        # Keep an explicit (possibly empty) artist map so the summary retains
+        # the historical Last.fm artists=0/N fragment when the provider found
+        # no matching candidate artists.
+        $lastfmArtists = \%artists;
+    }
     # Bounded artist influence is a per-candidate multiplier.  Do not also
     # pass the upstream target-share percentage, or the same evidence would
     # be applied twice by CandidateSelection.
@@ -1940,21 +2159,30 @@ sub _selectWeightedCandidates {
         || ($localSignals && $localSignals->{active}) ? sub {
         my ($track, $entry) = @_;
         my $weight = 1;
+        my $providerLastFm = {};
+        if ($lastfmProviderSignals) {
+            my $url = eval { $track->url };
+            $providerLastFm = $lastfmProviderSignals->{by_url}{$url} || {}
+                if defined $url && length $url;
+        }
         if ($artistInfluence && $lastfmArtists) {
             my $artistKey = Plugins::BlissMixer::Plugin::_lastfmNormalizeArtist(
                 eval { $track->artistName } || ''
             );
-            my $artistMatch = exists $lastfmArtists->{$artistKey} ? 1 : 0;
+            my $artistMatch = $lastfmProviderSignals
+                ? ($providerLastFm->{lastfm_artist_support} || 0)
+                : (exists $lastfmArtists->{$artistKey} ? 1 : 0);
             my $artistWeight = _lastfmTrackWeight($artistMatch, $artistInfluence);
-            $entry->{endorsed} = $artistMatch;
-            $entry->{lastfm_artist_match} = $artistMatch;
+            $entry->{endorsed} = $artistMatch > 0 ? 1 : 0;
+            $entry->{lastfm_artist_match} = $artistMatch > 0 ? 1 : 0;
             $entry->{lastfm_artist_weight} = $artistWeight;
             $entry->{lastfm_weight} = $artistWeight;
             $weight *= $artistWeight;
         }
         if ($trackGuidance) {
-            my $trackSupport =
-                Plugins::BlissMixerLab::LastFmTrackSimilarity::candidateSupport(
+            my $trackSupport = $lastfmProviderSignals
+                ? ($providerLastFm->{lastfm_track_support} || 0)
+                : Plugins::BlissMixerLab::LastFmTrackSimilarity::candidateSupport(
                     $track, $lastfmTracks
                 );
             my $trackWeight = _lastfmTrackWeight(

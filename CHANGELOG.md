@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.0 - 2026-10-04
+
+- Add the optional **Bliss Guidance: Last.fm** provider host. When it is
+  installed and explicitly enabled, Lab lets the provider own Last.fm source
+  selection while preserving the existing candidate-selection and logging
+  behavior.
+- Route Last.fm artist and track guidance through the shared native guidance
+  host and retain the established Lab diagnostics and reranking semantics.
+- Restore the explicit `Last.fm artists=0/N (...)` summary for provider runs
+  with no matched candidate artists.
+
 ## 0.9.1 - 2026-10-03
 
 - Fix shared provider controls so Material Skin slider changes immediately

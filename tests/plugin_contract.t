@@ -103,8 +103,10 @@ BEGIN {
     package Slim::Utils::PluginManager;
     our $manifest;
     our $dstm_enabled = 1;
+    our @enabled_plugins;
     sub dataForPlugin { return $manifest }
     sub isEnabled { return $dstm_enabled }
+    sub enabledPlugins { return @enabled_plugins }
     $INC{'Slim/Utils/PluginManager.pm'} = __FILE__;
 
     package Slim::Utils::Versions;
@@ -212,6 +214,34 @@ BEGIN {
         my ($seedInfo, $resultHash, $cb, $stats) = @_;
         $cb->(0, $stats || {succeeded => 1, failed => 0});
     }
+
+    package Plugins::LastFmGuidance::Plugin;
+    sub guidance_provider_descriptor_v1 {
+        return {
+            protocol_version => 1, provider_id => 'lastfm',
+            display_name => 'Bliss Guidance: Last.fm',
+            capabilities => ['lastfm_similarity'], scopes => ['global_candidate'],
+            settings_schema_version => 1,
+            controls => [
+                { key => 'source', type => 'enum', values => [qw(lastmix api_key)], factory_default => 'lastmix', host_overridable => 0 },
+                { key => 'lastfm_track_influence', type => 'integer', minimum => 0, maximum => 100, factory_default => 25, host_overridable => 1, guidance_channel => 'lastfm_track' },
+                { key => 'lastfm_artist_mode', type => 'enum', values => [qw(target_share bounded_influence)], factory_default => 'target_share', host_overridable => 1 },
+                { key => 'lastfm_artist_level', type => 'integer', minimum => 0, maximum => 100, factory_default => 75, host_overridable => 1, guidance_channel => 'lastfm_artist' },
+            ],
+            native_spi => {
+                provider_id => 'lastfm-guidance', spi_version => 2,
+                protocol => 'bliss-guidance-jsonl-v2',
+                channels => { similar_track => 'lastfm_track', similar_artist => 'lastfm_artist' },
+                artifact_kinds => ['resolved-lastfm-evidence-v1'], resource_kinds => [],
+            },
+        };
+    }
+    sub guidance_provider_defaults_v1 {
+        return { source => 'lastmix', lastfm_track_influence => 25,
+            lastfm_artist_mode => 'target_share', lastfm_artist_level => 75,
+            settings_revision => 1 };
+    }
+    sub guidance_provider_status_v1 { return { available => 1 } }
 
     package Plugins::BlissMixerLab::Settings;
     sub new { return bless {}, $_[0] }
@@ -365,6 +395,35 @@ is(Plugins::BlissMixerLab::Plugin::_libraryAgeHorizonDays(), 365,
     'library-age horizon is read from Lab settings');
 is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
     'play-count influence is inherited from upstream Bliss Mixer');
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_guidanceTrackIdentity(
+        TestTrack->new('file:///library/seed.flac', 0, 'Seed Artist', 'Seed Title', 'recording-mbid'),
+    ),
+    {
+        candidate_id => 'file:///library/seed.flac',
+        id => 'file:///library/seed.flac',
+        artist => 'Seed Artist',
+        title => 'Seed Title',
+        recording_mbid => 'recording-mbid',
+        artist_mbids => [],
+    },
+    'Lab gives Last.fm acquisition the same complete trusted identity shape as its native candidate host',
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_lastfmGuidanceContextTrackIds([
+        TestTrack->new('file:///library/one.flac', 0, 'Seed Artist', 'One'),
+        TestTrack->new('file:///library/two.flac', 0, 'Seed Artist', 'Two'),
+    ]),
+    ['file:///library/one.flac', 'artist:seed artist', 'file:///library/two.flac'],
+    'Last.fm provider receives both recording and deduplicated artist source identities',
+);
+@Slim::Utils::PluginManager::enabled_plugins = ('Plugins::LastFmGuidance::Plugin');
+my $disabled_lastfm_provider = Plugins::BlissMixerLab::Plugin::_lastfmGuidanceContext();
+ok($disabled_lastfm_provider->{discovered},
+    'Lab recognizes an installed standalone Last.fm provider even before it is enabled');
+ok(!$disabled_lastfm_provider->{enabled},
+    'an installed standalone Last.fm provider remains opt-in for Lab');
+@Slim::Utils::PluginManager::enabled_plugins = ();
 $TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
 is(Plugins::BlissMixerLab::Plugin::_lastPlayedInfluence(), -100,
     'last-played influence is clamped to the signed preference range');
@@ -419,6 +478,127 @@ is_deeply(
 );
 is($Plugins::BlissMixer::CandidateSelection::calls[-1][4], 0,
     'bounded artist influence disables upstream target-share weighting');
+
+my $native_lastfm_profile = {
+    active => 1,
+    by_url => {
+        'artist-unmatched' => {
+            lastfm_artist_support => 0,
+            lastfm_track_support => 0,
+        },
+        'artist-endorsed' => {
+            lastfm_artist_support => 1,
+            lastfm_track_support => 0,
+        },
+    },
+};
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+        \@artist_influence_candidates,
+        1,
+        0,
+        undef,
+        0,
+        sub { 0.5 },
+        undef,
+        0,
+        'static weights',
+        undef,
+        25,
+        0,
+        $native_lastfm_profile,
+    ),
+    ['artist-endorsed'],
+    'native Last.fm artist evidence reaches the unchanged Lab candidate selector',
+);
+
+my $native_lastfm_zero_match_profile = {
+    active => 1,
+    by_url => {
+        'artist-unmatched' => {
+            lastfm_artist_support => 0,
+            lastfm_track_support => 0,
+        },
+        'artist-endorsed' => {
+            lastfm_artist_support => 0,
+            lastfm_track_support => 0,
+        },
+    },
+};
+Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates(
+    \@artist_influence_candidates,
+    1,
+    0,
+    undef,
+    0,
+    sub { 0.5 },
+    undef,
+    0,
+    'static weights',
+    undef,
+    25,
+    0,
+    $native_lastfm_zero_match_profile,
+);
+ok(ref($Plugins::BlissMixer::CandidateSelection::calls[-1][3]) eq 'HASH',
+    'native Last.fm zero-match results retain an explicit artist map for summary logging');
+
+my ($provider_acquisition_context, $provider_selection_profile, $provider_selected_urls);
+{
+    no warnings qw(redefine once);
+    local *Plugins::BlissGuidance::Discovery::acquire_artifacts = sub {
+        my (undef, undef, $context, $callback) = @_;
+        $provider_acquisition_context = $context;
+        $callback->({
+            available => 1,
+            artifacts => [{
+                kind => 'resolved-lastfm-evidence-v1',
+                path => '/trusted/lastfm.json', sha256 => 'a' x 64,
+            }],
+            diagnostic => '',
+        });
+    };
+    local *Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_profile_from_provider = sub {
+        return $native_lastfm_profile;
+    };
+    local *Plugins::BlissMixerLab::Plugin::_selectWeightedCandidates = sub {
+        my @args = @_;
+        $provider_selection_profile = $args[-1];
+        return ['artist-endorsed'];
+    };
+    Plugins::BlissMixerLab::Plugin::_selectViaLastFmProvider(
+        [TestTrack->new('seed-url', 0, 'Seed Artist', 'Seed Title')],
+        \@artist_influence_candidates,
+        1,
+        sub { $provider_selected_urls = shift },
+        {
+            provider => { provider_id => 'lastfm' },
+            resolved => { valid => 1, enabled => 1, effective => {} },
+        },
+        1, 0, 0, 0, 'static weights', undef, 25, 0,
+    );
+}
+is(
+    $provider_acquisition_context->{artifact_path} =~ /lastfm-relations\.json$/ ? 1 : 0,
+    1,
+    'Lab gives the discovered provider a private trusted Last.fm artifact path',
+);
+is_deeply(
+    $provider_acquisition_context->{source_tracks},
+    [{
+        candidate_id => 'seed-url', id => 'seed-url', artist => 'Seed Artist',
+        title => 'Seed Title', artist_mbids => [],
+    }],
+    'Lab supplies the provider with complete seed identities for evidence acquisition',
+);
+is(
+    scalar(@{$provider_acquisition_context->{candidate_tracks}}), 2,
+    'Lab supplies exactly the bounded Bliss DSTM pool for evidence resolution',
+);
+is($provider_selection_profile, $native_lastfm_profile,
+    'provider Last.fm profile reaches the historical Lab selection formatter unchanged');
+is_deeply($provider_selected_urls, ['artist-endorsed'],
+    'provider evidence completes through the existing DSTM callback');
 is(
     Plugins::BlissMixerLab::Plugin::_lastfmArtistWeightForDiagnostics(
         { lastfm_weight => 1, lastfm_artist_weight => 7.943 }, 90
@@ -479,6 +659,15 @@ is_deeply(
     ),
     ['Last.fm artists=0/20 (target-share=75%)'],
     'target-share summary retains the compact original-style artist fragment',
+);
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_candidateSelectionSummaryDetails(
+        [], { endorsed_count => 0 }, 20,
+        {},
+        90, 0, 0, 0, 0, undef,
+    ),
+    ['Last.fm artists=0/20 (bounded-influence=90%)'],
+    'bounded-influence summary keeps the explicit zero-match artist fragment',
 );
 
 my @local_signal_candidates = (
@@ -870,5 +1059,24 @@ is(
     'an existing canonical learning file is never overwritten',
 );
 ok(-e $legacy_matrix, 'a conflicting legacy file is left untouched');
+
+my $plugin_source_path = File::Spec->catfile(
+    $FindBin::Bin, '..', 'BlissMixerLab', 'Plugin.pm',
+);
+open my $plugin_source_fh, '<:raw', $plugin_source_path
+    or die "Cannot read $plugin_source_path: $!";
+local $/;
+my $plugin_source = <$plugin_source_fh>;
+close $plugin_source_fh;
+unlike(
+    $plugin_source,
+    qr/File::Temp->newdir/,
+    'Last.fm provider temporary artifacts avoid the unavailable File::Temp OO helper',
+);
+like(
+    $plugin_source,
+    qr/use File::Temp qw\(tempdir\);/,
+    'Last.fm provider temporary artifacts use the portable File::Temp tempdir API',
+);
 
 done_testing();

@@ -31,6 +31,13 @@ currently contributes:
   - Selectable Last.fm artist reranking: **Bounded artist influence** is the
     default and applies a comparable per-candidate boost; **Target endorsed
     share** preserves Bliss Mixer's original percentage-based behavior.
+  - When **Bliss Guidance: Last.fm** is installed and explicitly enabled for
+    Lab, it owns Last.fm source selection and collects LastMix relations for
+    the current seeds. Lab resolves those relations only against the bounded
+    Bliss-derived DSTM pool, scores them through the native guidance host, and
+    retains its established selection and logging formatter. On installations
+    without that provider, the historical Lab LastMix path remains available
+    as a compatibility fallback.
   - Optional local listening and library-age reranking of the already bounded
     Bliss-derived candidate pool. When **Bliss Guidance: Library Signals** is
     installed and explicitly enabled for Lab, it supplies play-count,
@@ -56,6 +63,10 @@ currently contributes:
   replaces Bliss similarity. See
   [GUIDANCE_PROVIDER_HOST_INTEGRATION.md](GUIDANCE_PROVIDER_HOST_INTEGRATION.md)
   for the staged host integration and failure behavior.
+- Last.fm Guidance is likewise an independently installable, opt-in provider.
+  Its source configuration and credentials remain on its own settings page;
+  Lab exposes only the provider's host-enable control and schema-declared
+  reranking overrides.
 - The plugins remain separately registered and operate side by side.
 
 BlissMixerLab currently requires Bliss Mixer 0.10.0 or newer with the shared
