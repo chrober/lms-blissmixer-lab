@@ -24,12 +24,12 @@ my @assets = (
     [
         'Plugins/BlissGuidance/SettingsModel.pm',
         'BlissMixerLab/Plugins/BlissGuidance/SettingsModel.pm',
-        '22c6b7cfcfb180ef0de67424087c4587b5f6e6900b2448654281cb53cb40cea1',
+        '83f9442e379b2707afe7a693eef02988093067e5aa3ad8a14a5cec40230d4952',
     ],
     [
         'HTML/settings/guidance-provider-controls.html',
         'BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html',
-        'd836cc6c1341cb2064330cdd1d753be689dd745855ff4365724d41679e09e8e9',
+        'd0b3dd3a4e03fe3f164de7b9e0a754d98a972a620d33ded045d6da481a0ca347',
     ],
     [
         'HTML/settings/guidance-provider-controls.js',
