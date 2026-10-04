@@ -95,11 +95,14 @@ Bliss's behavior:
 
 When Library Signals is enabled, its three channels replace Lab's direct
 play-count, last-played, and library-age factors as one coherent local-signal
-layer.  Lab's existing Last.fm behavior remains independent and unchanged.
+layer.
 
-Lab's existing Last.fm track/artist guidance still uses its direct LastMix
-adapter. Migrating that path to the discoverable `lms-guidance-lastfm` provider
-is follow-up work; the provider's API Key mode is not operational yet.
+Lab's Last.fm track/artist guidance now resolves its source and reranking
+policy from the discoverable `lms-guidance-lastfm` provider. The established
+direct LastMix adapter remains the acquisition implementation for this host;
+the provider's API Key mode is deliberately neutral until native direct
+acquisition is wired into Lab. No obsolete Lab-owned Last.fm preferences are
+read or rendered.
 
 The first enablement migrates the current Lab last-played and library-age values
 into Lab host overrides.  It copies the current upstream Bliss Mixer
@@ -114,8 +117,9 @@ rollout.
 If the Library Signals provider is disabled, Lab uses its current direct local
 reranking path.  If it is enabled but unavailable, times out, or returns an
 invalid response, Lab does not invoke the old path as a hidden second attempt:
-the provider's three signals are neutral for that selection, while Bliss and
-any independent Last.fm behavior continue normally.
+the provider's three signals are neutral for that selection. The same
+provider-first rule applies to Last.fm: a disabled or unsupported source is
+neutral; Lab never falls back to the removed Lab-owned Last.fm preferences.
 
 Lab's current INFO and DEBUG logging is a compatibility boundary.  Its
 candidate-selection summary, selected-track lines, diagnostics, and selection

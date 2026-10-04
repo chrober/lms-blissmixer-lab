@@ -28,12 +28,14 @@ currently contributes:
   - Last.fm recording-similarity guidance, with MusicBrainz recording IDs
     preferred and normalized artist/title matching as a fallback, for Static
     Weights, EIF, and Adaptive Weightings.
-    The current Lab path uses its direct LastMix adapter. Migration to the
-    discoverable Last.fm provider is follow-up work; the provider's API Key
-    mode is not operational yet and remains neutral.
-  - Selectable Last.fm artist reranking: **Bounded artist influence** is the
-    default and applies a comparable per-candidate boost; **Target endorsed
-    share** preserves Bliss Mixer's original percentage-based behavior.
+    Last.fm source and reranking policy are owned by the discoverable
+    **Bliss Guidance: Last.fm** provider. Lab uses the provider's effective
+    settings and its existing LastMix-compatible acquisition path; old
+    Lab-owned Last.fm preferences are not read. The provider's API Key mode
+    remains neutral in Lab until the native direct-acquisition path is wired.
+  - Provider-controlled Last.fm artist reranking: **Target endorsed share**
+    pursues the configured percentage of endorsed candidates, while
+    **Per-candidate boost** cooperates with the other reranking factors.
   - Optional local listening and library-age reranking of the already bounded
     Bliss-derived candidate pool. When **Bliss Guidance: Library Signals** is
     installed and explicitly enabled for Lab, it supplies play-count,

@@ -39,8 +39,7 @@ sub page {
 }
 
 sub prefs {
-    return ($prefs, 'learned_blend', 'lastfm_track_guidance_percent',
-        'lastfm_artist_reranking_strategy', 'lastfm_artist_influence_percent',
+    return ($prefs, 'learned_blend',
         'last_played_influence', 'last_played_horizon_days',
         'library_age_influence', 'library_age_horizon_days',
         'triplets_backup_path');
@@ -65,9 +64,6 @@ sub beforeRender {
         && Plugins::BlissMixer::Plugin->can('_lastfmNormalizeArtist') ? 1 : 0;
     $paramRef->{database_exists} = -e File::Spec->catfile($dbDir, 'bliss.db') ? 1 : 0;
     $paramRef->{matrix_exists} = -e File::Spec->catfile($dbDir, 'learned_matrix.json') ? 1 : 0;
-    $paramRef->{lastmix_available} = Slim::Utils::PluginManager->isEnabled(
-        'Plugins::LastMix::Plugin'
-    ) ? 1 : 0;
     $paramRef->{no_learner_binary} = !Slim::Utils::Misc::findbin('bliss-learner');
     $paramRef->{learning_start_text} = string('BLISSMIXERLAB_LEARNING_START_TIME');
     $paramRef->{learning_duration_text} = string('BLISSMIXERLAB_LEARNING_DURATION');
@@ -94,8 +90,6 @@ sub handler {
     my ($class, $client, $paramRef) = @_;
     for my $setting (
         ['pref_learned_blend', 0, 100],
-        ['pref_lastfm_track_guidance_percent', 0, 100],
-        ['pref_lastfm_artist_influence_percent', 0, 100],
         ['pref_last_played_influence', -100, 100],
         ['pref_last_played_horizon_days', 30, 1825],
         ['pref_library_age_influence', -100, 100],
@@ -107,11 +101,6 @@ sub handler {
         $value = $minimum if $value < $minimum;
         $value = $maximum if $value > $maximum;
         $paramRef->{$name} = $value;
-    }
-    if (defined $paramRef->{pref_lastfm_artist_reranking_strategy}) {
-        $paramRef->{pref_lastfm_artist_reranking_strategy} =
-            $paramRef->{pref_lastfm_artist_reranking_strategy} eq 'target_share'
-            ? 'target_share' : 'bounded_influence';
     }
     _apply_guidance_provider_settings($paramRef);
     return $class->SUPER::handler($client, $paramRef);

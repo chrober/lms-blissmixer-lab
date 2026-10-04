@@ -107,9 +107,6 @@ sub initPlugin {
 
     $labprefs->init({
         learned_blend    => 50,
-        lastfm_track_guidance_percent => 25,
-        lastfm_artist_reranking_strategy => 'bounded_influence',
-        lastfm_artist_influence_percent => 25,
         last_played_influence => 0,
         last_played_horizon_days => 180,
         library_age_influence => 0,
@@ -1257,17 +1254,20 @@ sub _dstmMix {
             }
 
             my $dstm_tracks = $prefs->get('dstm_tracks') || DEF_NUM_DSTM_TRACKS;
-            my $lastfmAvailable = exists $INC{'Plugins/LastMix/LFM.pm'};
-            my $lastfmProbability = _upstreamLastfmProbability();
-            my $lastfmArtistStrategy = _lastfmArtistRerankingStrategy();
-            my $lastfmArtistInfluence = _lastfmArtistInfluence();
+            my $lastfmContext = _lastfmGuidanceContext();
+            my $lastfmAvailable = $lastfmContext->{enabled} ? 1 : 0;
+            my $lastfmProbability = $lastfmContext->{artist_strategy} eq 'target_share'
+                ? $lastfmContext->{artist_level} : 0;
+            my $lastfmArtistStrategy = $lastfmContext->{artist_strategy};
+            my $lastfmArtistInfluence = $lastfmContext->{artist_strategy} eq 'bounded_influence'
+                ? $lastfmContext->{artist_level} : 0;
             my $lastfmArtistWeighting = $lastfmAvailable && (
                 ($lastfmArtistStrategy eq 'target_share' && $lastfmProbability > 0)
                 || ($lastfmArtistStrategy eq 'bounded_influence' && $lastfmArtistInfluence > 0)
             );
             my $lastfmWeighting = $lastfmArtistWeighting;
             my $lastfmTrackGuidance = $lastfmAvailable
-                ? _lastfmTrackGuidance() : 0;
+                ? $lastfmContext->{track_guidance} : 0;
             my $playCountInfluence = _upstreamPlayCountInfluence();
             my $playCountWeighting = $playCountInfluence != 0;
             my $lastPlayedInfluence = _lastPlayedInfluence();
@@ -1766,30 +1766,62 @@ sub _databaseRefreshAction {
     return 'none';
 }
 
-sub _lastfmTrackGuidance {
-    my $influence = int($labprefs->get('lastfm_track_guidance_percent') // 25);
-    $influence = 0 if $influence < 0;
-    $influence = 100 if $influence > 100;
-    return $influence;
-}
+sub _lastfmGuidanceContext {
+    my $neutral = {
+        enabled => 0,
+        source => '',
+        track_guidance => 0,
+        artist_strategy => 'disabled',
+        artist_level => 0,
+    };
+    my $all_state = $labprefs->get('guidance_provider_state');
+    $all_state = { schema_version => 1, providers => {} }
+        unless ref($all_state) eq 'HASH';
+    my $host_state = Plugins::BlissGuidance::Policy::host_state(
+        $all_state, 'lastfm',
+    );
+    return $neutral unless $host_state->{enabled};
 
-sub _upstreamLastfmProbability {
-    my $probability = int($prefs->get('lastfm_weighting_weight') || 0);
-    $probability = 0 if $probability < 0;
-    $probability = 100 if $probability > 100;
-    return $probability;
-}
+    my $discovery = Plugins::BlissGuidance::Discovery::discover();
+    my ($provider) = grep {
+        ($_->{provider_id} || '') eq 'lastfm'
+    } @{$discovery->{providers} || []};
+    return $neutral unless $provider && $provider->{available};
 
-sub _lastfmArtistRerankingStrategy {
-    my $strategy = $labprefs->get('lastfm_artist_reranking_strategy') || 'bounded_influence';
-    return $strategy eq 'target_share' ? 'target_share' : 'bounded_influence';
-}
+    my $resolved = Plugins::BlissGuidance::Policy::resolve(
+        $provider, $host_state, {},
+    );
+    return $neutral unless $resolved->{valid} && $resolved->{enabled};
 
-sub _lastfmArtistInfluence {
-    my $influence = int($labprefs->get('lastfm_artist_influence_percent') || 0);
-    $influence = 0 if $influence < 0;
-    $influence = 100 if $influence > 100;
-    return $influence;
+    my $effective = $resolved->{effective} || {};
+    my $source = $effective->{source} || 'lastmix';
+    # Lab's established Perl adapter currently consumes LastMix evidence.  An
+    # API-key provider is deliberately neutral until the native provider path
+    # is wired into this host; it must never fall back to old Lab preferences.
+    if ($source ne 'lastmix') {
+        main::INFOLOG && $log->info(
+            'Last.fm guidance disabled: the Lab DSTM path currently supports only LastMix source'
+        );
+        return $neutral;
+    }
+
+    my $track = int($effective->{lastfm_track_influence} || 0);
+    $track = 0 if $track < 0;
+    $track = 100 if $track > 100;
+    my $mode = ($effective->{lastfm_artist_mode} || '') eq 'bounded_influence'
+        ? 'bounded_influence' : 'target_share';
+    my $level = int($effective->{lastfm_artist_level} || 0);
+    $level = 0 if $level < 0;
+    $level = 100 if $level > 100;
+    return {
+        enabled => 1,
+        source => $source,
+        track_guidance => $track,
+        artist_strategy => $mode,
+        artist_level => $level,
+        provider => $provider,
+        resolved => $resolved,
+    };
 }
 
 sub _lastfmArtistWeightForDiagnostics {

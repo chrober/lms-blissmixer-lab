@@ -77,6 +77,9 @@ for forbidden in (
     "$labprefs->get('playcount_influence')",
     "sub _fetchSimilarArtistsForSeeds",
     "sub _lastfmNormalizeArtist",
+    "lastfm_track_guidance_percent",
+    "lastfm_artist_reranking_strategy",
+    "lastfm_artist_influence_percent",
 ):
     if forbidden in plugin_source:
         fail(f"sidecar contains conflicting registration: {forbidden}")
@@ -107,8 +110,7 @@ for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
     if upstream_pref.startswith("guidance_provider_[% provider.provider_id | html %]_"):
         continue
     if upstream_pref not in {
-        "learned_blend", "lastfm_track_guidance_percent",
-        "lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent",
+        "learned_blend",
         "last_played_influence", "last_played_horizon_days",
         "library_age_influence", "library_age_horizon_days",
         "triplets_backup_path",
@@ -122,11 +124,12 @@ if "sliderInput_0_100_1" not in settings:
     fail("learned matrix influence must use the LMS slider control")
 if 'pref_playcount_influence' in settings:
     fail("play-count influence belongs to upstream Bliss Mixer, not the Lab settings")
-if 'id="lastfm_track_guidance_percent"' not in settings:
-    fail("settings page must expose Last.fm similar-track guidance")
-for artist_setting in ("lastfm_artist_reranking_strategy", "lastfm_artist_influence_percent"):
-    if f'id="{artist_setting}"' not in settings:
-        fail(f"settings page must expose {artist_setting}")
+for obsolete_lastfm_setting in (
+    "lastfm_track_guidance_percent", "lastfm_artist_reranking_strategy",
+    "lastfm_artist_influence_percent",
+):
+    if obsolete_lastfm_setting in settings:
+        fail(f"settings page must not expose obsolete Lab-owned Last.fm setting: {obsolete_lastfm_setting}")
 for local_signal in (
     "last_played_influence", "last_played_horizon_days",
     "library_age_influence", "library_age_horizon_days",
@@ -152,11 +155,11 @@ for local_horizon in ("last_played_horizon_days", "library_age_horizon_days"):
         fail(f"settings page must expose pref_{local_horizon}")
     if "sliderInput_" in match.group(0):
         fail(f"{local_horizon} must remain a plain numeric input, not a slider")
-if "strategy.value === 'target_share'" not in settings:
-    fail("artist boost control must be disabled for target-share mode")
-if "data-lastmix-available" not in settings:
-    fail("artist boost control must retain LastMix availability state")
-for mix_group in ("MIX_GROUP_BASE", "MIX_GROUP_LASTFM", "MIX_GROUP_LOCAL"):
+if "strategy.value === 'target_share'" in settings:
+    fail("obsolete Lab-owned artist boost JavaScript must not remain")
+if "data-lastmix-available" in settings:
+    fail("obsolete Lab-owned Last.fm availability state must not remain")
+for mix_group in ("MIX_GROUP_BASE", "MIX_GROUP_LOCAL"):
     if f'BLISSMIXERLAB_{mix_group}' not in settings:
         fail(f"settings page must expose the {mix_group} subgroup")
 if "legacy_local_signals_visible" not in settings:
@@ -212,6 +215,12 @@ if "$paramRef->{host}" not in settings_source:
     fail("settings JSON-RPC URL must prefer the browser-facing LMS request host")
 if "require Plugins::BlissMixer::CandidateSelection" not in settings_source:
     fail("settings compatibility must require upstream candidate-reranking support")
+for obsolete_lastfm_pref in (
+    "lastfm_track_guidance_percent", "lastfm_artist_reranking_strategy",
+    "lastfm_artist_influence_percent",
+):
+    if obsolete_lastfm_pref in settings_source:
+        fail(f"Settings.pm must not persist obsolete Lab-owned Last.fm control: {obsolete_lastfm_pref}")
 
 strings_path = PLUGIN / "strings.txt"
 strings_source = strings_path.read_text(encoding="utf-8")

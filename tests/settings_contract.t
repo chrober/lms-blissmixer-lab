@@ -122,7 +122,7 @@ is(
 my (undef, @preference_names) = Plugins::BlissMixerLab::Settings->prefs();
 is_deeply(
     \@preference_names,
-    [qw(learned_blend lastfm_track_guidance_percent lastfm_artist_reranking_strategy lastfm_artist_influence_percent last_played_influence last_played_horizon_days library_age_influence library_age_horizon_days triplets_backup_path)],
+    [qw(learned_blend last_played_influence last_played_horizon_days library_age_influence library_age_horizon_days triplets_backup_path)],
     'settings expose only user-meaningful experimental preferences',
 );
 
@@ -137,7 +137,6 @@ ok($request_host{upstream_compatible}, 'compatible upstream is reported');
 is($request_host{upstream_version}, '0.10.0',
     'the displayed upstream version comes from the live loaded manifest');
 ok(!$request_host{no_learner_binary}, 'available sidecar learner is reported');
-ok($request_host{lastmix_available}, 'enabled LastMix is reported');
 is($request_host{backup_success_text}, 'localized:BLISSMIXERLAB_BACKUP_SUCCESS',
     'dynamic JavaScript messages are localized before rendering');
 is($request_host{backup_now_text}, 'localized:BLISSMIXERLAB_BACKUP_NOW',
@@ -214,21 +213,12 @@ is(
 );
 
 my %submitted = (
-    pref_lastfm_track_guidance_percent => 101,
-    pref_lastfm_artist_reranking_strategy => 'invalid',
-    pref_lastfm_artist_influence_percent => 101,
     pref_last_played_influence => -101,
     pref_last_played_horizon_days => 1,
     pref_library_age_influence => 101,
     pref_library_age_horizon_days => 10000,
 );
 Plugins::BlissMixerLab::Settings->handler(undef, \%submitted);
-is($submitted{pref_lastfm_track_guidance_percent}, 100,
-    'submitted Last.fm track guidance is clamped');
-is($submitted{pref_lastfm_artist_reranking_strategy}, 'bounded_influence',
-    'submitted artist reranking strategy is constrained to known values');
-is($submitted{pref_lastfm_artist_influence_percent}, 100,
-    'submitted artist influence is clamped');
 is($submitted{pref_last_played_influence}, -100,
     'submitted last-played influence preserves the signed lower bound');
 is($submitted{pref_last_played_horizon_days}, 30,
@@ -317,6 +307,8 @@ like($guidance_partial, qr/provider\.controls/,
     'settings template renders controls from the provider descriptor');
 like($guidance_partial, qr/control\.render_as == 'slider'/,
     'settings template preserves provider slider versus number presentation');
+unlike($template, qr/lastfm_track_guidance_percent|lastfm_artist_reranking_strategy|lastfm_artist_influence_percent/,
+    'obsolete Lab-owned Last.fm controls are absent from the settings template');
 like($template, qr/guidance-providers-section-header/,
     'provider controls use their own collapsible section like Better Call Bliss');
 like($guidance_partial, qr/data-guidance-provider-controls=/,

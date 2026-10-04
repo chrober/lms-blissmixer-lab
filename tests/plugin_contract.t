@@ -55,13 +55,14 @@ BEGIN {
         },
         'plugin.blissmixerlab' => {
             learned_blend => 50,
-            lastfm_track_guidance_percent => 25,
-            lastfm_artist_reranking_strategy => 'bounded_influence',
-            lastfm_artist_influence_percent => 25,
             last_played_influence => 0,
             last_played_horizon_days => 180,
             library_age_influence => 0,
             library_age_horizon_days => 365,
+            guidance_provider_state => {
+                schema_version => 1,
+                providers => {},
+            },
         },
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
@@ -103,8 +104,10 @@ BEGIN {
     package Slim::Utils::PluginManager;
     our $manifest;
     our $dstm_enabled = 1;
+    our @enabled;
     sub dataForPlugin { return $manifest }
     sub isEnabled { return $dstm_enabled }
+    sub enabledPlugins { return @enabled }
     $INC{'Slim/Utils/PluginManager.pm'} = __FILE__;
 
     package Slim::Utils::Versions;
@@ -212,6 +215,39 @@ BEGIN {
         my ($seedInfo, $resultHash, $cb, $stats) = @_;
         $cb->(0, $stats || {succeeded => 1, failed => 0});
     }
+
+    package Plugins::LastFmGuidance::Plugin;
+    sub guidance_provider_descriptor_v1 {
+        return {
+            protocol_version => 1,
+            provider_id => 'lastfm',
+            display_name => 'Bliss Guidance: Last.fm',
+            settings_uri => 'plugins/LastFmGuidance/settings/lastfmguidance.html',
+            capabilities => [qw(lastfm_similarity)],
+            scopes => [qw(global_candidate edge_candidate)],
+            settings_schema_version => 1,
+            controls => [
+                { key => 'source', type => 'enum', values => [qw(lastmix api_key)], factory_default => 'lastmix', host_overridable => 0 },
+                { key => 'lastfm_track_influence', type => 'integer', minimum => 0, maximum => 100, factory_default => 25, host_overridable => 1 },
+                { key => 'lastfm_artist_mode', type => 'enum', values => [qw(target_share bounded_influence)], factory_default => 'target_share', host_overridable => 1 },
+                { key => 'lastfm_artist_level', type => 'integer', minimum => 0, maximum => 100, factory_default => 75, host_overridable => 1 },
+            ],
+            native_spi => {
+                provider_id => 'lastfm-guidance', spi_version => 2,
+                protocol => 'bliss-guidance-jsonl-v2',
+                channels => { similar_track => 'lastfm_track', similar_artist => 'lastfm_artist' },
+                artifact_kinds => [], resource_kinds => [],
+            },
+        };
+    }
+    sub guidance_provider_defaults_v1 {
+        return {
+            source => 'lastmix', lastfm_track_influence => 25,
+            lastfm_artist_mode => 'target_share', lastfm_artist_level => 75,
+            settings_revision => 1,
+        };
+    }
+    sub guidance_provider_status_v1 { return { available => 1 } }
 
     package Plugins::BlissMixerLab::Settings;
     sub new { return bless {}, $_[0] }
@@ -349,16 +385,36 @@ is(Plugins::BlissMixerLab::Plugin::_lastfmTrackWeight(1, 0), 1,
     'zero Last.fm track guidance is neutral');
 cmp_ok(abs(Plugins::BlissMixerLab::Plugin::_lastfmTrackWeight(1, 100) - 10),
     '<', 0.000001, 'maximum recording evidence has a bounded tenfold weight');
-$TestPrefs::values{'plugin.blissmixerlab'}{lastfm_track_guidance_percent} = 125;
-is(Plugins::BlissMixerLab::Plugin::_lastfmTrackGuidance(), 100,
-    'Last.fm similar-track guidance is clamped at the positive limit');
-
-is(Plugins::BlissMixerLab::Plugin::_upstreamLastfmProbability(), 25,
-    'Last.fm artist probability is inherited from upstream Bliss Mixer');
-is(Plugins::BlissMixerLab::Plugin::_lastfmArtistRerankingStrategy(), 'bounded_influence',
-    'Lab defaults to bounded Last.fm artist influence');
-is(Plugins::BlissMixerLab::Plugin::_lastfmArtistInfluence(), 25,
-    'bounded Last.fm artist influence is read from Lab settings');
+@Slim::Utils::PluginManager::enabled = ('Plugins::LastFmGuidance::Plugin');
+$TestPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state} = {
+    schema_version => 1,
+    providers => {
+        lastfm => {
+            enabled => 1,
+            overrides => {
+                lastfm_track_influence => 40,
+                lastfm_artist_mode => 'bounded_influence',
+                lastfm_artist_level => 65,
+            },
+        },
+    },
+};
+$TestPrefs::values{'plugin.blissmixerlab'}{lastfm_track_guidance_percent} = 25;
+$TestPrefs::values{'plugin.blissmixerlab'}{lastfm_artist_reranking_strategy} = 'bounded_influence';
+$TestPrefs::values{'plugin.blissmixerlab'}{lastfm_artist_influence_percent} = 25;
+my $lastfm_context = Plugins::BlissMixerLab::Plugin::_lastfmGuidanceContext();
+is($lastfm_context->{track_guidance}, 40,
+    'Last.fm track guidance comes from the provider policy');
+is($lastfm_context->{artist_strategy}, 'bounded_influence',
+    'Last.fm artist strategy comes from the provider policy');
+is($lastfm_context->{artist_level}, 65,
+    'Last.fm artist level comes from the provider policy, not stale Lab prefs');
+ok($lastfm_context->{enabled},
+    'an enabled and available Last.fm provider activates Lab guidance');
+$TestPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state}{providers}{lastfm}{enabled} = 0;
+ok(!Plugins::BlissMixerLab::Plugin::_lastfmGuidanceContext()->{enabled},
+    'disabling the Last.fm provider makes Lab guidance neutral');
+@Slim::Utils::PluginManager::enabled = ();
 is(Plugins::BlissMixerLab::Plugin::_lastPlayedHorizonDays(), 180,
     'last-played horizon is read from Lab settings');
 is(Plugins::BlissMixerLab::Plugin::_libraryAgeHorizonDays(), 365,
