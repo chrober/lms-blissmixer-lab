@@ -25,28 +25,14 @@ currently contributes:
 
   - Learned-matrix weighting with configurable influence when Bliss Mixer uses
     **Adaptive Weightings**.
-  - Last.fm recording-similarity guidance, with MusicBrainz recording IDs
-    preferred and normalized artist/title matching as a fallback, for Static
-    Weights, EIF, and Adaptive Weightings.
-    Last.fm source and reranking policy are owned by the discoverable
-    **Bliss Guidance: Last.fm** provider. Lab uses the provider's effective
-    settings and its existing LastMix-compatible acquisition path; old
-    Lab-owned Last.fm preferences are not read. The provider's API Key mode
-    remains neutral in Lab until the native direct-acquisition path is wired.
-  - Provider-controlled Last.fm artist reranking: **Target endorsed share**
-    pursues the configured percentage of endorsed candidates, while
-    **Per-candidate boost** cooperates with the other reranking factors.
-  - Optional local listening and library-age reranking of the already bounded
-    Bliss-derived candidate pool. When **Bliss Guidance: Library Signals** is
-    installed and explicitly enabled for Lab, it supplies play-count,
-    last-played, and library-age signals through the shared guidance contract.
-    Lab discovers the provider descriptor and resolves the provider defaults
-    plus Lab-specific overrides at mix start.
-    Until then, Lab retains its direct local path. Negative values favor
-    less-played, long-unheard, or older additions; positive values favor
-    frequently played, recently heard, or newly added music. Date signals use
-    configurable, saturating time horizons rather than candidate-pool ranks,
-    so very old or very long-unplayed tracks converge.
+  - Optional guidance-provider integration through the shared host contract.
+    Lab discovers compatible providers at runtime, keeps them disabled until
+    explicitly enabled, and applies their bounded signals only to the existing
+    Bliss-derived candidate pool. Provider capabilities, settings, acquisition
+    paths, and policy semantics remain owned by the provider plugins.
+
+  The Lab README intentionally does not enumerate individual providers. New
+  compatible providers can be added without changing this host documentation.
 - **Create bliss mix (Lab)** actions for tracks, albums, and artists, plus
   **Similar tracks (Lab)** and **Similar tracks by artist (Lab)** actions. These
   use the separate Lab mixer and respect the configured mixing strategy,
@@ -58,15 +44,16 @@ currently contributes:
 - BlissMixerLab reads that database and the upstream mix preferences.
 - BlissMixerLab owns the runtime processes, preferences, and data needed by its
   staged extensions.
-- Local Signals guidance reads Lyrion's persistent track metadata only for the
-  DSTM candidate pool; it does not require Alternative Play Count and never
-  replaces Bliss similarity. See
+- Guidance providers are separate passive plugins. Lab invokes enabled
+  providers through the shared host contract for the DSTM candidate pool;
+  providers do not replace Bliss similarity or select tracks independently.
+  See
   [GUIDANCE_PROVIDER_HOST_INTEGRATION.md](GUIDANCE_PROVIDER_HOST_INTEGRATION.md)
   for the staged host integration and failure behavior.
 - The plugins remain separately registered and operate side by side.
 
-BlissMixerLab 0.10.0 currently requires Bliss Mixer 0.10.0 or newer with the shared
-candidate-reranking component, and LMS 9.0 or newer.
+BlissMixerLab requires a compatible original Bliss Mixer installation and a
+supported Lyrion Music Server version.
 
 ## Installation
 
@@ -104,8 +91,6 @@ only on a separate automatically selected loopback port. It checks whether the
 upstream analyser is active and reloads its mixer when `bliss.db` changes.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the staging and migration model.
-It also documents the Last.fm artist modes, local-library time-signal formulas,
-effective horizons, and diagnostic logging.
 
 ## Testing
 
@@ -113,8 +98,8 @@ Every push and pull request runs repository validation, feed-update unit tests,
 and the Perl plugin regression suite. The Perl tests exercise the sidecar's
 upstream compatibility gate, DSTM identity and port isolation, inherited mixer
 preferences, survey persistence and backup/restore, and learned-matrix
-replacement behavior. It also covers Last.fm recording matching, partial
-provider failures, and integration with upstream candidate reranking. Release publication
+replacement behavior. It also covers provider integration, partial provider
+failures, and integration with upstream candidate reranking. Release publication
 runs the same test gate.
 
 The separate `BlissMixer DSTM drift` workflow checks the current upstream
