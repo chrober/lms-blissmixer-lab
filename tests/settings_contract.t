@@ -87,6 +87,7 @@ BEGIN {
                 { key => 'last_played_horizon_days', type => 'integer', minimum => 30, maximum => 1825, factory_default => 180, host_overridable => 1, render_as => 'number' },
                 { key => 'library_age_influence', type => 'integer', minimum => -100, maximum => 100, factory_default => 0, host_overridable => 1, guidance_channel => 'library_age', render_as => 'slider' },
                 { key => 'library_age_horizon_days', type => 'integer', minimum => 30, maximum => 3650, factory_default => 365, host_overridable => 1, render_as => 'number' },
+                { key => 'use_alternative_play_count', type => 'boolean', factory_default => 0, host_overridable => 1 },
             ],
             native_spi => {
                 provider_id => 'library-signals-guidance', spi_version => 2,
@@ -103,6 +104,7 @@ BEGIN {
             last_played_horizon_days => 180,
             library_age_influence => 0,
             library_age_horizon_days => 365,
+            use_alternative_play_count => 0,
             settings_revision => 1,
         };
     }
@@ -172,8 +174,11 @@ ok(
     !$request_host{legacy_local_signals_visible},
     'a discovered Library Signals provider replaces the legacy direct control group even while disabled',
 );
+my ($last_played_horizon_control) = grep {
+    $_->{key} eq 'last_played_horizon_days'
+} @{$request_host{guidance_provider_sections}->[0]->{controls}};
 is(
-    $request_host{guidance_provider_sections}->[0]->{controls}->[2]->{render_as},
+    $last_played_horizon_control->{render_as},
     'number',
     'Lab preserves the provider-declared control presentation',
 );
@@ -203,6 +208,11 @@ is($playcount_control->{origin}, 'provider_default',
 is($playcount_control->{origin_label_token},
     'BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PROVIDER',
     'provider origin is rendered with the Lab-localized human label');
+my ($apc_control) = grep {
+    $_->{key} eq 'use_alternative_play_count'
+} @{$request_host{guidance_provider_sections}->[0]->{controls}};
+is($apc_control->{type}, 'boolean',
+    'Lab renders the provider-declared APC source as a checkbox');
 
 my %fallback_host;
 Plugins::BlissMixerLab::Settings->beforeRender(\%fallback_host);
@@ -280,6 +290,27 @@ Plugins::BlissMixerLab::Settings->beforeRender(\%request_host);
 $playcount_control = $request_host{guidance_provider_sections}->[0]->{controls}->[0];
 is($playcount_control->{origin}, 'provider_default',
     'cleared host override returns the visible origin to Provider setting');
+
+my %enable_apc_override = (
+    saveSettings => 1,
+    'pref_guidance_provider_library-signals_enabled' => 1,
+    'pref_guidance_provider_library-signals_use_alternative_play_count' => 1,
+    'dirty_guidance_provider_library-signals_use_alternative_play_count' => 1,
+);
+Plugins::BlissMixerLab::Settings->handler(undef, \%enable_apc_override);
+$provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
+is($provider_state->{providers}{'library-signals'}{overrides}{use_alternative_play_count}, 1,
+    'Lab saves a checked APC source as a host override');
+
+my %disable_apc_override = (
+    saveSettings => 1,
+    'pref_guidance_provider_library-signals_enabled' => 1,
+    'dirty_guidance_provider_library-signals_use_alternative_play_count' => 1,
+);
+Plugins::BlissMixerLab::Settings->handler(undef, \%disable_apc_override);
+$provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
+is($provider_state->{providers}{'library-signals'}{overrides}{use_alternative_play_count}, 0,
+    'Lab saves an unchecked dirty APC source as false');
 
 my $template = do {
     local $/;

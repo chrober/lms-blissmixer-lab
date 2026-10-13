@@ -121,20 +121,19 @@ the provider's three signals are neutral for that selection. The same
 provider-first rule applies to Last.fm: a disabled or unsupported source is
 neutral; Lab never falls back to the removed Lab-owned Last.fm preferences.
 
-Lab's current INFO and DEBUG logging is a compatibility boundary.  Its
+Lab's current INFO and DEBUG selection lines are a compatibility boundary. Its
 candidate-selection summary, selected-track lines, diagnostics, and selection
-lines must retain their current format, ordering, labels, and level.  The
-provider adapter therefore normalizes native signals into the existing Lab
-candidate-profile fields before the established logging code runs.  It must not
-append provider IDs, SPI terminology, native timing, or new provenance text to
-those lines.  A provider-enabled success should be indistinguishable in format
-from the current direct path; only the already logged values may differ when
-the effective signal differs.
+lines retain their existing format, ordering, labels, and level. The provider
+adapter therefore normalizes native signals into the existing Lab
+candidate-profile fields before the established logging code runs.
 
-Provider operational detail belongs to the provider's own status surface and
-tests, not to new Lab selection log lines.  An enabled-provider failure follows
-the existing neutral-factor logging path, preserving a valid Bliss selection
-without adding a second, provider-specific Lab diagnostic line.
+When a native provider returns validated per-channel source provenance, Lab
+adds one separate DEBUG line before the established selection block. For
+example, it can distinguish Alternative Play Count values from native Lyrion
+values without appending provider or SPI terminology to any existing line. An
+older provider without that optional diagnostic produces no additional line.
+An enabled-provider failure continues through the existing neutral-factor path
+and preserves a valid Bliss selection.
 
 ## Migration and cleanup status
 

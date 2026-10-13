@@ -651,6 +651,26 @@ my $native_fixture_lines = Plugins::BlissMixerLab::Plugin::_selectionLogLines(
 is(join("\n", @$native_fixture_lines), join("\n", @$legacy_fixture_lines),
     'Library Signals native-host trace preserves existing Lab selection logs byte-for-byte');
 
+is(
+    Plugins::BlissMixerLab::Plugin::_guidanceSourceDebugLine({
+        guidance_source_provenance => {
+            provider_id => 'library-signals-guidance',
+            source_by_channel => {
+                playcount => 'alternative_play_count',
+                last_played => 'alternative_play_count',
+                library_age => 'lyrion',
+            },
+        },
+    }),
+    'Guidance sources: provider=library-signals-guidance, play-count=Alternative Play Count, last-played=Alternative Play Count, library-age=Lyrion.',
+    'Lab renders provider provenance as one additional stable debug line',
+);
+is(
+    Plugins::BlissMixerLab::Plugin::_guidanceSourceDebugLine({}),
+    undef,
+    'Lab omits the source debug line when an older provider returns no provenance',
+);
+
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'old', 'new', 0),
     'defer', 'database refresh is deferred while upstream analysis is running');
 is(Plugins::BlissMixerLab::Plugin::_databaseRefreshAction(1, 1, 'same', 'same', 0),

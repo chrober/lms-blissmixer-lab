@@ -176,6 +176,14 @@ sub _apply_guidance_provider_settings {
                 next;
             }
             my $name = _provider_control_name($provider_id, $key);
+            if ($control->{type} eq 'boolean' && $params->{$dirty_name}) {
+                my $submitted = exists($params->{$name}) ? 1 : 0;
+                $next->{overrides}{$key} = $submitted
+                    if Plugins::BlissGuidance::Policy::submitted_value_differs_from_effective(
+                        $current_resolved->{effective}->{$key}, $submitted,
+                    );
+                next;
+            }
             next unless exists $params->{$name}
                 && (!exists $params->{$dirty_name} || $params->{$dirty_name}
                     || Plugins::BlissGuidance::Policy::submitted_value_differs_from_effective(

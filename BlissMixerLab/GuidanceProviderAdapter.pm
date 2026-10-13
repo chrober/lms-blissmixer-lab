@@ -106,7 +106,27 @@ sub profile_from_native_result {
             || ($trace->{trace_version} || '') ne 'selection_trace_v1'
             || ref($trace->{candidates}) ne 'ARRAY'
         );
-    return profile_from_signals($tracks, $effective, $result->{signals}, $as_of);
+    my $profile = profile_from_signals($tracks, $effective, $result->{signals}, $as_of);
+    my $details = ref($result->{diagnostics}) eq 'HASH'
+        && ref($result->{diagnostics}->{details}) eq 'HASH'
+        ? $result->{diagnostics}->{details} : {};
+    my $sources = ref($details->{source_by_channel}) eq 'HASH'
+        ? $details->{source_by_channel} : {};
+    my $provider_id = ref($trace) eq 'HASH' ? ($trace->{provider_id} || '') : '';
+    if ($provider_id =~ /^[A-Za-z0-9._-]+$/
+        && _valid_source($sources->{playcount})
+        && _valid_source($sources->{last_played})
+        && _valid_source($sources->{library_age})) {
+        $profile->{guidance_source_provenance} = {
+            provider_id => $provider_id,
+            source_by_channel => {
+                playcount => $sources->{playcount},
+                last_played => $sources->{last_played},
+                library_age => $sources->{library_age},
+            },
+        };
+    }
+    return $profile;
 }
 
 sub profile_from_signals {
@@ -234,6 +254,11 @@ sub _bounded_score {
     $value = -1 if $value < -1;
     $value = 1 if $value > 1;
     return $value;
+}
+
+sub _valid_source {
+    my $value = shift;
+    return defined $value && $value =~ /^(?:lyrion|alternative_play_count)$/;
 }
 
 sub _integer {

@@ -175,4 +175,44 @@ is_deeply(
     'native host response yields byte-for-byte identical Lab profile data for the existing formatter',
 );
 
+my $apc_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_native_result(
+    [TestTrack->new('file:///library/a.flac', 'a1')],
+    { playcount_influence => -80 },
+    {
+        valid => 1,
+        signals => [
+            { candidate_id => 'file:///library/a.flac', channel => 'playcount', score => -0.5, observation => { playcount => 3 } },
+        ],
+        diagnostics => {
+            details => {
+                source_by_channel => {
+                    playcount => 'alternative_play_count',
+                    last_played => 'alternative_play_count',
+                    library_age => 'lyrion',
+                },
+            },
+        },
+        selection_trace => {
+            trace_version => 'selection_trace_v1',
+            provider_id => 'library-signals-guidance',
+            host => 'bliss-mixer',
+            policy => {},
+            candidates => [],
+        },
+    },
+    1_000,
+);
+is_deeply(
+    $apc_profile->{guidance_source_provenance},
+    {
+        provider_id => 'library-signals-guidance',
+        source_by_channel => {
+            playcount => 'alternative_play_count',
+            last_played => 'alternative_play_count',
+            library_age => 'lyrion',
+        },
+    },
+    'native provider source provenance is retained for the Lab debug formatter',
+);
+
 done_testing();

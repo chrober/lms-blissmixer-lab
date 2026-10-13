@@ -1889,6 +1889,31 @@ sub _candidateSelectionSummaryDetails {
     return \@details;
 }
 
+sub _guidanceSourceDebugLine {
+    my $profile = shift;
+    return undef unless ref($profile) eq 'HASH';
+    my $provenance = $profile->{guidance_source_provenance};
+    return undef unless ref($provenance) eq 'HASH';
+    my $provider_id = $provenance->{provider_id} || '';
+    my $sources = $provenance->{source_by_channel};
+    return undef unless $provider_id =~ /^[A-Za-z0-9._-]+$/
+        && ref($sources) eq 'HASH';
+    my %labels = (
+        lyrion => 'Lyrion',
+        alternative_play_count => 'Alternative Play Count',
+    );
+    return undef unless $labels{$sources->{playcount} || ''}
+        && $labels{$sources->{last_played} || ''}
+        && $labels{$sources->{library_age} || ''};
+    return sprintf(
+        'Guidance sources: provider=%s, play-count=%s, last-played=%s, library-age=%s.',
+        $provider_id,
+        $labels{$sources->{playcount}},
+        $labels{$sources->{last_played}},
+        $labels{$sources->{library_age}},
+    );
+}
+
 sub _librarySignalsGuidanceContext {
     my $all_state = $labprefs->get('guidance_provider_state');
     $all_state = { schema_version => 1, providers => {} }
@@ -2034,6 +2059,11 @@ sub _selectWeightedCandidates {
     my $trackMatchCount = scalar grep {
         ($_->{track_support} || 0) > 0
     } @$entries;
+
+    if (main::DEBUGLOG && $providerSignals && $localSignals) {
+        my $sourceLine = _guidanceSourceDebugLine($localSignals);
+        $log->debug($sourceLine) if defined $sourceLine;
+    }
 
     if (main::INFOLOG) {
         my $details = _candidateSelectionSummaryDetails(
