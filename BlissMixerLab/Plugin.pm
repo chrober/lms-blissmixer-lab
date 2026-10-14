@@ -1544,6 +1544,7 @@ sub _dstmMix {
                                         score_batch => sub {
                                             return _scoreGuidanceThroughMixer(
                                                 $mixerPort, @_, $providerGuidance->{resolved}{effective},
+                                                $providerGuidance->{provider},
                                             );
                                         },
                                     },
@@ -1645,7 +1646,7 @@ sub _dstmMix {
 }
 
 sub _scoreGuidanceThroughMixer {
-    my ($port, $config, $request, $policy) = @_;
+    my ($port, $config, $request, $policy, $provider) = @_;
     return { valid => 0, signals => [], diagnostic => 'native mixer port is unavailable' }
         unless defined $port && $port =~ /^\d+$/ && $port > 0;
     $config = {} unless ref($config) eq 'HASH';
@@ -1664,7 +1665,22 @@ sub _scoreGuidanceThroughMixer {
     my $result = eval { from_json($response->decoded_content) };
     return { valid => 0, signals => [], diagnostic => 'native mixer returned invalid guidance JSON' }
         unless ref($result) eq 'HASH';
+    _dispatchGuidanceDiagnostics($provider, $result);
     return $result;
+}
+
+sub _dispatchGuidanceDiagnostics {
+    my ($provider, $result) = @_;
+    my $events = ref($result) eq 'HASH'
+        && ref($result->{diagnostics}) eq 'HASH'
+        && ref($result->{diagnostics}->{details}) eq 'HASH'
+        ? $result->{diagnostics}->{details}->{log_events_v1} : [];
+    Plugins::BlissGuidance::Discovery::dispatch_log_events(
+        $provider,
+        $events,
+        { host => 'bliss-mixer-lab' },
+    );
+    return 1;
 }
 
 sub _guidanceHostPayload {
@@ -1732,6 +1748,7 @@ sub _selectViaNativeLastFm {
             score_batch => sub {
                 return _scoreGuidanceThroughMixer(
                     $mixerPort, @_, $context->{resolved}{effective},
+                    $context->{provider},
                 );
             },
         },

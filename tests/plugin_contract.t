@@ -222,6 +222,7 @@ BEGIN {
     package Plugins::LastFmGuidance::Plugin;
     our $source = 'lastmix';
     our $api_key = 'test-secret';
+    our @log_events;
     sub guidance_provider_descriptor_v1 {
         return {
             protocol_version => 1,
@@ -266,6 +267,11 @@ BEGIN {
             },
             artifacts => [], resources => [], timeout_ms => 5000,
         };
+    }
+    sub guidance_provider_log_events_v1 {
+        my ($class, $events, $context) = @_;
+        @log_events = (@$events, $context);
+        return 1;
     }
 
     package Plugins::BlissMixerLab::Settings;
@@ -846,6 +852,25 @@ is_deeply($native_guidance_payload->{candidates},
     'Lab sends the same bounded candidate batch to the native host');
 unlike(JSON::PP::encode_json($native_guidance_payload), qr/test-secret/,
     'the direct Last.fm API key never enters the native guidance payload');
+
+Plugins::BlissMixerLab::Plugin::_dispatchGuidanceDiagnostics(
+    {
+        available => 1,
+        module => 'Plugins::LastFmGuidance::Plugin',
+    },
+    {
+        diagnostics => { details => { log_events_v1 => [{
+            event_version => 'guidance_log_event_v1', level => 'info',
+            phase => 'prepare', event => 'lastfm_prepare_completed',
+            provider_id => 'lastfm-guidance',
+        }] } },
+    },
+);
+is($Plugins::LastFmGuidance::Plugin::log_events[0]->{event},
+    'lastfm_prepare_completed',
+    'Lab returns native provider log events to the owning provider plugin');
+is($Plugins::LastFmGuidance::Plugin::log_events[1]->{host}, 'bliss-mixer-lab',
+    'Lab supplies bounded host context to the provider log hook');
 
 my $menu_track = TestTrack->new('seed.flac', 0, 'Seed Artist', 'Seed Title');
 my $create_track = Plugins::BlissMixerLab::Plugin::trackInfoHandler(

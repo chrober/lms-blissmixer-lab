@@ -7,6 +7,8 @@ use Slim::Utils::PluginManager;
 use constant DESCRIPTOR_PROTOCOL_VERSION => 1;
 use constant NATIVE_SPI_VERSION => 2;
 use constant NATIVE_PROTOCOL => 'bliss-guidance-jsonl-v2';
+use constant MAX_LOG_EVENTS => 64;
+use constant MAX_LOG_EVENT_BYTES => 16 * 1024;
 
 sub discover {
     my @entries;
@@ -121,6 +123,28 @@ sub acquire_artifacts {
         diagnostic => 'provider artifact acquisition failed',
     }) if $call_error;
     return;
+}
+
+sub dispatch_log_events {
+    my ($provider, $events, $context) = @_;
+    return 1 unless ref($provider) eq 'HASH' && $provider->{available};
+    my $module = $provider->{module} || '';
+    return 1 unless $module && $module->can('guidance_provider_log_events_v1');
+    my @valid;
+    for my $event (@{ref($events) eq 'ARRAY' ? $events : []}) {
+        next unless _valid_log_event($event);
+        push @valid, { %$event };
+        last if @valid >= MAX_LOG_EVENTS;
+    }
+    return 1 unless @valid;
+    eval {
+        $module->guidance_provider_log_events_v1(
+            \@valid,
+            ref($context) eq 'HASH' ? { %$context } : {},
+        );
+        1;
+    };
+    return 1;
 }
 
 sub _load_runtime {
@@ -296,6 +320,23 @@ sub _validate_acquisition_result {
             unless defined $artifact->{path} && length $artifact->{path} && !ref($artifact->{path});
     }
     return '';
+}
+
+sub _valid_log_event {
+    my $event = shift;
+    return 0 unless ref($event) eq 'HASH';
+    return 0 unless ($event->{event_version} || '') eq 'guidance_log_event_v1';
+    return 0 unless ($event->{level} || '') =~ /^(?:error|warning|info|debug)$/;
+    return 0 unless defined $event->{phase} && length $event->{phase} && !ref($event->{phase});
+    return 0 unless defined $event->{event} && length $event->{event} && !ref($event->{event});
+    return 0 unless defined $event->{provider_id} && length $event->{provider_id}
+        && !ref($event->{provider_id});
+    my $encoded = eval {
+        require JSON::PP;
+        JSON::PP::encode_json($event);
+    };
+    return 0 unless defined $encoded && length($encoded) <= MAX_LOG_EVENT_BYTES;
+    return 1;
 }
 
 1;
