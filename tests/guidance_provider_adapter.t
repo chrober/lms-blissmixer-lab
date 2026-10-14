@@ -6,10 +6,25 @@ use JSON::PP qw(decode_json);
 use Test::More;
 
 {
+    package TestArtist;
+    sub new { bless { mbid => $_[1] }, $_[0] }
+    sub musicbrainz_id { $_[0]->{mbid} }
+
     package TestTrack;
-    sub new { bless { url => $_[1], urlmd5 => $_[2] }, $_[0] }
+    sub new {
+        bless {
+            url => $_[1], urlmd5 => $_[2],
+            artist_name => $_[3], title => $_[4],
+            recording_mbid => $_[5], artist_mbid => $_[6],
+        }, $_[0]
+    }
     sub url { $_[0]->{url} }
     sub urlmd5 { $_[0]->{urlmd5} }
+    sub artistName { $_[0]->{artist_name} }
+    sub title { $_[0]->{title} }
+    sub albumname { return undef }
+    sub musicbrainz_id { $_[0]->{recording_mbid} }
+    sub artist { TestArtist->new($_[0]->{artist_mbid}) }
 }
 
 use lib "$FindBin::Bin/..";
@@ -214,5 +229,82 @@ is_deeply(
     },
     'native provider source provenance is retained for the Lab debug formatter',
 );
+
+my ($lastfm_native_context, $lastfm_score_request);
+my $lastfm_evidence = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_evidence_from_provider(
+    [TestTrack->new(
+        'file:///library/seed.flac', 'seed1', 'Seed Artist', 'Seed Song',
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222',
+    )],
+    [TestTrack->new(
+        'file:///library/candidate.flac', 'candidate1', 'Candidate Artist',
+        'Candidate Song', '33333333-3333-4333-8333-333333333333',
+        '44444444-4444-4444-8444-444444444444',
+    )],
+    { provider_id => 'lastfm' },
+    {
+        valid => 1,
+        enabled => 1,
+        effective => {
+            source => 'api_key',
+            lastfm_track_influence => 75,
+            lastfm_artist_mode => 'bounded_influence',
+            lastfm_artist_level => 75,
+        },
+    },
+    {
+        trusted_context => {
+            cache_path => '/trusted/lastfm-cache.json',
+            cache_ttl_seconds => 86400,
+            request_deadline_ms => 5000,
+            max_concurrent_requests => 4,
+        },
+        native_config => sub {
+            (undef, undef, $lastfm_native_context) = @_;
+            return {
+                id => 'lastfm-guidance', program => '/trusted/provider',
+                timeout_ms => 5000,
+            };
+        },
+        score_batch => sub {
+            (undef, $lastfm_score_request) = @_;
+            return {
+                valid => 1,
+                signals => [
+                    {
+                        candidate_id => 'file:///library/candidate.flac',
+                        channel => 'lastfm_artist', score => 0.8,
+                    },
+                    {
+                        candidate_id => 'file:///library/candidate.flac',
+                        channel => 'lastfm_track', score => 0.6,
+                    },
+                ],
+                diagnostics => { state => 'fresh', request_count => 2, failure_count => 0 },
+            };
+        },
+    },
+);
+is($lastfm_native_context->{cache_path}, '/trusted/lastfm-cache.json',
+    'direct Last.fm native configuration receives only trusted cache context');
+is_deeply(
+    $lastfm_score_request->{context}{context_track_ids},
+    ['seed-1'],
+    'direct Last.fm scoring uses the frozen seed anchors as global context',
+);
+is($lastfm_score_request->{anchors}[0]{recording_mbid},
+    '11111111-1111-4111-8111-111111111111',
+    'direct Last.fm prepare receives the seed recording MBID');
+is_deeply($lastfm_score_request->{anchors}[0]{artist_mbids},
+    ['22222222-2222-4222-8222-222222222222'],
+    'direct Last.fm prepare receives the seed artist MBID');
+is($lastfm_score_request->{candidates}[0]{recording_mbid},
+    '33333333-3333-4333-8333-333333333333',
+    'direct Last.fm scoring receives candidate identity metadata');
+is($lastfm_evidence->{artist_candidates}{'file:///library/candidate.flac'}, 0.8,
+    'direct Last.fm artist evidence remains candidate-specific');
+is($lastfm_evidence->{track_candidates}{'file:///library/candidate.flac'}, 0.6,
+    'direct Last.fm track evidence remains candidate-specific');
 
 done_testing();

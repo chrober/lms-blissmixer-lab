@@ -5,9 +5,9 @@
 This document records the delivered guidance-provider integration in **Bliss
 Mixer Lab**. Lab is a Lyrion host for discoverable guidance providers.
 
-The shipped provider is **Bliss Guidance: Library Signals**. When enabled for
-Lab, it replaces Lab's current direct local-signal implementation for all of
-the following reranking inputs:
+The delivered provider integrations are **Bliss Guidance: Library Signals**
+and **Bliss Guidance: Last.fm**. When enabled for Lab, Library Signals replaces
+Lab's direct implementation of these reranking inputs:
 
 - play count;
 - last played; and
@@ -18,11 +18,11 @@ qualified DSTM candidate pool from `bliss-mixer-lab`; provider signals only
 rerank that bounded pool.  They cannot add candidates, relax repeat or genre
 rules, or change the configured Bliss strategy.
 
-This is a Lab-plugin integration. The forked native `bliss-mixer` binary now
-also exposes the first Library Signals guidance-host endpoint and
-`selection_trace_v1`. When a native provider is enabled, Lab already submits
-its bounded DSTM candidate pool to that endpoint and retains its established
-selection policy and log formatter on the Perl side.
+The Last.fm provider owns the choice between LastMix acquisition and direct
+Last.fm acquisition with an API key. The LastMix path retains Lab's established
+Perl adapter. The API Key path sends the bounded seed and candidate identities
+through the native `bliss-mixer` guidance-host endpoint. In both cases Lab
+retains its established selection policy and log formatter on the Perl side.
 
 ## Shared host support - delivered
 
@@ -36,7 +36,7 @@ It provides these provider-neutral Perl modules:
 
 | Module | Responsibility |
 | --- | --- |
-| `Plugins::BlissGuidance::Discovery` | Enumerate enabled Lyrion plugins that expose the v1 provider methods; validate descriptors, defaults, status, duplicate IDs, and native SPI metadata. |
+| `Plugins::BlissGuidance::Discovery` | Enumerate enabled Lyrion plugins that expose the v1 provider methods; validate descriptors, defaults, status, duplicate IDs, native SPI metadata, acquisition hooks, and process-only environment variables. |
 | `Plugins::BlissGuidance::Policy` | Resolve provider default, host override, and optional invocation override values with their provenance. |
 | `Plugins::BlissGuidance::Runtime` | Start one bounded JSONL SPI session, send `describe`, `prepare`, `score`, and `close`, validate replies, enforce a deadline, and return neutral failure diagnostics. |
 
@@ -51,18 +51,18 @@ sequenceDiagram
     participant L as Bliss Mixer Lab
     participant M as bliss-mixer-lab
     participant H as Shared host support
-    participant P as Library Signals plugin
-    participant R as Native library-signals provider
+    participant P as Guidance-provider plugin
+    participant R as Native guidance provider
 
     L->>M: request Bliss candidate pool
     M-->>L: bounded acoustically qualified DSTM pool
     L->>H: discover enabled provider and resolve Lab policy
     H->>P: descriptor, defaults, status, native SPI config
-    P-->>H: provider program, persist.db resource, controls
-    L->>L: freeze as_of and candidate identity artifact
-    H->>R: describe, prepare with artifact and persist.db
+    P-->>H: provider program, trusted resources or cache, controls
+    L->>L: freeze anchors, as_of, and candidate identities
+    H->>R: describe and prepare bounded inputs
     H->>R: score bounded candidate batch
-    R-->>H: playcount, last_played, library_age signals
+    R-->>H: candidate-specific guidance signals
     H-->>L: adjusted candidate factors and provenance
     L->>L: rerank the existing Bliss pool and log selection
 ```
@@ -74,6 +74,14 @@ candidate pool and the identities required by the provider.  It freezes one
 resource through its Lyrion method, and sends one bounded score batch.  The
 provider reads no full-library snapshot and the host never passes a user-supplied
 database path or executable.
+
+For direct Last.fm acquisition, the provider plugin exposes the API key only
+through its process-environment hook. Lab starts or restarts the native mixer
+sidecar with that localized environment, but never serializes the key into a
+request, artifact, cache, diagnostic, log line, or command line. Lab passes
+frozen seed anchors and candidates to the native host. The provider performs
+bounded network acquisition during `prepare`, stores only non-secret Last.fm
+responses in its host-owned cache, and performs `score` without network access.
 
 The normal DSTM pool is small.  Lab must impose a strict provider deadline and
 fall back safely if it expires, returns malformed data, or is unavailable.  The
@@ -97,12 +105,11 @@ When Library Signals is enabled, its three channels replace Lab's direct
 play-count, last-played, and library-age factors as one coherent local-signal
 layer.
 
-Lab's Last.fm track/artist guidance now resolves its source and reranking
-policy from the discoverable `lms-guidance-lastfm` provider. The established
-direct LastMix adapter remains the acquisition implementation for this host;
-the provider's API Key mode is deliberately neutral until native direct
-acquisition is wired into Lab. No obsolete Lab-owned Last.fm preferences are
-read or rendered.
+Lab's Last.fm track/artist guidance resolves its source and reranking policy
+from the discoverable `lms-guidance-lastfm` provider. **LastMix** uses the
+established Perl adapter. **API Key** uses the native provider path and the
+provider-owned direct HTTP/cache implementation. No obsolete Lab-owned Last.fm
+preferences are read or rendered.
 
 The first enablement migrates the current Lab last-played and library-age values
 into Lab host overrides.  It copies the current upstream Bliss Mixer
@@ -118,8 +125,9 @@ If the Library Signals provider is disabled, Lab uses its current direct local
 reranking path.  If it is enabled but unavailable, times out, or returns an
 invalid response, Lab does not invoke the old path as a hidden second attempt:
 the provider's three signals are neutral for that selection. The same
-provider-first rule applies to Last.fm: a disabled or unsupported source is
-neutral; Lab never falls back to the removed Lab-owned Last.fm preferences.
+provider-first rule applies to Last.fm: a disabled provider, missing key,
+timeout, unavailable network, or invalid response is neutral; Lab never falls
+back to another acquisition source or to removed Lab-owned preferences.
 
 Lab's current INFO and DEBUG selection lines are a compatibility boundary. Its
 candidate-selection summary, selected-track lines, diagnostics, and selection
@@ -139,8 +147,9 @@ and preserves a valid Bliss selection.
 
 `BlissMixerLab::LocalLibrarySignals` and Lab's direct local-signal wiring are
 retained only as the disabled-provider fallback. The enabled Library Signals
-path is the generic descriptor and native-SPI path described above. Removing
-the fallback remains a deliberate cleanup decision after these gates pass:
+path and the direct Last.fm API Key path use the generic descriptor and
+native-SPI path described above. Removing the local-signals fallback remains a
+deliberate cleanup decision after these gates pass:
 
 1. Frozen candidate fixtures produce equivalent play-count, last-played, and
    library-age factors through the provider path.
@@ -158,8 +167,8 @@ than keep two implementations indefinitely.
 
 ## Out of scope
 
-- Direct Last.fm acquisition by `bliss-guidance-lastfm`.
-- Replacing Lab's LastMix integration.
+- Replacing the compatible LastMix adapter with a second native acquisition
+  path.
 - Automatic installation of provider plugins.
 - Alternative Play Count guidance; that remains a separate future provider.
-- Wiring the forked native `bliss-mixer` binary itself to the SPI.
+- Moving Lab's established selection and log formatting into Rust.

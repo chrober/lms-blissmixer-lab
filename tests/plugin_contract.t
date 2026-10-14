@@ -64,6 +64,9 @@ BEGIN {
                 providers => {},
             },
         },
+        'server' => {
+            cachedir => '/tmp',
+        },
     );
     sub get { return $values{$_[0]->{name}}{$_[1]} }
     sub init { return }
@@ -217,6 +220,8 @@ BEGIN {
     }
 
     package Plugins::LastFmGuidance::Plugin;
+    our $source = 'lastmix';
+    our $api_key = 'test-secret';
     sub guidance_provider_descriptor_v1 {
         return {
             protocol_version => 1,
@@ -242,12 +247,26 @@ BEGIN {
     }
     sub guidance_provider_defaults_v1 {
         return {
-            source => 'lastmix', lastfm_track_influence => 25,
+            source => $source, lastfm_track_influence => 25,
             lastfm_artist_mode => 'target_share', lastfm_artist_level => 75,
             settings_revision => 1,
         };
     }
     sub guidance_provider_status_v1 { return { available => 1 } }
+    sub guidance_provider_process_environment_v1 {
+        return $source eq 'api_key'
+            ? { BLISS_GUIDANCE_LASTFM_API_KEY => $api_key } : {};
+    }
+    sub guidance_provider_native_spi_config_v1 {
+        my ($class, $effective, $trusted) = @_;
+        return {
+            id => 'lastfm-guidance', program => '/trusted/provider',
+            options => {
+                acquisition_mode => $source eq 'api_key' ? 'direct' : 'artifact',
+            },
+            artifacts => [], resources => [], timeout_ms => 5000,
+        };
+    }
 
     package Plugins::BlissMixerLab::Settings;
     sub new { return bless {}, $_[0] }
@@ -411,6 +430,18 @@ is($lastfm_context->{artist_level}, 65,
     'Last.fm artist level comes from the provider policy, not stale Lab prefs');
 ok($lastfm_context->{enabled},
     'an enabled and available Last.fm provider activates Lab guidance');
+$Plugins::LastFmGuidance::Plugin::source = 'api_key';
+my $direct_lastfm_context = Plugins::BlissMixerLab::Plugin::_lastfmGuidanceContext();
+ok($direct_lastfm_context->{enabled},
+    'API-key source activates the same discoverable Last.fm provider');
+is($direct_lastfm_context->{source}, 'api_key',
+    'Lab retains the provider-owned API-key source selection');
+is_deeply(
+    Plugins::BlissMixerLab::Plugin::_guidanceProcessEnvironment(),
+    { BLISS_GUIDANCE_LASTFM_API_KEY => 'test-secret' },
+    'Lab obtains the direct API key only through the non-serialized environment hook',
+);
+$Plugins::LastFmGuidance::Plugin::source = 'lastmix';
 $TestPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state}{providers}{lastfm}{enabled} = 0;
 ok(!Plugins::BlissMixerLab::Plugin::_lastfmGuidanceContext()->{enabled},
     'disabling the Last.fm provider makes Lab guidance neutral');
@@ -790,6 +821,10 @@ my $native_guidance_payload = Plugins::BlissMixerLab::Plugin::_guidanceHostPaylo
     {
         job_id => 'blissmixerlab',
         request_id => 'dstm-candidate-pool',
+        anchors => [{
+            anchor_id => 'seed-1', candidate_id => 'file:///music/seed.flac',
+            title => 'Seed', artist => 'Seed Artist', artist_mbids => [],
+        }],
         context => { scope => 'global', left_anchor_id => undef, right_anchor_id => undef, context_track_ids => [] },
         candidates => [{ candidate_id => 'file:///music/example.flac', lms_urlmd5 => 'aabbcc' }],
     },
@@ -801,9 +836,16 @@ is($native_guidance_payload->{provider}{provider_id}, 'library-signals-guidance'
     'Lab forwards only the resolved trusted provider identity');
 is_deeply($native_guidance_payload->{policy}, { playcount_influence => -80 },
     'Lab forwards host-owned policy facts for the native selection trace');
+is_deeply($native_guidance_payload->{anchors}, [{
+        anchor_id => 'seed-1', candidate_id => 'file:///music/seed.flac',
+        title => 'Seed', artist => 'Seed Artist', artist_mbids => [],
+    }],
+    'Lab forwards frozen source anchors to native provider preparation');
 is_deeply($native_guidance_payload->{candidates},
     [{ candidate_id => 'file:///music/example.flac', lms_urlmd5 => 'aabbcc' }],
     'Lab sends the same bounded candidate batch to the native host');
+unlike(JSON::PP::encode_json($native_guidance_payload), qr/test-secret/,
+    'the direct Last.fm API key never enters the native guidance payload');
 
 my $menu_track = TestTrack->new('seed.flac', 0, 'Seed Artist', 'Seed Title');
 my $create_track = Plugins::BlissMixerLab::Plugin::trackInfoHandler(

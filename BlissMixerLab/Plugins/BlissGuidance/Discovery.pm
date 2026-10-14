@@ -64,6 +64,65 @@ sub native_spi_config {
     return $config;
 }
 
+sub process_environment {
+    my ($provider, $resolved_policy, $trusted_context) = @_;
+    die 'guidance provider is unavailable'
+        unless ref($provider) eq 'HASH' && $provider->{available};
+    my $module = $provider->{module} || '';
+    return {} unless $module && $module->can('guidance_provider_process_environment_v1');
+
+    my ($environment, $call_error);
+    eval {
+        $environment = $module->guidance_provider_process_environment_v1(
+            $resolved_policy, $trusted_context,
+        );
+    };
+    $call_error = $@;
+    die 'invalid provider process environment' if $call_error;
+    my $error = _validate_process_environment($environment);
+    die 'invalid provider process environment' if $error;
+    return { %$environment };
+}
+
+sub acquire_artifacts {
+    my ($provider, $resolved_policy, $trusted_context, $callback) = @_;
+    die 'guidance provider is unavailable'
+        unless ref($provider) eq 'HASH' && $provider->{available};
+    die 'provider acquisition callback is required' unless ref($callback) eq 'CODE';
+    my $module = $provider->{module} || '';
+    return $callback->({ available => 1, artifacts => [], diagnostic => '' })
+        unless $module && $module->can('guidance_provider_acquire_artifacts_v1');
+
+    my $delivered = 0;
+    my $deliver = sub {
+        return if $delivered++;
+        my $result = shift;
+        return $callback->({
+            available => 0,
+            artifacts => [],
+            diagnostic => 'provider artifact acquisition returned an invalid result',
+        }) if _validate_acquisition_result($result);
+        return $callback->({
+            available => $result->{available} ? 1 : 0,
+            artifacts => [ @{$result->{artifacts}} ],
+            diagnostic => defined $result->{diagnostic} ? $result->{diagnostic} : '',
+        });
+    };
+    my $call_error;
+    eval {
+        $module->guidance_provider_acquire_artifacts_v1(
+            $resolved_policy, $trusted_context, $deliver,
+        );
+        1;
+    } or $call_error = $@;
+    return $deliver->({
+        available => 0,
+        artifacts => [],
+        diagnostic => 'provider artifact acquisition failed',
+    }) if $call_error;
+    return;
+}
+
 sub _load_runtime {
     my $entry = shift;
     my $module = $entry->{module};
@@ -133,6 +192,20 @@ sub _validate_descriptor {
         return 'control render_as is invalid'
             if exists $control->{render_as}
                 && ($control->{type} ne 'integer' || $control->{render_as} !~ /^(?:slider|number)$/);
+        if (exists $control->{option_labels}) {
+            return 'control option_labels is invalid'
+                unless $control->{type} eq 'enum'
+                    && ref($control->{option_labels}) eq 'HASH';
+            my %allowed = map { $_ => 1 } @{ref($control->{values}) eq 'ARRAY'
+                ? $control->{values} : []};
+            for my $value (keys %{$control->{option_labels}}) {
+                return 'control option_labels contains an unknown option'
+                    unless $allowed{$value};
+                return 'control option_labels value is invalid'
+                    unless defined $control->{option_labels}->{$value}
+                        && length $control->{option_labels}->{$value};
+            }
+        }
         if ($control->{type} eq 'integer') {
             return 'integer control bounds/default are invalid'
                 unless defined $control->{minimum} && defined $control->{maximum}
@@ -192,6 +265,36 @@ sub _validate_native_config {
     return 'configuration options is not an object' unless ref($config->{options}) eq 'HASH';
     return 'configuration artifacts is not an array' unless ref($config->{artifacts}) eq 'ARRAY';
     return 'configuration resources is not an array' unless ref($config->{resources}) eq 'ARRAY';
+    return '';
+}
+
+sub _validate_process_environment {
+    my $environment = shift;
+    return 'environment is not an object' unless ref($environment) eq 'HASH';
+    for my $name (keys %$environment) {
+        return 'environment variable name is invalid'
+            unless defined $name && $name =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
+        return 'environment variable value is invalid'
+            unless defined $environment->{$name} && !ref($environment->{$name});
+    }
+    return '';
+}
+
+sub _validate_acquisition_result {
+    my $result = shift;
+    return 'result is not an object' unless ref($result) eq 'HASH';
+    return 'available is invalid'
+        unless defined $result->{available} && $result->{available} =~ /^(?:0|1)$/;
+    return 'artifacts is not an array' unless ref($result->{artifacts}) eq 'ARRAY';
+    return 'diagnostic is invalid'
+        if exists $result->{diagnostic} && (!defined $result->{diagnostic} || ref($result->{diagnostic}));
+    for my $artifact (@{$result->{artifacts}}) {
+        return 'artifact is not an object' unless ref($artifact) eq 'HASH';
+        return 'artifact kind is invalid'
+            unless ($artifact->{kind} || '') =~ /^[a-z][a-z0-9-]{1,63}$/;
+        return 'artifact path is invalid'
+            unless defined $artifact->{path} && length $artifact->{path} && !ref($artifact->{path});
+    }
     return '';
 }
 

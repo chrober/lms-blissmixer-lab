@@ -89,6 +89,91 @@ sub profile_from_provider {
     return profile_from_native_result($tracks, $effective, $result, $as_of);
 }
 
+sub lastfm_evidence_from_provider {
+    my ($seeds, $tracks, $provider, $resolved_policy, $operations) = @_;
+    $seeds = [] unless ref($seeds) eq 'ARRAY';
+    $tracks = [] unless ref($tracks) eq 'ARRAY';
+    $resolved_policy = {} unless ref($resolved_policy) eq 'HASH';
+    $operations = {} unless ref($operations) eq 'HASH';
+    my $neutral = {
+        valid => 0,
+        artist_candidates => {},
+        track_candidates => {},
+        diagnostics => {},
+    };
+    return $neutral
+        unless $resolved_policy->{valid} && $resolved_policy->{enabled}
+            && ref($provider) eq 'HASH';
+    my $native_config = $operations->{native_config};
+    my $score_batch = $operations->{score_batch};
+    return $neutral
+        unless ref($native_config) eq 'CODE' && ref($score_batch) eq 'CODE';
+
+    my ($config, $result);
+    eval {
+        my $effective = ref($resolved_policy->{effective}) eq 'HASH'
+            ? $resolved_policy->{effective} : {};
+        my $trusted_context = ref($operations->{trusted_context}) eq 'HASH'
+            ? $operations->{trusted_context} : {};
+        $config = $native_config->($provider, $effective, $trusted_context);
+        my @anchors;
+        my @context_ids;
+        for my $index (0 .. $#$seeds) {
+            my $candidate = _candidate_for_track($seeds->[$index]);
+            next unless $candidate;
+            my $anchor_id = 'seed-' . ($index + 1);
+            push @context_ids, $anchor_id;
+            push @anchors, { anchor_id => $anchor_id, %$candidate };
+        }
+        my @candidates = grep { defined $_ }
+            map { _candidate_for_track($_) } @$tracks;
+        $result = $score_batch->($config, {
+            job_id => 'blissmixerlab',
+            request_id => 'dstm-candidate-pool',
+            context => {
+                scope => 'global',
+                left_anchor_id => undef,
+                right_anchor_id => undef,
+                context_track_ids => \@context_ids,
+            },
+            anchors => \@anchors,
+            candidates => \@candidates,
+        });
+    };
+    return $neutral
+        unless ref($result) eq 'HASH' && $result->{valid}
+            && ref($result->{signals}) eq 'ARRAY';
+
+    my (%artist_candidates, %track_candidates);
+    for my $signal (@{$result->{signals}}) {
+        next unless ref($signal) eq 'HASH';
+        my $candidate_id = $signal->{candidate_id};
+        my $channel = $signal->{channel};
+        my $score = $signal->{score};
+        next unless defined $candidate_id && length $candidate_id;
+        next unless defined $score && $score =~ /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+        $score = _bounded_positive_score($score);
+        next unless $score > 0;
+        if (($channel || '') eq 'lastfm_artist') {
+            $artist_candidates{$candidate_id} = $score
+                if !defined $artist_candidates{$candidate_id}
+                    || $score > $artist_candidates{$candidate_id};
+        }
+        elsif (($channel || '') eq 'lastfm_track') {
+            $track_candidates{$candidate_id} = $score
+                if !defined $track_candidates{$candidate_id}
+                    || $score > $track_candidates{$candidate_id};
+        }
+    }
+    return {
+        valid => 1,
+        artist_candidates => \%artist_candidates,
+        track_candidates => \%track_candidates,
+        diagnostics => ref($result->{diagnostics}) eq 'HASH'
+            ? $result->{diagnostics} : {},
+    };
+}
+
 sub profile_from_native_result {
     my ($tracks, $effective, $result, $as_of) = @_;
     $tracks = [] unless ref($tracks) eq 'ARRAY';
@@ -254,6 +339,37 @@ sub _bounded_score {
     $value = -1 if $value < -1;
     $value = 1 if $value > 1;
     return $value;
+}
+
+sub _bounded_positive_score {
+    my $value = 0 + $_[0];
+    $value = 0 if $value < 0;
+    $value = 1 if $value > 1;
+    return $value;
+}
+
+sub _candidate_for_track {
+    my $track = shift;
+    return undef unless $track;
+    my $candidate_id = eval { $track->url };
+    return undef unless defined $candidate_id && length $candidate_id;
+    my $urlmd5 = eval { $track->urlmd5 };
+    my $recording_mbid = eval { $track->musicbrainz_id };
+    my $artist_mbid = eval {
+        $track->artist ? $track->artist->musicbrainz_id : undef
+    };
+    return {
+        candidate_id => "$candidate_id",
+        (defined $urlmd5 && length $urlmd5 ? (lms_urlmd5 => "$urlmd5") : ()),
+        database_file => undef,
+        title => eval { $track->title } || undef,
+        artist => eval { $track->artistName } || undef,
+        album => eval { $track->albumname } || undef,
+        recording_mbid => defined $recording_mbid && length $recording_mbid
+            ? "$recording_mbid" : undef,
+        artist_mbids => defined $artist_mbid && length $artist_mbid
+            ? ["$artist_mbid"] : [],
+    };
 }
 
 sub _valid_source {

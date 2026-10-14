@@ -1,15 +1,13 @@
 # Migrating Lab reranking semantics to Rust guidance hosts
 
-> **Status (2026-10-04): Library Signals native path delivered; Last.fm
-> artifact semantics delivered for the optimizer/Better Call Bliss path.**
+> **Status (2026-10-14): Library Signals native path delivered; direct Last.fm
+> acquisition implemented on coordinated feature branches.**
 > `bliss-mixer` 0.11.4 exposes a Library Signals guidance-host endpoint with
 > bounded SPI execution and `selection_trace_v1`. Lab already submits its
-> native-provider DSTM candidate pool to that endpoint; this document tracks
-> provider parity and future trace consumption without changing Lab's existing
-> selection or logging ownership. Better Call Bliss uses the Last.fm provider's
-> artifact mode; Lab's DSTM still uses its direct LastMix adapter. Migrating
-> Lab's Last.fm path to the discoverable provider, and direct API-key
-> acquisition, are future work.
+> native-provider DSTM candidate pool to that endpoint. The direct API Key path
+> now uses the same endpoint with frozen seed anchors and candidate identities;
+> the LastMix path remains the compatible Perl adapter. Lab's selection and log
+> formatting remain unchanged and host-owned.
 
 This document plans the Rust equivalent of the experimental reranking behavior
 currently implemented in the BlissMixerLab Perl plugin. It is a migration plan,
@@ -130,11 +128,13 @@ flowchart LR
 ```
 
 The host supplies the enabled-provider policy and the bounded candidate batch.
-The Last.fm provider consumes the existing resolved evidence artifact during the
-hybrid migration; direct acquisition remains a later provider-owned option.
-The library-signals provider consumes trusted Lyrion identities and performs
-bounded read-only lookups. Neither provider receives an unrestricted library
-scan or a user-supplied executable/database path.
+The Last.fm provider supports two acquisition paths. Artifact mode consumes
+evidence prepared through LastMix. Direct mode receives an API key only in the
+provider process environment, acquires bounded remote evidence during
+`prepare`, and serves `score` from prepared memory. The library-signals
+provider consumes trusted Lyrion identities and performs bounded read-only
+lookups. Neither provider receives an unrestricted library scan or a
+user-supplied executable/database path.
 
 The result must identify, per provider and channel:
 
@@ -210,16 +210,20 @@ influence, horizon, target mode, timeout, and per-job overrides.
    extending its existing endpoint path to additional providers; consume richer
    selection traces only after parity, failure, and performance tests pass.
 
-### Phase status at 2026-10-04
+### Phase status at 2026-10-14
 
 - Phases 1-7 are delivered for the optimizer/Library Signals path and the
   native `bliss-mixer` endpoint.
 - Lab's Library Signals migration is delivered and preserves the existing
   Perl-side log formatter.
-- Lab's Last.fm DSTM path still uses its direct LastMix adapter; migrating it
-  to the discoverable provider is not complete.
-- The native Last.fm provider currently consumes resolved artifacts only. Its
-  provider-owned API Key acquisition/cache path is not implemented yet.
+- Lab's LastMix DSTM path remains on its compatible Perl adapter and resolves
+  its settings through the discoverable provider.
+- The native Last.fm provider implements provider-owned API Key acquisition,
+  bounded concurrency and retries, positive and negative caching, and
+  network-free scoring.
+- The coordinated SPI, native-provider, mixer-host, and Lab changes are on
+  feature branches pending remote pinning, release builds, and live Pi
+  acceptance testing.
 
 ## Acceptance criteria
 

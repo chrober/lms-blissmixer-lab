@@ -12,11 +12,13 @@ package Plugins::BlissMixerLab::Plugin;
 use strict;
 
 use Config ();
+use Digest::SHA qw(sha256_hex);
 use Scalar::Util qw(blessed);
 use IO::Socket::INET;
 use LWP::UserAgent;
 use JSON::XS::VersionOneAndTwo;
 use File::Basename;
+use File::Path qw(make_path);
 use File::Spec::Functions qw(catdir catfile);
 use Proc::Background;
 use Time::HiRes ();
@@ -55,6 +57,9 @@ use constant FIRST_MIXER_PORT => 12001;
 use constant LAST_MIXER_PORT => 12100;
 use constant MIN_BLISSMIXER_VERSION => '0.10.0';
 use constant LASTFM_EVIDENCE_TIMEOUT => 8;
+use constant LASTFM_DIRECT_CACHE_TTL_SECONDS => 86400;
+use constant LASTFM_DIRECT_REQUEST_DEADLINE_MS => 5000;
+use constant LASTFM_DIRECT_MAX_CONCURRENT_REQUESTS => 4;
 
 my $log = Slim::Utils::Log->addLogCategory({
     'category'     => 'plugin.blissmixerlab',
@@ -79,6 +84,7 @@ my $mixerBinary;
 my $lastMixerStart = 0;
 
 my $lastWeights = "";
+my $mixerGuidanceEnvironmentSignature = '';
 
 sub _upstreamCompatible {
     my $manifest = Slim::Utils::PluginManager->dataForPlugin('Plugins::BlissMixer::Plugin');
@@ -261,6 +267,52 @@ sub _stopMixer {
     $databaseRefreshDeferred = 0;
 }
 
+sub _lastfmDirectTrustedContext {
+    my $cacheRoot = preferences('server')->get('cachedir')
+        || Slim::Utils::Prefs::dir();
+    my $directory = catdir($cacheRoot, 'BlissMixerLab');
+    make_path($directory) unless -d $directory;
+    return {
+        cache_path => catfile($directory, 'lastfm-guidance-v1.json'),
+        cache_ttl_seconds => LASTFM_DIRECT_CACHE_TTL_SECONDS,
+        request_deadline_ms => LASTFM_DIRECT_REQUEST_DEADLINE_MS,
+        max_concurrent_requests => LASTFM_DIRECT_MAX_CONCURRENT_REQUESTS,
+    };
+}
+
+sub _guidanceProcessEnvironment {
+    my $context = _lastfmGuidanceContext();
+    return {} unless $context->{enabled} && $context->{source} eq 'api_key';
+    my $environment = eval {
+        Plugins::BlissGuidance::Discovery::process_environment(
+            $context->{provider}, $context->{resolved}{effective}, {},
+        );
+    };
+    if ($@ || ref($environment) ne 'HASH') {
+        $log->warn('Last.fm direct guidance environment is unavailable');
+        return {};
+    }
+    return $environment;
+}
+
+sub _guidanceEnvironmentSignature {
+    my $environment = shift;
+    $environment = {} unless ref($environment) eq 'HASH';
+    return sha256_hex(join("\0", map {
+        $_ . "\0" . sha256_hex(defined $environment->{$_} ? $environment->{$_} : '')
+    } sort keys %$environment));
+}
+
+sub _refreshMixerGuidanceEnvironment {
+    return unless $mixer && $mixer->alive;
+    my $signature = _guidanceEnvironmentSignature(_guidanceProcessEnvironment());
+    return if $signature eq $mixerGuidanceEnvironmentSignature;
+    main::INFOLOG && $log->info(
+        'Guidance provider configuration changed; restarting bliss-mixer-lab'
+    );
+    _stopMixer();
+}
+
 sub _portAvailable {
     my $port = shift;
     my $socket = IO::Socket::INET->new(
@@ -360,9 +412,18 @@ sub _originalAnalyserRunning {
 
 sub _startMixer {
 
+    my $guidanceEnvironment = _guidanceProcessEnvironment();
+    my $guidanceEnvironmentSignature =
+        _guidanceEnvironmentSignature($guidanceEnvironment);
+
     if ($mixer && $mixer->alive) {
-        main::DEBUGLOG && $log->debug("$mixerBinary already running");
-        return 1;
+        if ($guidanceEnvironmentSignature ne $mixerGuidanceEnvironmentSignature) {
+            _stopMixer();
+        }
+        else {
+            main::DEBUGLOG && $log->debug("$mixerBinary already running");
+            return 1;
+        }
     }
     if (!$mixerBinary) {
         $log->warn("No mixer binary");
@@ -404,10 +465,16 @@ sub _startMixer {
         main::INFOLOG && $log->info("Using learned matrix: $matrixFile");
     }
     main::DEBUGLOG && $log->debug("Start mixer: $mixerBinary @params");
-    eval { $mixer = Proc::Background->new({ 'die_upon_destroy' => 1 }, $mixerBinary, @params); };
+    eval {
+        local %ENV = (%ENV, %$guidanceEnvironment);
+        $mixer = Proc::Background->new(
+            { 'die_upon_destroy' => 1 }, $mixerBinary, @params,
+        );
+    };
     if ($@) {
         $log->warn($@);
     } else {
+        $mixerGuidanceEnvironmentSignature = $guidanceEnvironmentSignature;
         $dbSignature = _databaseSignature();
         Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 1, sub {
             if ($mixer && $mixer->alive) {
@@ -852,6 +919,7 @@ sub _pathToTrack {
 }
 
 sub _refreshMixerDatabase {
+    _refreshMixerGuidanceEnvironment();
     my $analysisRunning = _originalAnalyserRunning();
     my $currentDbSignature = _databaseSignature();
     my $refreshAction = _databaseRefreshAction(
@@ -1491,17 +1559,27 @@ sub _dstmMix {
                                 )
                                 : undef;
                             if ($lastfmWeighting || $lastfmTrackGuidance) {
-                                _selectViaLastFm(\@seedsToUse, \@trackObjs, $dstm_tracks, sub {
-                                    my $weightedUrls = shift;
-                                    $cb->($client, $weightedUrls);
-                                }, $lastfmWeighting,
+                                my @lastfmArgs = (
+                                    \@seedsToUse, \@trackObjs, $dstm_tracks, sub {
+                                        my $weightedUrls = shift;
+                                        $cb->($client, $weightedUrls);
+                                    }, $lastfmWeighting,
                                     $lastfmArtistStrategy eq 'target_share'
                                         ? $lastfmProbability : 0,
                                     $playCountInfluence, $lastfmTrackGuidance,
                                     $strategy, $localSignals,
                                     $lastfmArtistStrategy eq 'bounded_influence'
                                         ? $lastfmArtistInfluence : 0,
-                                    $providerLocalSignals);
+                                    $providerLocalSignals,
+                                );
+                                if ($lastfmContext->{source} eq 'api_key') {
+                                    _selectViaNativeLastFm(
+                                        @lastfmArgs, $lastfmContext,
+                                    );
+                                }
+                                else {
+                                    _selectViaLastFm(@lastfmArgs);
+                                }
                             } elsif ($playCountWeighting || $localLibraryWeighting || $providerLocalSignals) {
                                 my $weightedUrls = _selectWeightedCandidates(
                                     \@trackObjs, $dstm_tracks, $playCountInfluence,
@@ -1608,12 +1686,126 @@ sub _guidanceHostPayload {
             resources => ref($config->{resources}) eq 'ARRAY' ? $config->{resources} : [],
         },
         policy => $policy,
+        anchors => ref($request->{anchors}) eq 'ARRAY' ? $request->{anchors} : [],
         context => ref($request->{context}) eq 'HASH' ? $request->{context} : {
             scope => 'global', left_anchor_id => undef,
             right_anchor_id => undef, context_track_ids => [],
         },
         candidates => ref($request->{candidates}) eq 'ARRAY' ? $request->{candidates} : [],
     };
+}
+
+sub _selectViaNativeLastFm {
+    my ($seeds, $trackObjs, $finalCount, $cb, $artistWeighting,
+        $targetPercent, $playCountInfluence, $trackGuidance, $strategy,
+        $localSignals, $artistInfluence, $providerSignals, $context) = @_;
+    $artistWeighting ||= 0;
+    $targetPercent ||= 0;
+    $playCountInfluence ||= 0;
+    $trackGuidance ||= 0;
+    $artistInfluence ||= 0;
+    $providerSignals ||= 0;
+
+    main::DEBUGLOG && $log->debug(sprintf(
+        'Last.fm evidence: %d seeds, %d Bliss candidates, artist mode=%s, artist probability=%d%%, artist influence=%d%%, track influence=%d%%, selecting=%d',
+        scalar(@$seeds), scalar(@$trackObjs),
+        $artistInfluence ? 'bounded-influence' : ($artistWeighting ? 'target-share' : 'disabled'),
+        $artistWeighting && !$artistInfluence ? $targetPercent : 0,
+        $artistInfluence,
+        $trackGuidance, $finalCount,
+    ));
+
+    my $trustedContext = eval { _lastfmDirectTrustedContext() };
+    if ($@ || ref($trustedContext) ne 'HASH') {
+        $trustedContext = {};
+        main::INFOLOG && $log->info(
+            'Last.fm unavailable: direct guidance cache cannot be prepared'
+        );
+    }
+    my $evidence = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_evidence_from_provider(
+        $seeds, $trackObjs, $context->{provider}, $context->{resolved},
+        {
+            trusted_context => $trustedContext,
+            native_config => sub {
+                return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
+            },
+            score_batch => sub {
+                return _scoreGuidanceThroughMixer(
+                    $mixerPort, @_, $context->{resolved}{effective},
+                );
+            },
+        },
+    );
+
+    my %byUrl = map { $_->url => $_ } @$trackObjs;
+    my %lastfmArtists;
+    if ($artistWeighting) {
+        for my $seed (@$seeds) {
+            my $key = Plugins::BlissMixer::Plugin::_lastfmNormalizeArtist(
+                $seed->artistName
+            );
+            $lastfmArtists{$key} = 1 if length $key;
+        }
+    }
+    my $trackMatches = { mbid => {}, name => {} };
+    if ($evidence->{valid}) {
+        for my $url (keys %{$evidence->{artist_candidates} || {}}) {
+            my $track = $byUrl{$url} || next;
+            my $key = Plugins::BlissMixer::Plugin::_lastfmNormalizeArtist(
+                $track->artistName
+            );
+            $lastfmArtists{$key} = 1 if length $key;
+        }
+        for my $url (keys %{$evidence->{track_candidates} || {}}) {
+            my $track = $byUrl{$url} || next;
+            my $support = $evidence->{track_candidates}{$url};
+            my $mbid = lc(eval { $track->musicbrainz_id } || '');
+            $trackMatches->{mbid}{$mbid} = $support
+                if $mbid =~ /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+            my $nameKey = _lastfmTrackNameKey(
+                eval { $track->artistName }, eval { $track->title },
+            );
+            $trackMatches->{name}{$nameKey} = $support if length $nameKey;
+        }
+    }
+    else {
+        main::INFOLOG && $log->info(
+            'Last.fm unavailable: continuing without Last.fm evidence'
+        );
+    }
+
+    if ($evidence->{valid} && $artistWeighting) {
+        main::INFOLOG && $log->info(
+            'Last.fm: ' . scalar(keys %lastfmArtists)
+            . ' endorsed artists (incl. seed artists)'
+        );
+    }
+    my $weightedUrls = _selectWeightedCandidates(
+        $trackObjs,
+        $finalCount,
+        $playCountInfluence,
+        $evidence->{valid} && $artistWeighting ? \%lastfmArtists : undef,
+        $artistWeighting ? $targetPercent : 0,
+        undef,
+        $evidence->{valid} ? $trackMatches : undef,
+        $trackGuidance,
+        $strategy,
+        $localSignals,
+        $artistInfluence,
+        $providerSignals,
+    );
+    $cb->($weightedUrls);
+}
+
+sub _lastfmTrackNameKey {
+    my ($artist, $title) = @_;
+    for ($artist, $title) {
+        $_ = lc($_ || '');
+        s/^\s+|\s+$//g;
+        s/\s+/ /g;
+    }
+    return '' unless length $artist && length $title;
+    return $artist . '|' . $title;
 }
 
 sub _selectViaLastFm {
@@ -1795,15 +1987,6 @@ sub _lastfmGuidanceContext {
 
     my $effective = $resolved->{effective} || {};
     my $source = $effective->{source} || 'lastmix';
-    # Lab's established Perl adapter currently consumes LastMix evidence.  An
-    # API-key provider is deliberately neutral until the native provider path
-    # is wired into this host; it must never fall back to old Lab preferences.
-    if ($source ne 'lastmix') {
-        main::INFOLOG && $log->info(
-            'Last.fm guidance disabled: the Lab DSTM path currently supports only LastMix source'
-        );
-        return $neutral;
-    }
 
     my $track = int($effective->{lastfm_track_influence} || 0);
     $track = 0 if $track < 0;
