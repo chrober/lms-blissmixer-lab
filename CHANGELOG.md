@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.4 - 2026-10-16
+
+- Publish MusicBrainz-aware artist identities and a configurable repeat
+  identity policy to the native mixer.
+- Default repeat-window matching to any shared credited artist, while keeping
+  primary-artist and exact Bliss-credit modes available.
+- Bundle `bliss-mixer` 0.11.5 with native MBID-aware repeat enforcement and
+  the previously integrated guidance-host behavior.
+- Preserve the established DSTM candidate-selection log format and provider
+  observability.
+
 ## 0.9.1 - 2026-10-03
 
 - Fix shared provider controls so Material Skin slider changes immediately
