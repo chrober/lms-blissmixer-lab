@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.5 - 2026-10-16
 
 - Cover persistence of provider-declared enum overrides such as the Last.fm
   acquisition source on the Lab settings page.
