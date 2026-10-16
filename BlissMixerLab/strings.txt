@@ -100,6 +100,21 @@ BLISSMIXERLAB_LEARNED_BLEND
 BLISSMIXERLAB_LEARNED_BLEND_DESC
 	EN	For multiple adaptive-weighting seeds, controls how strongly the learned matrix influences similarity. 0 is variance only; 100 is learned matrix only. A single seed uses the learned matrix directly.
 
+BLISSMIXERLAB_ARTIST_REPEAT_MODE
+	EN	Artist repeat identity
+
+BLISSMIXERLAB_ARTIST_REPEAT_MODE_DESC
+	EN	Controls when two track credits count as the same artist for the upstream artist repeat window. MusicBrainz artist IDs are preferred, followed by Lyrion contributor identity and normalized names.
+
+BLISSMIXERLAB_ARTIST_REPEAT_SHARED
+	EN	Any shared credited artist
+
+BLISSMIXERLAB_ARTIST_REPEAT_PRIMARY
+	EN	Same primary artist
+
+BLISSMIXERLAB_ARTIST_REPEAT_EXACT
+	EN	Exact Bliss artist credit (legacy)
+
 BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
 	EN	Last-played influence
 

@@ -51,6 +51,14 @@
         <input type="number" min="0" max="100" class="stdedit sliderInput_0_100_1" name="pref_learned_blend" id="learned_blend" value="[% prefs.learned_blend %]" size="5">
     [% END %]
 
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_ARTIST_REPEAT_MODE" desc="BLISSMIXERLAB_ARTIST_REPEAT_MODE_DESC" %]
+        <select class="stdedit" name="pref_artist_repeat_mode" id="artist_repeat_mode">
+            <option value="shared_artist" [% IF prefs.artist_repeat_mode == "shared_artist" %]selected[% END %]>[% "BLISSMIXERLAB_ARTIST_REPEAT_SHARED" | string %]</option>
+            <option value="primary_artist" [% IF prefs.artist_repeat_mode == "primary_artist" %]selected[% END %]>[% "BLISSMIXERLAB_ARTIST_REPEAT_PRIMARY" | string %]</option>
+            <option value="exact_bliss_credit" [% IF prefs.artist_repeat_mode == "exact_bliss_credit" %]selected[% END %]>[% "BLISSMIXERLAB_ARTIST_REPEAT_EXACT" | string %]</option>
+        </select>
+    [% END %]
+
     [% IF legacy_local_signals_visible %]
     <h3 class="experimental-setting-group">[% "BLISSMIXERLAB_MIX_GROUP_LOCAL" | string %]</h3>
     [% WRAPPER settingGroup title="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE" desc="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC" %]

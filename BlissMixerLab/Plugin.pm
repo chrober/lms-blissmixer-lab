@@ -34,6 +34,7 @@ use Plugins::BlissMixerLab::Survey;
 use Plugins::BlissMixerLab::LastFmTrackSimilarity;
 use Plugins::BlissMixerLab::LocalLibrarySignals;
 use Plugins::BlissMixerLab::GuidanceProviderAdapter;
+use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
 
 use lib dirname(__FILE__);
 use Plugins::BlissGuidance::Discovery;
@@ -107,6 +108,7 @@ sub initPlugin {
 
     $labprefs->init({
         learned_blend    => 50,
+        artist_repeat_mode => 'shared_artist',
         last_played_influence => 0,
         last_played_horizon_days => 180,
         library_age_influence => 0,
@@ -2331,6 +2333,17 @@ sub _getMixData {
         $filterXmas = int($filterXmpsPref);
     }
 
+    my $identitySnapshot = eval {
+        Plugins::BlissMixerLab::RepeatIdentitySnapshot::prepare();
+    };
+    if ($@) {
+        $log->warn('Could not prepare artist repeat identity snapshot: ' . $@);
+        $identitySnapshot = undef;
+    }
+    my $artistRepeatMode = $labprefs->get('artist_repeat_mode') || 'shared_artist';
+    $artistRepeatMode = 'shared_artist'
+        unless $artistRepeatMode =~ /^(?:shared_artist|primary_artist|exact_bliss_credit)$/;
+
     my $jsonData = to_json({
                         count       => int($trackCount),
                         filtergenre => int($filterGenres),
@@ -2343,6 +2356,9 @@ sub _getMixData {
                         shuffle     => int($shuffle),
                         norepart    => int($noRepArtOverride // $prefs->get('no_repeat_artist')),
                         norepalb    => int($noRepAlbOverride // $prefs->get('no_repeat_album')),
+                        artist_repeat_mode => $artistRepeatMode,
+                        defined $identitySnapshot
+                            ? (artist_identity_snapshot => $identitySnapshot) : (),
                         forest      => int($prefs->get('use_forest') || 0),
                         adaptiveweights => int($prefs->get('use_adaptive_weights') || 0),
                         learnedblend => int($labprefs->get('learned_blend') // 50),

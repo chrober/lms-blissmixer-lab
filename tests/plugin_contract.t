@@ -55,6 +55,7 @@ BEGIN {
         },
         'plugin.blissmixerlab' => {
             learned_blend => 50,
+            artist_repeat_mode => 'shared_artist',
             last_played_influence => 0,
             last_played_horizon_days => 180,
             library_age_influence => 0,
@@ -421,6 +422,31 @@ is(Plugins::BlissMixerLab::Plugin::_libraryAgeHorizonDays(), 365,
     'library-age horizon is read from Lab settings');
 is(Plugins::BlissMixerLab::Plugin::_upstreamPlayCountInfluence(), -40,
     'play-count influence is inherited from upstream Bliss Mixer');
+is(
+    Plugins::BlissMixerLab::RepeatIdentitySnapshot::_normalize_mbid(
+        '0383DADF-2A4E-4D10-A46A-E9E041DA8EB3',
+    ),
+    '0383dadf-2a4e-4d10-a46a-e9e041da8eb3',
+    'repeat identity normalizes a valid artist MBID',
+);
+is(
+    Plugins::BlissMixerLab::RepeatIdentitySnapshot::_normalize_mbid('not-an-mbid'),
+    '',
+    'repeat identity rejects a malformed artist MBID before contributor fallback',
+);
+
+{
+    no warnings 'redefine';
+    local *Plugins::BlissMixerLab::RepeatIdentitySnapshot::prepare = sub {
+        return '/cache/artist-repeat-identities.sqlite';
+    };
+    my $json = Plugins::BlissMixerLab::Plugin::_getMixData([], [], 5, 0, 0);
+    my $request = JSON::PP::decode_json($json);
+    is($request->{artist_repeat_mode}, 'shared_artist',
+        'mix requests carry the configured artist repeat policy');
+    is($request->{artist_identity_snapshot}, '/cache/artist-repeat-identities.sqlite',
+        'mix requests carry the immutable identity snapshot path');
+}
 $TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
 is(Plugins::BlissMixerLab::Plugin::_lastPlayedInfluence(), -100,
     'last-played influence is clamped to the signed preference range');

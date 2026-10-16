@@ -39,7 +39,7 @@ sub page {
 }
 
 sub prefs {
-    return ($prefs, 'learned_blend',
+    return ($prefs, 'learned_blend', 'artist_repeat_mode',
         'last_played_influence', 'last_played_horizon_days',
         'library_age_influence', 'library_age_horizon_days',
         'triplets_backup_path');
@@ -88,6 +88,11 @@ sub beforeRender {
 
 sub handler {
     my ($class, $client, $paramRef) = @_;
+    if (defined $paramRef->{pref_artist_repeat_mode}) {
+        $paramRef->{pref_artist_repeat_mode} = 'shared_artist'
+            unless $paramRef->{pref_artist_repeat_mode}
+                =~ /^(?:shared_artist|primary_artist|exact_bliss_credit)$/;
+    }
     for my $setting (
         ['pref_learned_blend', 0, 100],
         ['pref_last_played_influence', -100, 100],
