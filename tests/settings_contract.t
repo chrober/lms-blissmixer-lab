@@ -88,6 +88,7 @@ BEGIN {
                 { key => 'library_age_influence', type => 'integer', minimum => -100, maximum => 100, factory_default => 0, host_overridable => 1, guidance_channel => 'library_age', render_as => 'slider' },
                 { key => 'library_age_horizon_days', type => 'integer', minimum => 30, maximum => 3650, factory_default => 365, host_overridable => 1, render_as => 'number' },
                 { key => 'use_alternative_play_count', type => 'boolean', factory_default => 0, host_overridable => 1 },
+                { key => 'source', type => 'enum', values => [qw(lastmix api_key)], factory_default => 'lastmix', host_overridable => 1 },
             ],
             native_spi => {
                 provider_id => 'library-signals-guidance', spi_version => 2,
@@ -105,6 +106,7 @@ BEGIN {
             library_age_influence => 0,
             library_age_horizon_days => 365,
             use_alternative_play_count => 0,
+            source => 'lastmix',
             settings_revision => 1,
         };
     }
@@ -311,6 +313,17 @@ Plugins::BlissMixerLab::Settings->handler(undef, \%disable_apc_override);
 $provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
 is($provider_state->{providers}{'library-signals'}{overrides}{use_alternative_play_count}, 0,
     'Lab saves an unchecked dirty APC source as false');
+
+my %save_enum_override = (
+    saveSettings => 1,
+    'pref_guidance_provider_library-signals_enabled' => 1,
+    'pref_guidance_provider_library-signals_source' => 'api_key',
+    'dirty_guidance_provider_library-signals_source' => 1,
+);
+Plugins::BlissMixerLab::Settings->handler(undef, \%save_enum_override);
+$provider_state = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state};
+is($provider_state->{providers}{'library-signals'}{overrides}{source}, 'api_key',
+    'Lab saves an enum provider control as a host override');
 
 my $template = do {
     local $/;

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Cover persistence of provider-declared enum overrides such as the Last.fm
+  acquisition source on the Lab settings page.
+
 ## 0.10.4 - 2026-10-16
 
 - Publish MusicBrainz-aware artist identities and a configurable repeat
