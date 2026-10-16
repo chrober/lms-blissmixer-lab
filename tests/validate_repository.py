@@ -111,6 +111,7 @@ for upstream_pref in re.findall(r'name="pref_([^"]+)"', settings):
         continue
     if upstream_pref not in {
         "learned_blend",
+        "artist_repeat_mode",
         "last_played_influence", "last_played_horizon_days",
         "library_age_influence", "library_age_horizon_days",
         "triplets_backup_path",
