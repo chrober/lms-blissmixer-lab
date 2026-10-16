@@ -318,6 +318,12 @@ my $template = do {
         or die "cannot read settings template: $!";
     <$fh>;
 };
+my $strings = do {
+    local $/;
+    open my $fh, '<', "$FindBin::Bin/../BlissMixerLab/strings.txt"
+        or die "cannot read strings: $!";
+    <$fh>;
+};
 my $guidance_partial = do {
     local $/;
     open my $fh, '<', "$FindBin::Bin/../BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html"
@@ -336,6 +342,21 @@ like($template, qr/name="pref_artist_repeat_mode"/,
     'settings expose the artist repeat identity policy');
 like($template, qr/value="shared_artist".*value="primary_artist".*value="exact_bliss_credit"/s,
     'artist repeat identity policy offers all three shared contract values');
+like(
+    $strings,
+    qr/BLISSMIXERLAB_ARTIST_REPEAT_MODE_DESC.*?<b>Any shared credited artist:<\/b>.*?<br\/><br\/>.*?<b>Primary artist only:<\/b>.*?<br\/><br\/>.*?<b>Exact Bliss artist credit:<\/b>.*?<br\/><br\/>The first two options prefer MusicBrainz artist IDs/s,
+    'artist repeat tooltip follows the structured upstream tooltip style',
+);
+unlike(
+    $strings,
+    qr/<b>Identity matching:<\/b>/,
+    'identity fallback note is an unlabelled final paragraph',
+);
+unlike(
+    $strings,
+    qr/BLISSMIXERLAB_ARTIST_REPEAT_EXACT\n\tEN\t[^\n]*\(legacy\)/,
+    'exact-credit option label does not expose the implementation-history qualifier',
+);
 like($template, qr/IF\s+guidance_provider_section_count\s*>\s*0/,
     'settings template gates the discoverable-guidance section on the explicit count');
 like($guidance_partial, qr/provider\.controls/,

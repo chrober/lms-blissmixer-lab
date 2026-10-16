@@ -104,16 +104,16 @@ BLISSMIXERLAB_ARTIST_REPEAT_MODE
 	EN	Artist repeat identity
 
 BLISSMIXERLAB_ARTIST_REPEAT_MODE_DESC
-	EN	Controls when two track credits count as the same artist for the upstream artist repeat window. MusicBrainz artist IDs are preferred, followed by Lyrion contributor identity and normalized names.
+	EN	<b>Any shared credited artist:</b> Treats tracks as the same artist when any credited artist matches, including solo and collaboration credits.<br/><br/><b>Primary artist only:</b> Compares only each track's primary artist; guest artists do not create a conflict.<br/><br/><b>Exact Bliss artist credit:</b> Compares the complete artist text stored in bliss.db. This was the previous default behavior; differently written collaboration credits may count as different artists.<br/><br/>The first two options prefer MusicBrainz artist IDs, followed by Lyrion contributor IDs and normalized names.
 
 BLISSMIXERLAB_ARTIST_REPEAT_SHARED
 	EN	Any shared credited artist
 
 BLISSMIXERLAB_ARTIST_REPEAT_PRIMARY
-	EN	Same primary artist
+	EN	Primary artist only
 
 BLISSMIXERLAB_ARTIST_REPEAT_EXACT
-	EN	Exact Bliss artist credit (legacy)
+	EN	Exact Bliss artist credit
 
 BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
 	EN	Last-played influence
