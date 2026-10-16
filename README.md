@@ -25,6 +25,9 @@ currently contributes:
 
   - Learned-matrix weighting with configurable influence when Bliss Mixer uses
     **Adaptive Weightings**.
+  - MBID-aware artist repeat identities with selectable shared-artist,
+    primary-artist, and exact-credit policies. The snapshot is derived from
+    Lyrion track contributors and remains a hard filter before reranking.
   - Optional guidance-provider integration through the shared host contract.
     Lab discovers compatible providers at runtime, keeps them disabled until
     explicitly enabled, and applies their bounded signals only to the existing

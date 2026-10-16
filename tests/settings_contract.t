@@ -124,7 +124,7 @@ is(
 my (undef, @preference_names) = Plugins::BlissMixerLab::Settings->prefs();
 is_deeply(
     \@preference_names,
-    [qw(learned_blend last_played_influence last_played_horizon_days library_age_influence library_age_horizon_days triplets_backup_path)],
+    [qw(learned_blend artist_repeat_mode last_played_influence last_played_horizon_days library_age_influence library_age_horizon_days triplets_backup_path)],
     'settings expose only user-meaningful experimental preferences',
 );
 
@@ -332,6 +332,10 @@ my $guidance_script = do {
 };
 like($template, qr/PROCESS\s+"plugins\/BlissGuidance\/settings\/guidance-provider-controls\.html"/,
     'settings template has a dedicated discoverable-guidance section');
+like($template, qr/name="pref_artist_repeat_mode"/,
+    'settings expose the artist repeat identity policy');
+like($template, qr/value="shared_artist".*value="primary_artist".*value="exact_bliss_credit"/s,
+    'artist repeat identity policy offers all three shared contract values');
 like($template, qr/IF\s+guidance_provider_section_count\s*>\s*0/,
     'settings template gates the discoverable-guidance section on the explicit count');
 like($guidance_partial, qr/provider\.controls/,
