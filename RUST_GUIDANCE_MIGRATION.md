@@ -1,8 +1,8 @@
 # Migrating Lab reranking semantics to Rust guidance hosts
 
-> **Status (2026-10-14): Library Signals native path delivered; direct Last.fm
-> acquisition implemented on coordinated feature branches.**
-> `bliss-mixer` 0.11.4 exposes a Library Signals guidance-host endpoint with
+> **Status (2026-10-18): Library Signals and direct Last.fm native paths are
+> implemented and released on the canonical branches.**
+> `bliss-mixer` v0.11.5 exposes the guidance-host endpoint with
 > bounded SPI execution and `selection_trace_v1`. Lab already submits its
 > native-provider DSTM candidate pool to that endpoint. The direct API Key path
 > now uses the same endpoint with frozen seed anchors and candidate identities;
@@ -16,8 +16,10 @@ parity first; the Rust hosts may later optimize the execution.
 
 The separate Lab-plugin integration with discoverable Lyrion providers is
 specified in [GUIDANCE_PROVIDER_HOST_INTEGRATION.md](GUIDANCE_PROVIDER_HOST_INTEGRATION.md).
-That integration uses a native provider from Lab's Perl-side DSTM flow; it does
-not itself make the forked `bliss-mixer` binary a Rust SPI host.
+The shared Perl host discovers providers, resolves effective policy, and starts
+the DSTM request. The forked `bliss-mixer` endpoint then acts as the native SPI
+host for bounded candidate scoring and returns `selection_trace_v1` to Lab's
+unchanged presentation and logging layer.
 
 ## Scope
 
@@ -46,11 +48,12 @@ acoustic similarity, repeat windows, genre filters, and route validity.
 | Last.fm track guidance | `bliss-guidance-lastfm` track channel | Recording identity/support, bounded track influence, provenance |
 | Last-played signal | `bliss-guidance-library-signals` | Candidate timestamp, `as_of`, horizon, signed influence |
 | Library-age signal | `bliss-guidance-library-signals` | Candidate `added` timestamp, `as_of`, horizon, signed influence |
-| Play-count signal | Existing play-count provider, later generalized | Same bounded global-candidate signal model |
+| Play-count signal | `bliss-guidance-library-signals` | Same bounded global-candidate signal model, optionally sourced from APC |
 
 `bliss-guidance-library-signals` is the delivered evolution of the narrowly
-scoped play-count provider. APC remains a separate future provider; it must not
-be silently mixed into the built-in Lyrion metadata provider.
+scoped play-count provider. It uses Lyrion metadata by default and can
+explicitly source play count and last played from APC. APC-only skip history,
+DPSV, and detailed listening history remain separate future guidance semantics.
 
 ## Shared signal semantics
 
@@ -205,7 +208,7 @@ influence, horizon, target mode, timeout, and per-job overrides.
 6. Integrate the optimizer host and compare Perl/Rust decisions on frozen
    candidate fixtures.
 7. Deliver the first `bliss-mixer` native host endpoint. **Delivered in
-   `bliss-mixer` 0.11.4.**
+   `bliss-mixer` v0.11.5.**
 8. Keep Lab's normal DSTM candidate selection and logging host-owned while
    extending its existing endpoint path to additional providers; consume richer
    selection traces only after parity, failure, and performance tests pass.
@@ -222,8 +225,8 @@ influence, horizon, target mode, timeout, and per-job overrides.
   bounded concurrency and retries, positive and negative caching, and
   network-free scoring.
 - The coordinated SPI, native-provider, mixer-host, and Lab changes are on
-  feature branches pending remote pinning, release builds, and live Pi
-  acceptance testing.
+  their canonical branches and have been released. Broader outage,
+  cross-platform, and performance acceptance testing remains ongoing.
 
 ## Acceptance criteria
 

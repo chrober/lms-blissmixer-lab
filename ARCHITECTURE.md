@@ -110,9 +110,11 @@ timestamps. Debug logging reports each selected candidate's date-derived signal
 and multiplier, followed by the combined reranking weight and the dominant
 boost.
 
-Local library signals deliberately do not rely on Alternative Play Count (APC).
-APC can later be represented by a separate provider with its own semantics;
-this Lab feature uses only Lyrion's built-in persistent metadata.
+Library Signals uses Lyrion's built-in persistent metadata by default. When
+Alternative Play Count (APC) is installed and explicitly selected, the same
+provider can source play count and last played from APC while retaining
+Lyrion's first-seen timestamp for library age. APC-only skip history, DPSV, and
+other richer listening signals remain separate future guidance semantics.
 
 The analyser and mixer may access SQLite concurrently. While upstream analysis
 is running, the sidecar keeps an existing mixer available and suppresses

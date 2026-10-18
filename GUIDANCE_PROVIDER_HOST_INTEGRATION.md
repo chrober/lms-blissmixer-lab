@@ -170,5 +170,7 @@ than keep two implementations indefinitely.
 - Replacing the compatible LastMix adapter with a second native acquisition
   path.
 - Automatic installation of provider plugins.
-- Alternative Play Count guidance; that remains a separate future provider.
+- APC-only skip history, DPSV, and other detailed listening-history guidance.
+  Basic APC play count and last played are already available through Library
+  Signals when that source is selected.
 - Moving Lab's established selection and log formatting into Rust.
