@@ -96,9 +96,8 @@ sub score_enabled_providers {
 
         my $provider_id = $provider->{provider_id} || '';
         next unless $provider_id =~ /^[A-Za-z0-9._-]+$/;
-        my $result = eval {
-            my $config = $native_config->($provider, $effective, {});
-            $score_batch->($config, {
+        my $result = Plugins::BlissMixerLab::GuidanceProviderAdapter::invoke_provider(
+            $provider, $resolved, $operations, {}, {
                 job_id => 'blissmixerlab',
                 request_id => 'dstm-candidate-pool',
                 deadline_ms => 500,
@@ -110,8 +109,8 @@ sub score_enabled_providers {
                     context_track_ids => \@context_ids,
                 },
                 candidates => \@candidates,
-            }, $effective, $provider);
-        };
+            }
+        );
         unless (ref($result) eq 'HASH' && $result->{valid}
             && ref($result->{signals}) eq 'ARRAY') {
             push @details, { provider_id => $provider_id, status => 'neutral' };
