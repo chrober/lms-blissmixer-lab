@@ -36,7 +36,9 @@ Three layers now have separate responsibilities:
    `10 ** (influence / 100 * score)`. Unsupported target-share modes
    are not silently approximated as bounded influence. Scores naming
    candidates outside the frozen Bliss batch, undefined/invalid scores,
-   missing channels, uniform scores and provider failures are neutral.
+   missing channels, zero/invalid confidence, uniform scores and provider
+   failures are neutral. Optional SPI confidence attenuates effective
+   influence; absent confidence defaults to 1.
    Independent channels/provider weights multiply only after the host's
    existing eligibility and repeat checks. Native provider options
    and trusted resources must come from the registered provider;
