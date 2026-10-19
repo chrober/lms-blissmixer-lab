@@ -138,7 +138,9 @@ sub score_enabled_providers {
             my %distinct;
             for my $id (keys %latest) {
                 next unless exists $latest{$id}{$channel};
-                $distinct{sprintf('%.12f', $latest{$id}{$channel})} = 1;
+                my $value = $latest{$id}{$channel};
+                $value = 0 if $value == 0; # -0 and +0 are the same signal.
+                $distinct{sprintf('%.12f', $value)} = 1;
             }
             $variation{$channel} = keys(%distinct) > 1 ? 1 : 0;
         }
