@@ -348,12 +348,20 @@ sub _bounded_positive_score {
     return $value;
 }
 
-sub _candidate_for_track {
-    my $track = shift;
+# Generic SPI track identity: expose existing LMS data with optional, host-
+# resolved database_file. Never infer keys from titles, URLs, or MBIDs.
+sub candidate_identity_for_track {
+    my ($track, $resolve_database_file) = @_;
     return undef unless $track;
     my $candidate_id = eval { $track->url };
     return undef unless defined $candidate_id && length $candidate_id;
     my $urlmd5 = eval { $track->urlmd5 };
+    my $database_file;
+    if (ref($resolve_database_file) eq 'CODE') {
+        $database_file = eval { $resolve_database_file->($track) };
+        $database_file = undef if !defined $database_file || ref($database_file)
+            || !length($database_file) || $database_file =~ /\0/;
+    }
     my $recording_mbid = eval { $track->musicbrainz_id };
     my $artist_mbid = eval {
         $track->artist ? $track->artist->musicbrainz_id : undef
@@ -361,7 +369,7 @@ sub _candidate_for_track {
     return {
         candidate_id => "$candidate_id",
         (defined $urlmd5 && length $urlmd5 ? (lms_urlmd5 => "$urlmd5") : ()),
-        database_file => undef,
+        database_file => $database_file,
         title => eval { $track->title } || undef,
         artist => eval { $track->artistName } || undef,
         album => eval { $track->albumname } || undef,
@@ -370,6 +378,11 @@ sub _candidate_for_track {
         artist_mbids => defined $artist_mbid && length $artist_mbid
             ? ["$artist_mbid"] : [],
     };
+}
+
+# Compatibility wrapper used by existing Last.fm and Library Signals paths.
+sub _candidate_for_track {
+    return candidate_identity_for_track($_[0]);
 }
 
 sub _valid_source {
