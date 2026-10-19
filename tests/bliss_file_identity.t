@@ -36,6 +36,8 @@ for my $row (
     ['Song.mp3', undef],
     ['Ignored.flac', 1],
     ['Track.mp3', undef],
+    ['duplicate/track.flac', undef],
+    ['duplicate/track.flac', undef],
 ) {
     $db->do('INSERT INTO TracksV2(File,Ignore) VALUES(?,?)', undef, @$row);
 }
@@ -71,6 +73,9 @@ is($resolver->resolve(IdentityTrack->new(
 ), $to_key), 'Disc/Recording.flac.CUE_TRACK.2',
     'resolves the existing CUE_TRACK key, without guessing a new identity');
 
+ok(!defined $resolver->resolve(IdentityTrack->new(
+    'file:///music/duplicate/track.flac','/music/duplicate/track.flac'
+), $to_key), 'duplicate exact database keys are not treated as unambiguous');
 ok(!defined $resolver->resolve(IdentityTrack->new(
     'file:///music/artist/album/Track.mp3','/music/artist/album/Track.mp3'
 ), $to_key), 'case differences cannot silently match another key');
@@ -113,7 +118,7 @@ ok(!-e $missing, 'missing input database remains missing');
 my $readback = DBI->connect("dbi:SQLite:dbname=$db_path",'','',
     {RaiseError=>1, sqlite_open_flags=>1});
 my ($rows) = $readback->selectrow_array('SELECT count(*) FROM TracksV2');
-is($rows, 8, 'test source was not changed');
+is($rows, 10, 'test source was not changed');
 $readback->disconnect();
 
 done_testing();
