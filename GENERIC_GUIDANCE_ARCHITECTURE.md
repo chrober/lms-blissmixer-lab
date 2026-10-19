@@ -42,6 +42,17 @@ Three layers now have separate responsibilities:
    and trusted resources must come from the registered provider;
    playlist requests cannot pass executable or SQLite paths.
 
+**Fail-closed candidate generation:** Additional providers do **not** alter
+the original Bliss request size or its shuffle choice. They can only rerank
+the pool Bliss would already have returned, so provider timeout/failure,
+missing/uniform scores, or disabling an additional provider restores the
+same unmodified original candidate set and selection/logging branch. This
+conservative v1 limit means that in plain DSTM mode, the returned pool
+may contain only the requested song count: reranking can change ordering
+but cannot increase candidate recall. Expanding the pool for feature
+scoring must be a separate, opt-in candidate-source change with an
+explicit Bliss-only failure path and frozen A/B tests.
+
 The additional-provider host path passes anchor and candidate IDs plus
 their optional root-scoped `database_file` keys using the existing
 `_trackToPath` formatting. It refuses ambiguous media roots and paths
