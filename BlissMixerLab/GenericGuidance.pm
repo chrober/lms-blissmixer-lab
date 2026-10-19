@@ -125,7 +125,11 @@ sub score_enabled_providers {
             next unless defined $channel && exists $weights_by_channel{$channel};
             my $value = $signal->{score};
             next unless _valid_score($value);
-            $value = _bounded_score($value);
+            my $confidence = exists $signal->{confidence}
+                ? $signal->{confidence} : 1;
+            next unless _valid_score($confidence)
+                && $confidence >= 0 && $confidence <= 1;
+            $value = _bounded_score($value) * $confidence;
             $latest{$id}{$channel} = $value;
         }
 
