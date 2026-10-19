@@ -1366,13 +1366,11 @@ sub _dstmMix {
                 $lastfmWeighting, $playCountInfluence
             );
             $poolMultiplier = 10
-                if ($lastfmTrackGuidance || $localLibraryWeighting
-                    || $additionalInfluence)
+                if ($lastfmTrackGuidance || $localLibraryWeighting)
                 && $poolMultiplier < 10;
             my $requestCount = $dstm_tracks * $poolMultiplier;
             my $expandedSelection = $lastfmWeighting || $playCountWeighting
-                || $lastfmTrackGuidance || $localLibraryWeighting
-                || $additionalInfluence;
+                || $lastfmTrackGuidance || $localLibraryWeighting;
             my $shuffle = $expandedSelection ? 0 : 1;
             main::DEBUGLOG && $log->debug(sprintf(
                 'Candidate generation: strategy=%s, seeds=%d, requested=%d, selecting=%d, pool multiplier=%d, shuffle=%d, Last.fm artist mode=%s, artist probability=%d%%, artist influence=%d%%, play-count influence=%+d, Last.fm track influence=%d%%, last-played influence=%+d (horizon=%dd), library-age influence=%+d (horizon=%dd)',
