@@ -67,17 +67,11 @@ sub profile_from_provider {
             as_of_unix_seconds => int($as_of),
         });
         my @candidates = map {
-            my $candidate = _candidate_for_track(
-                $_, $operations->{database_file_resolver}
-            );
-            my $urlmd5 = $candidate ? $candidate->{lms_urlmd5} : undef;
-            $candidate && defined($urlmd5) && $urlmd5 =~ /^[a-f0-9]+$/i
-                ? ({
-                    candidate_id => $candidate->{candidate_id},
-                    lms_urlmd5 => $urlmd5,
-                    (defined $candidate->{database_file}
-                        ? (database_file => $candidate->{database_file}) : ()),
-                }) : ()
+            my $candidate_id = eval { $_->url };
+            my $urlmd5 = eval { $_->urlmd5 };
+            defined($candidate_id) && length($candidate_id)
+                && defined($urlmd5) && $urlmd5 =~ /^[a-f0-9]+$/i
+                ? ({ candidate_id => "$candidate_id", lms_urlmd5 => "$urlmd5" }) : ()
         } @$tracks;
         $result = $score_batch->($config, {
             job_id => 'blissmixerlab',
@@ -125,16 +119,14 @@ sub lastfm_evidence_from_provider {
         my @anchors;
         my @context_ids;
         for my $index (0 .. $#$seeds) {
-            my $candidate = _candidate_for_track(
-                $seeds->[$index], $operations->{database_file_resolver}
-            );
+            my $candidate = _candidate_for_track($seeds->[$index]);
             next unless $candidate;
             my $anchor_id = 'seed-' . ($index + 1);
             push @context_ids, $anchor_id;
             push @anchors, { anchor_id => $anchor_id, %$candidate };
         }
         my @candidates = grep { defined $_ }
-            map { _candidate_for_track($_, $operations->{database_file_resolver}) } @$tracks;
+            map { _candidate_for_track($_) } @$tracks;
         $result = $score_batch->($config, {
             job_id => 'blissmixerlab',
             request_id => 'dstm-candidate-pool',
@@ -357,17 +349,11 @@ sub _bounded_positive_score {
 }
 
 sub _candidate_for_track {
-    my ($track, $file_resolver) = @_;
+    my $track = shift;
     return undef unless $track;
     my $candidate_id = eval { $track->url };
     return undef unless defined $candidate_id && length $candidate_id;
     my $urlmd5 = eval { $track->urlmd5 };
-    # The host may supply a verified exact TracksV2.File identity. Other
-    # providers and existing callers are unchanged when no resolver exists.
-    my $database_file = ref($file_resolver) eq 'CODE'
-        ? eval { $file_resolver->($track) } : undef;
-    $database_file = undef if !defined $database_file || ref($database_file)
-        || !length($database_file) || $database_file =~ /\0/;
     my $recording_mbid = eval { $track->musicbrainz_id };
     my $artist_mbid = eval {
         $track->artist ? $track->artist->musicbrainz_id : undef
@@ -375,7 +361,7 @@ sub _candidate_for_track {
     return {
         candidate_id => "$candidate_id",
         (defined $urlmd5 && length $urlmd5 ? (lms_urlmd5 => "$urlmd5") : ()),
-        database_file => $database_file,
+        database_file => undef,
         title => eval { $track->title } || undef,
         artist => eval { $track->artistName } || undef,
         album => eval { $track->albumname } || undef,
