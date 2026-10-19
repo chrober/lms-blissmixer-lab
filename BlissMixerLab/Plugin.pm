@@ -2157,6 +2157,15 @@ sub _additionalGuidanceProviders {
     my $all_state = $labprefs->get('guidance_provider_state');
     $all_state = { schema_version => 1, providers => {} }
         unless ref($all_state) eq 'HASH';
+    # No change to legacy mixing or provider-discovery logging when only
+    # the historical two providers are configured.
+    my $states = ref($all_state->{providers}) eq 'HASH'
+        ? $all_state->{providers} : {};
+    my @extra_enabled = grep {
+        $_ ne 'lastfm' && $_ ne 'library-signals'
+            && ref($states->{$_}) eq 'HASH' && $states->{$_}{enabled}
+    } keys %$states;
+    return [] unless @extra_enabled;
     my $discovery = eval { Plugins::BlissGuidance::Discovery::discover() };
     return [] unless ref($discovery) eq 'HASH'
         && ref($discovery->{providers}) eq 'ARRAY';
