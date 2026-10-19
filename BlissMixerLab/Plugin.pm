@@ -36,6 +36,7 @@ use Plugins::BlissMixerLab::Survey;
 use Plugins::BlissMixerLab::LastFmTrackSimilarity;
 use Plugins::BlissMixerLab::LocalLibrarySignals;
 use Plugins::BlissMixerLab::GuidanceProviderAdapter;
+use Plugins::BlissMixerLab::GenericGuidance;
 use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
 
 use lib dirname(__FILE__);
@@ -1344,6 +1345,9 @@ sub _dstmMix {
             my $libraryAgeInfluence = _libraryAgeInfluence();
             my $lastPlayedHorizonDays = _lastPlayedHorizonDays();
             my $libraryAgeHorizonDays = _libraryAgeHorizonDays();
+            my $additionalProviders = _additionalGuidanceProviders();
+            my $additionalInfluence =
+                Plugins::BlissMixerLab::GenericGuidance::has_influence($additionalProviders);
             my $providerGuidance = _librarySignalsGuidanceContext();
             my $providerLocalSignals = $providerGuidance->{enabled} ? 1 : 0;
             if ($providerLocalSignals) {
@@ -1533,6 +1537,27 @@ sub _dstmMix {
                     } else {
                         main::DEBUGLOG && $log->debug("Num tracks to use:" . scalar(@$tracks));
                         if (scalar @$tracks > 0) {
+                            my $additionalGuidance = $additionalInfluence
+                                ? eval {
+                                    Plugins::BlissMixerLab::GenericGuidance::score_enabled_providers(
+                                        $additionalProviders, \@seedsToUse, \@trackObjs,
+                                        {
+                                            database_file => sub {
+                                                return _guidanceDatabaseFile(
+                                                    $mediaDirs, $_[0]
+                                                );
+                                            },
+                                            native_config => sub {
+                                                return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
+                                            },
+                                            score_batch => sub {
+                                                return _scoreGuidanceThroughMixer(
+                                                    $mixerPort, @_
+                                                );
+                                            },
+                                        },
+                                    )
+                                } : undef;
                             my $localSignals = $providerLocalSignals
                                 ? Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_provider(
                                     \@trackObjs,
@@ -1574,6 +1599,7 @@ sub _dstmMix {
                                     $lastfmArtistStrategy eq 'bounded_influence'
                                         ? $lastfmArtistInfluence : 0,
                                     $providerLocalSignals,
+                                    $additionalGuidance,
                                 );
                                 if ($lastfmContext->{source} eq 'api_key') {
                                     _selectViaNativeLastFm(
@@ -1583,11 +1609,13 @@ sub _dstmMix {
                                 else {
                                     _selectViaLastFm(@lastfmArgs);
                                 }
-                            } elsif ($playCountWeighting || $localLibraryWeighting || $providerLocalSignals) {
+                            } elsif ($playCountWeighting || $localLibraryWeighting || $providerLocalSignals
+                                || ($additionalGuidance && $additionalGuidance->{active})) {
                                 my $weightedUrls = _selectWeightedCandidates(
                                     \@trackObjs, $dstm_tracks, $playCountInfluence,
                                     undef, 0, undef, undef, 0, $strategy,
                                     $localSignals, 0, $providerLocalSignals,
+                                    $additionalGuidance,
                                 );
                                 $cb->($client, $weightedUrls);
                             } else {
@@ -1716,7 +1744,8 @@ sub _guidanceHostPayload {
 sub _selectViaNativeLastFm {
     my ($seeds, $trackObjs, $finalCount, $cb, $artistWeighting,
         $targetPercent, $playCountInfluence, $trackGuidance, $strategy,
-        $localSignals, $artistInfluence, $providerSignals, $context) = @_;
+        $localSignals, $artistInfluence, $providerSignals,
+        $additionalGuidance, $context) = @_;
     $artistWeighting ||= 0;
     $targetPercent ||= 0;
     $playCountInfluence ||= 0;
@@ -1812,6 +1841,7 @@ sub _selectViaNativeLastFm {
         $localSignals,
         $artistInfluence,
         $providerSignals,
+        $additionalGuidance,
     );
     $cb->($weightedUrls);
 }
@@ -1830,7 +1860,8 @@ sub _lastfmTrackNameKey {
 sub _selectViaLastFm {
     my ($seeds, $trackObjs, $finalCount, $cb, $artistWeighting,
         $targetPercent, $playCountInfluence, $trackGuidance, $strategy,
-    $localSignals, $artistInfluence, $providerSignals) = @_;
+    $localSignals, $artistInfluence, $providerSignals,
+    $additionalGuidance) = @_;
     $artistWeighting ||= 0;
     $targetPercent ||= 0;
     $playCountInfluence ||= 0;
@@ -1903,7 +1934,7 @@ sub _selectViaLastFm {
             $cb->(_selectWeightedCandidates(
                 $trackObjs, $finalCount, $playCountInfluence,
                 undef, 0, undef, undef, 0, $strategy, $localSignals,
-                $artistInfluence, $providerSignals
+                $artistInfluence, $providerSignals, $additionalGuidance
             ));
             return;
         }
@@ -1927,6 +1958,7 @@ sub _selectViaLastFm {
             $localSignals,
             $artistInfluence,
             $providerSignals,
+            $additionalGuidance,
         ));
     };
 
@@ -2116,6 +2148,79 @@ sub _guidanceSourceDebugLine {
     );
 }
 
+# Provider-neutral discovery for all *additional* SPI providers. Last.fm and
+# Library Signals intentionally keep their established compatibility adapters
+# until their existing policy/logging contracts can be migrated with parity.
+sub _additionalGuidanceProviders {
+    my $all_state = $labprefs->get('guidance_provider_state');
+    $all_state = { schema_version => 1, providers => {} }
+        unless ref($all_state) eq 'HASH';
+    # No change to legacy mixing or provider-discovery logging when only
+    # the historical two providers are configured.
+    my $states = ref($all_state->{providers}) eq 'HASH'
+        ? $all_state->{providers} : {};
+    my @extra_enabled = grep {
+        $_ ne 'lastfm' && $_ ne 'library-signals'
+            && ref($states->{$_}) eq 'HASH' && $states->{$_}{enabled}
+    } keys %$states;
+    return [] unless @extra_enabled;
+    my $discovery = eval { Plugins::BlissGuidance::Discovery::discover() };
+    return [] unless ref($discovery) eq 'HASH'
+        && ref($discovery->{providers}) eq 'ARRAY';
+    my @providers;
+    for my $provider (@{$discovery->{providers}}) {
+        next unless ref($provider) eq 'HASH' && $provider->{available};
+        my $id = $provider->{provider_id} || '';
+        # Reserved solely for exact backwards-compatible migration.
+        next if $id eq 'lastfm' || $id eq 'library-signals';
+        next unless $id =~ /^[A-Za-z0-9._-]+$/;
+        my $host_state = Plugins::BlissGuidance::Policy::host_state(
+            $all_state, $id,
+        );
+        next unless $host_state->{enabled};
+        my $resolved = eval {
+            Plugins::BlissGuidance::Policy::resolve(
+                $provider, $host_state, {},
+            )
+        };
+        next unless ref($resolved) eq 'HASH'
+            && $resolved->{valid} && $resolved->{enabled};
+        push @providers, { provider => $provider, resolved => $resolved };
+    }
+    return \@providers;
+}
+
+# Provide existing Bliss-compatible relative keys, without database queries.
+# Refuse URLs outside the configured music roots, overlapping roots, and
+# anything that cannot be converted unambiguously.
+sub _guidanceDatabaseFile {
+    my ($roots, $track) = @_;
+    return undef unless ref($roots) eq 'ARRAY' && $track;
+    my $url = eval { $track->url };
+    return undef unless defined $url && $url =~ m{^file:}i;
+    my $path = eval { $track->path };
+    return undef unless defined $path && length $path;
+    my $normalized_path = $path;
+    $normalized_path =~ s{\\}{/}g if main::ISWINDOWS;
+    my @matches;
+    for my $root (@$roots) {
+        next unless defined $root && length $root;
+        my $normalized_root = $root;
+        $normalized_root =~ s{\\}{/}g if main::ISWINDOWS;
+        $normalized_root =~ s{/$}{} unless $normalized_root eq '/';
+        next unless length $normalized_root;
+        next unless index($normalized_path, $normalized_root) == 0;
+        next unless $normalized_root eq '/'
+            || substr($normalized_path, length($normalized_root), 1) eq '/';
+        push @matches, $root;
+    }
+    return undef unless @matches == 1;
+    my $key = eval { _trackToPath([ $matches[0] ], $track) };
+    return undef unless defined $key && !ref($key)
+        && length $key && $key !~ /\0/;
+    return $key;
+}
+
 sub _librarySignalsGuidanceContext {
     my $all_state = $labprefs->get('guidance_provider_state');
     $all_state = { schema_version => 1, providers => {} }
@@ -2185,7 +2290,8 @@ sub _libraryAgeHorizonDays {
 sub _selectWeightedCandidates {
     my ($trackObjs, $finalCount, $playCountInfluence, $lastfmArtists,
         $lastfmTarget, $random, $lastfmTracks, $trackGuidance, $strategy,
-        $localSignals, $artistInfluence, $providerSignals) = @_;
+        $localSignals, $artistInfluence, $providerSignals,
+        $additionalGuidance) = @_;
     $trackGuidance ||= 0;
     $strategy ||= 'unknown';
     $artistInfluence ||= 0;
@@ -2196,7 +2302,8 @@ sub _selectWeightedCandidates {
     $lastfmTarget = 0 if $artistInfluence;
 
     my $trackWeightCallback = $trackGuidance || $artistInfluence
-        || ($localSignals && $localSignals->{active}) ? sub {
+        || ($localSignals && $localSignals->{active})
+        || ($additionalGuidance && $additionalGuidance->{active}) ? sub {
         my ($track, $entry) = @_;
         my $weight = 1;
         if ($artistInfluence && $lastfmArtists) {
@@ -2236,6 +2343,13 @@ sub _selectWeightedCandidates {
                     if exists $signals->{$field};
             }
             $weight *= $signals->{combined_weight} || 1;
+        }
+        if ($additionalGuidance && $additionalGuidance->{active}) {
+            my $url = eval { $track->url };
+            my $value = $url && $additionalGuidance->{by_url}{$url}
+                ? $additionalGuidance->{by_url}{$url}{combined_weight}
+                : undef;
+            $weight *= $value if defined $value && $value > 0;
         }
         return $weight;
     } : undef;

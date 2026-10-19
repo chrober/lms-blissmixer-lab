@@ -40,6 +40,28 @@ sub write_candidate_identity_artifact {
     };
 }
 
+# Shared transport for native SPI v2 providers. Provider-specific behavior
+# belongs in the optional caller-supplied request/response adapter, not here.
+# A failed/disabled provider contributes no scores.
+sub invoke_provider {
+    my ($provider, $resolved, $operations, $trusted_context, $request) = @_;
+    return undef unless ref($provider) eq 'HASH'
+        && ref($resolved) eq 'HASH'
+        && $resolved->{valid} && $resolved->{enabled}
+        && ref($operations) eq 'HASH' && ref($request) eq 'HASH';
+    my $native_config = $operations->{native_config};
+    my $score_batch = $operations->{score_batch};
+    return undef unless ref($native_config) eq 'CODE'
+        && ref($score_batch) eq 'CODE';
+    my $effective = ref($resolved->{effective}) eq 'HASH'
+        ? $resolved->{effective} : {};
+    $trusted_context = {} unless ref($trusted_context) eq 'HASH';
+    return eval {
+        my $config = $native_config->($provider, $effective, $trusted_context);
+        $score_batch->($config, $request, $effective, $provider);
+    };
+}
+
 sub profile_from_provider {
     my ($tracks, $provider, $resolved_policy, $as_of, $operations) = @_;
     $tracks = [] unless ref($tracks) eq 'ARRAY';
@@ -62,10 +84,7 @@ sub profile_from_provider {
     my $result;
     eval {
         $artifact = write_candidate_identity_artifact($tracks, $directory);
-        $config = $native_config->($provider, $effective, {
-            candidate_identity_artifact => $artifact,
-            as_of_unix_seconds => int($as_of),
-        });
+
         my @candidates = map {
             my $candidate_id = eval { $_->url };
             my $urlmd5 = eval { $_->urlmd5 };
@@ -73,7 +92,10 @@ sub profile_from_provider {
                 && defined($urlmd5) && $urlmd5 =~ /^[a-f0-9]+$/i
                 ? ({ candidate_id => "$candidate_id", lms_urlmd5 => "$urlmd5" }) : ()
         } @$tracks;
-        $result = $score_batch->($config, {
+        $result = invoke_provider($provider, $resolved_policy, $operations, {
+            candidate_identity_artifact => $artifact,
+            as_of_unix_seconds => int($as_of),
+        }, {
             job_id => 'blissmixerlab',
             request_id => 'dstm-candidate-pool',
             deadline_ms => 500,
@@ -115,7 +137,7 @@ sub lastfm_evidence_from_provider {
             ? $resolved_policy->{effective} : {};
         my $trusted_context = ref($operations->{trusted_context}) eq 'HASH'
             ? $operations->{trusted_context} : {};
-        $config = $native_config->($provider, $effective, $trusted_context);
+
         my @anchors;
         my @context_ids;
         for my $index (0 .. $#$seeds) {
@@ -127,18 +149,20 @@ sub lastfm_evidence_from_provider {
         }
         my @candidates = grep { defined $_ }
             map { _candidate_for_track($_) } @$tracks;
-        $result = $score_batch->($config, {
-            job_id => 'blissmixerlab',
-            request_id => 'dstm-candidate-pool',
-            context => {
-                scope => 'global',
-                left_anchor_id => undef,
-                right_anchor_id => undef,
-                context_track_ids => \@context_ids,
-            },
-            anchors => \@anchors,
-            candidates => \@candidates,
-        });
+        $result = invoke_provider($provider, $resolved_policy, $operations,
+            $trusted_context, {
+                job_id => 'blissmixerlab',
+                request_id => 'dstm-candidate-pool',
+                context => {
+                    scope => 'global',
+                    left_anchor_id => undef,
+                    right_anchor_id => undef,
+                    context_track_ids => \@context_ids,
+                },
+                anchors => \@anchors,
+                candidates => \@candidates,
+            }
+        );
     };
     return $neutral
         unless ref($result) eq 'HASH' && $result->{valid}
@@ -348,12 +372,20 @@ sub _bounded_positive_score {
     return $value;
 }
 
-sub _candidate_for_track {
-    my $track = shift;
+# Generic SPI track identity: expose existing LMS data with optional, host-
+# resolved database_file. Never infer keys from titles, URLs, or MBIDs.
+sub candidate_identity_for_track {
+    my ($track, $resolve_database_file) = @_;
     return undef unless $track;
     my $candidate_id = eval { $track->url };
     return undef unless defined $candidate_id && length $candidate_id;
     my $urlmd5 = eval { $track->urlmd5 };
+    my $database_file;
+    if (ref($resolve_database_file) eq 'CODE') {
+        $database_file = eval { $resolve_database_file->($track) };
+        $database_file = undef if !defined $database_file || ref($database_file)
+            || !length($database_file) || $database_file =~ /\0/;
+    }
     my $recording_mbid = eval { $track->musicbrainz_id };
     my $artist_mbid = eval {
         $track->artist ? $track->artist->musicbrainz_id : undef
@@ -361,7 +393,7 @@ sub _candidate_for_track {
     return {
         candidate_id => "$candidate_id",
         (defined $urlmd5 && length $urlmd5 ? (lms_urlmd5 => "$urlmd5") : ()),
-        database_file => undef,
+        database_file => $database_file,
         title => eval { $track->title } || undef,
         artist => eval { $track->artistName } || undef,
         album => eval { $track->albumname } || undef,
@@ -370,6 +402,11 @@ sub _candidate_for_track {
         artist_mbids => defined $artist_mbid && length $artist_mbid
             ? ["$artist_mbid"] : [],
     };
+}
+
+# Compatibility wrapper used by existing Last.fm and Library Signals paths.
+sub _candidate_for_track {
+    return candidate_identity_for_track($_[0]);
 }
 
 sub _valid_source {
