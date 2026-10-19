@@ -2150,6 +2150,70 @@ sub _guidanceSourceDebugLine {
     );
 }
 
+# Provider-neutral discovery for all *additional* SPI providers. Last.fm and
+# Library Signals intentionally keep their established compatibility adapters
+# until their existing policy/logging contracts can be migrated with parity.
+sub _additionalGuidanceProviders {
+    my $all_state = $labprefs->get('guidance_provider_state');
+    $all_state = { schema_version => 1, providers => {} }
+        unless ref($all_state) eq 'HASH';
+    my $discovery = eval { Plugins::BlissGuidance::Discovery::discover() };
+    return [] unless ref($discovery) eq 'HASH'
+        && ref($discovery->{providers}) eq 'ARRAY';
+    my @providers;
+    for my $provider (@{$discovery->{providers}}) {
+        next unless ref($provider) eq 'HASH' && $provider->{available};
+        my $id = $provider->{provider_id} || '';
+        # Reserved solely for exact backwards-compatible migration.
+        next if $id eq 'lastfm' || $id eq 'library-signals';
+        next unless $id =~ /^[A-Za-z0-9._-]+$/;
+        my $host_state = Plugins::BlissGuidance::Policy::host_state(
+            $all_state, $id,
+        );
+        next unless $host_state->{enabled};
+        my $resolved = eval {
+            Plugins::BlissGuidance::Policy::resolve(
+                $provider, $host_state, {},
+            )
+        };
+        next unless ref($resolved) eq 'HASH'
+            && $resolved->{valid} && $resolved->{enabled};
+        push @providers, { provider => $provider, resolved => $resolved };
+    }
+    return \@providers;
+}
+
+# Provide existing Bliss-compatible relative keys, without database queries.
+# Refuse URLs outside the configured music roots, overlapping roots, and
+# anything that cannot be converted unambiguously.
+sub _guidanceDatabaseFile {
+    my ($roots, $track) = @_;
+    return undef unless ref($roots) eq 'ARRAY' && $track;
+    my $url = eval { $track->url };
+    return undef unless defined $url && $url =~ m{^file:}i;
+    my $path = eval { $track->path };
+    return undef unless defined $path && length $path;
+    my $normalized_path = $path;
+    $normalized_path =~ s{\\}{/}g if main::ISWINDOWS;
+    my @matches;
+    for my $root (@$roots) {
+        next unless defined $root && length $root;
+        my $normalized_root = $root;
+        $normalized_root =~ s{\\}{/}g if main::ISWINDOWS;
+        $normalized_root =~ s{/$}{} unless $normalized_root eq '/';
+        next unless length $normalized_root;
+        next unless index($normalized_path, $normalized_root) == 0;
+        next unless $normalized_root eq '/'
+            || substr($normalized_path, length($normalized_root), 1) eq '/';
+        push @matches, $root;
+    }
+    return undef unless @matches == 1;
+    my $key = eval { _trackToPath([ $matches[0] ], $track) };
+    return undef unless defined $key && !ref($key)
+        && length $key && $key !~ /\0/;
+    return $key;
+}
+
 sub _librarySignalsGuidanceContext {
     my $all_state = $labprefs->get('guidance_provider_state');
     $all_state = { schema_version => 1, providers => {} }
