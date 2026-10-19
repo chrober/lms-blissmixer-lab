@@ -138,4 +138,26 @@ my $invalid=Plugins::BlissMixerLab::GenericGuidance::score_enabled_providers(
 );
 ok(!$invalid->{active},'non-finite signals are neutral');
 
+my $no_confidence=Plugins::BlissMixerLab::GenericGuidance::score_enabled_providers(
+    $entries,[],[$a,$b],{
+        native_config=>sub {return {}},
+        score_batch=>sub {return {valid=>1,signals=>[
+            {candidate_id=>$a->url,channel=>'genre',score=>0.9,confidence=>0},
+            {candidate_id=>$b->url,channel=>'genre',score=>-0.9,confidence=>0},
+        ]}},
+    }
+);
+ok(!$no_confidence->{active}, 'zero-confidence candidate signals remain neutral');
+
+my $bad_confidence=Plugins::BlissMixerLab::GenericGuidance::score_enabled_providers(
+    $entries,[],[$a,$b],{
+        native_config=>sub {return {}},
+        score_batch=>sub {return {valid=>1,signals=>[
+            {candidate_id=>$a->url,channel=>'genre',score=>0.9,confidence=>'nan'},
+            {candidate_id=>$b->url,channel=>'genre',score=>-0.9,confidence=>2},
+        ]}},
+    }
+);
+ok(!$bad_confidence->{active}, 'invalid provider confidence never changes ranking');
+
 done_testing();
