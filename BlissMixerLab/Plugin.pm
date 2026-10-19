@@ -36,7 +36,6 @@ use Plugins::BlissMixerLab::Survey;
 use Plugins::BlissMixerLab::LastFmTrackSimilarity;
 use Plugins::BlissMixerLab::LocalLibrarySignals;
 use Plugins::BlissMixerLab::GuidanceProviderAdapter;
-use Plugins::BlissMixerLab::BlissFileIdentity;
 use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
 
 use lib dirname(__FILE__);
@@ -817,25 +816,6 @@ sub _startsWith {
 }
 
 # Convert a track object into a path relative to music folder
-# Exact Lyrion-to-Bliss key bridge for optional SPI provider metadata.
-# Every key is verified read-only against TracksV2.File before exposure;
-# failure, missing database, and ambiguous roots are intentionally neutral.
-sub _verifiedGuidanceDatabaseFileResolver {
-    my $media_dirs = shift;
-    return undef unless ref($media_dirs) eq 'ARRAY' && @$media_dirs;
-    my $identity = eval {
-        Plugins::BlissMixerLab::BlissFileIdentity->open($dbPath, $media_dirs)
-    };
-    return undef unless $identity;
-    return sub {
-        my $track = shift;
-        return $identity->resolve($track, sub {
-            my ($root, $candidate) = @_;
-            return _trackToPath([$root], $candidate);
-        });
-    };
-}
-
 sub _trackToPath {
     my $mediaDirs = shift;
     my $track = shift;
@@ -1560,8 +1540,6 @@ sub _dstmMix {
                                     $providerGuidance->{resolved},
                                     int(time()),
                                     {
-                                        database_file_resolver =>
-                                            _verifiedGuidanceDatabaseFileResolver($mediaDirs),
                                         native_config => sub {
                                             return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
                                         },
@@ -1766,9 +1744,6 @@ sub _selectViaNativeLastFm {
         $seeds, $trackObjs, $context->{provider}, $context->{resolved},
         {
             trusted_context => $trustedContext,
-            database_file_resolver => _verifiedGuidanceDatabaseFileResolver(
-                Slim::Utils::Misc::getMediaDirs('audio')
-            ),
             native_config => sub {
                 return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
             },
