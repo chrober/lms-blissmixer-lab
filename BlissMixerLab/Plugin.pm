@@ -18,7 +18,6 @@ use IO::Socket::INET;
 use LWP::UserAgent;
 use JSON::XS::VersionOneAndTwo;
 use File::Basename;
-use File::Path qw(make_path);
 use File::Spec::Functions qw(catdir catfile);
 use Proc::Background;
 use Time::HiRes ();
@@ -58,9 +57,6 @@ use constant FIRST_MIXER_PORT => 12001;
 use constant LAST_MIXER_PORT => 12100;
 use constant MIN_BLISSMIXER_VERSION => '0.10.0';
 use constant LASTFM_EVIDENCE_TIMEOUT => 8;
-use constant LASTFM_DIRECT_CACHE_TTL_SECONDS => 86400;
-use constant LASTFM_DIRECT_REQUEST_DEADLINE_MS => 5000;
-use constant LASTFM_DIRECT_MAX_CONCURRENT_REQUESTS => 4;
 
 my $log = Slim::Utils::Log->addLogCategory({
     'category'     => 'plugin.blissmixerlab',
@@ -267,19 +263,6 @@ sub _stopMixer {
     $lastMixerStart = 0;
     $mixerPort = 0;
     $databaseRefreshDeferred = 0;
-}
-
-sub _lastfmDirectTrustedContext {
-    my $cacheRoot = preferences('server')->get('cachedir')
-        || Slim::Utils::Prefs::dir();
-    my $directory = catdir($cacheRoot, 'BlissMixerLab');
-    make_path($directory) unless -d $directory;
-    return {
-        cache_path => catfile($directory, 'lastfm-guidance-v1.json'),
-        cache_ttl_seconds => LASTFM_DIRECT_CACHE_TTL_SECONDS,
-        request_deadline_ms => LASTFM_DIRECT_REQUEST_DEADLINE_MS,
-        max_concurrent_requests => LASTFM_DIRECT_MAX_CONCURRENT_REQUESTS,
-    };
 }
 
 sub _guidanceProcessEnvironment {
@@ -1733,17 +1716,10 @@ sub _selectViaNativeLastFm {
         $trackGuidance, $finalCount,
     ));
 
-    my $trustedContext = eval { _lastfmDirectTrustedContext() };
-    if ($@ || ref($trustedContext) ne 'HASH') {
-        $trustedContext = {};
-        main::INFOLOG && $log->info(
-            'Last.fm unavailable: direct guidance cache cannot be prepared'
-        );
-    }
     my $evidence = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_evidence_from_provider(
         $seeds, $trackObjs, $context->{provider}, $context->{resolved},
         {
-            trusted_context => $trustedContext,
+            trusted_context => {},
             native_config => sub {
                 return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
             },

@@ -255,10 +255,6 @@ my $lastfm_evidence = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_ev
     },
     {
         trusted_context => {
-            cache_path => '/trusted/lastfm-cache.json',
-            cache_ttl_seconds => 86400,
-            request_deadline_ms => 5000,
-            max_concurrent_requests => 4,
         },
         native_config => sub {
             (undef, undef, $lastfm_native_context) = @_;
@@ -286,8 +282,8 @@ my $lastfm_evidence = Plugins::BlissMixerLab::GuidanceProviderAdapter::lastfm_ev
         },
     },
 );
-is($lastfm_native_context->{cache_path}, '/trusted/lastfm-cache.json',
-    'direct Last.fm native configuration receives only trusted cache context');
+is_deeply($lastfm_native_context, {},
+    'the generic host no longer owns or supplies Last.fm persistence paths');
 is_deeply(
     $lastfm_score_request->{context}{context_track_ids},
     ['seed-1'],
