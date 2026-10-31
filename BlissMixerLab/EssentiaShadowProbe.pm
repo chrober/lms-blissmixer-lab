@@ -53,6 +53,7 @@ sub run_shadow {
     return { status => 'neutral_fallback', reason => 'NOT_ENABLED' }
         unless $args{shadow_opt_in};
     my $phase = 'validation';
+    my $native_code;
     my $status = eval {
         die 'trusted native executable required'
             unless defined($args{provider_binary})
@@ -156,6 +157,9 @@ sub run_shadow {
                 && ref($manifest->{channels}[0]{supported_host_policies}) eq 'ARRAY'
                 && @{$manifest->{channels}[0]{supported_host_policies}} == 0;
         $phase = 'prepared';
+        $native_code = $prepared->{code}
+            if ($prepared->{type} || '') eq 'error'
+                && ($prepared->{code} || '') =~ /\A[A-Z][A-Z0-9_]{0,80}\z/;
         die 'provider failed prepare' unless ($prepared->{type} || '') eq 'prepared'
             && ($prepared->{provider_id} || '') eq 'essentia-guidance';
         $phase = 'scores';
@@ -181,7 +185,8 @@ sub run_shadow {
     };
     # No exception details, paths, SQL or track identifiers escape the probe.
     return $@ || ref($status) ne 'HASH'
-        ? { status => 'neutral_fallback', reason => 'SHADOW_PROBE_UNAVAILABLE', phase => $phase }
+        ? { status => 'neutral_fallback', reason => 'SHADOW_PROBE_UNAVAILABLE',
+            phase => $phase, (defined($native_code) ? (native_code => $native_code) : ()) }
         : $status;
 }
 
