@@ -67,6 +67,20 @@ handles are deliberately mocked; a next-phase integration test must exercise
 real read-only SQLite snapshots and a native provider transcript.
 
 
+## P1.5 update: bounded snapshots supersede full database copying
+
+The P1 snapshot section below is **historical**: `EssentiaShadowProbe.pm` no
+longer invokes the SQLite Online Backup API. It now uses independent pinned
+READONLY transactions and projects only the verified 3–51 rows and one model
+into a sealed <=4 MiB temporary SQLite-v3 sidecar. The native JSONL provider
+and strict neutral-only behavior remain unchanged.
+
+See [P1.5 host provenance and bounded shadow](essentia-host-provenance-and-bounded-shadow-20261031.md)
+for the current source contract, tests and explicit cross-database generation
+and multi-root blockers. No running-Lyrion integration exists yet.
+
+---
+
 ## P1 extension: frozen read-only sources, native SPI v2 (31 October 2026)
 
 The new standalone EssentiaShadowProbe.pm exposes run_shadow for explicit,
