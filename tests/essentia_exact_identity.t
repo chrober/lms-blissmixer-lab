@@ -112,6 +112,8 @@ rejects('ambiguous duplicated Bliss rows fail closed',
     ));
 rejects('overlapping roots are ambiguous',
     media_dirs => ['/mnt', '/mnt/music']);
+rejects('distinct music roots lack authoritative ownership provenance',
+    media_dirs => ['/mnt/music', '/mnt/other-library']);
 rejects('missing root boundary cannot match',
     media_dirs => ['/mnt/mus']);
 rejects('case mismatch is not silently folded',
