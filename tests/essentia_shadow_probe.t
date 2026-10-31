@@ -119,8 +119,65 @@ is($wrong_model->{status}, 'neutral_fallback',
 
 SKIP: {
     my $binary = $ENV{ESSENTIA_SHADOW_PROVIDER_BIN};
-    skip 'pinned real native provider binary not configured', 8
+    skip 'pinned real native provider binary not configured', 9
         unless defined $binary && -x $binary;
+
+    # Native process control: same known-good fictional feature DB without
+    # the backup path, to distinguish original schema vs snapshot semantics.
+    my $direct_job = 'direct-fixture-only';
+    my $payload = JSON::PP->new->canonical->utf8->encode({
+        schema => 'essentia-exact-track-keys-v1', schema_version => 1,
+        job_id => $direct_job,
+        tracks => [map {
+            { track_id => $tracks[$_]->url, track_file => $keys[$_] }
+        } 0..2],
+    });
+    my $identity_file = File::Spec->catfile($dir, 'direct-artifact.json');
+    open my $out_file, '>:raw', $identity_file or die $!;
+    print {$out_file} $payload;
+    close $out_file;
+    my @wire = (
+        { type => 'describe', spi_version => 2 },
+        {
+            type => 'prepare', spi_version => 2, job_id => $direct_job,
+            options => {
+                model_id => 'genre', metric => 'affine_centered_cosine_v1',
+                expected_model_key => 'test-model-key',
+                experimental_preview_opt_in => JSON::PP::false,
+            },
+            artifacts => [{
+                kind => 'essentia-exact-track-keys-v1',
+                path => $identity_file, sha256 => sha256_hex($payload),
+            }],
+            resources => [{
+                kind => 'essentia-feature-sqlite-v3',
+                path => $feature_file, access => 'read_only',
+            }],
+            anchors => [{
+                anchor_id => $tracks[0]->url, candidate_id => $tracks[0]->url,
+                database_file => $keys[0],
+            }],
+        },
+        {
+            type => 'score', spi_version => 2, request_id => 'direct-control',
+            context => { scope => 'global', context_track_ids => [$tracks[0]->url] },
+            candidates => [map {
+                { candidate_id => $tracks[$_]->url, database_file => $keys[$_] }
+            } 1..2],
+        },
+        { type => 'close', spi_version => 2 },
+    );
+    my $direct_response = eval {
+        Plugins::BlissMixerLab::EssentiaShadowProbe::_native_transcript(
+            $binary, \@wire
+        )
+    };
+    diag('fictional direct source failure code: ' .
+         ($direct_response->[1]{code} || 'none'))
+        if $direct_response && $direct_response->[1]{type} ne 'prepared';
+    ok($direct_response && $direct_response->[1]{type} eq 'prepared',
+        'native SPI accepts original complete fictional SQLite v3 source');
+
     my $ok = Plugins::BlissMixerLab::EssentiaShadowProbe::run_shadow(
         %base, provider_binary => $binary
     );
