@@ -147,6 +147,12 @@ jobs:
           gh release download "$LEARNER_RELEASE" --repo "$LEARNER_REPO" --dir native/learner --pattern 'bliss-learner-*'
           (cd native/mixer && sha256sum -c *.sha256)
           (cd native/learner && sha256sum -c *.sha256)
+          git check-ref-format "refs/tags/$MIXER_RELEASE"
+          git check-ref-format "refs/tags/$LEARNER_RELEASE"
+          mixer_commit="$(git ls-remote "https://github.com/$MIXER_REPO.git" "refs/tags/$MIXER_RELEASE" "refs/tags/$MIXER_RELEASE^{}" | tail -n 1 | cut -f 1)"
+          learner_commit="$(git ls-remote "https://github.com/$LEARNER_REPO.git" "refs/tags/$LEARNER_RELEASE" "refs/tags/$LEARNER_RELEASE^{}" | tail -n 1 | cut -f 1)"
+          python scripts/verify_native_source.py native/mixer/bliss-mixer-source.tar.gz "$mixer_commit"
+          python scripts/verify_native_source.py native/learner/bliss-learner-source.tar.gz "$learner_commit"
 
       - name: Install plugin binaries into plugin tree
         run: |
@@ -168,6 +174,10 @@ jobs:
           LINUX_ASSET: ${{ steps.meta.outputs.linux_asset }}
           MAC_ASSET: ${{ steps.meta.outputs.mac_asset }}
           WINDOWS_ASSET: ${{ steps.meta.outputs.windows_asset }}
+          MIXER_RELEASE: ${{ steps.meta.outputs.mixer_release }}
+          LEARNER_RELEASE: ${{ steps.meta.outputs.learner_release }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
           set -euo pipefail
           mkdir -p dist staging
@@ -176,17 +186,31 @@ jobs:
             asset="$2"
             rm -rf staging/BlissMixerLab
             cp -a BlissMixerLab staging/BlissMixerLab
+            cp LICENSE THIRD_PARTY_NOTICES.md staging/BlissMixerLab/
+            printf '# Source provenance\n\nPlugin commit: %s\nhttps://github.com/chrober/lms-blissmixer-lab/tree/%s\n\nNative mixer release: %s\nhttps://github.com/chrober/bliss-mixer/releases/tag/%s\n\nNative learner release: %s\nhttps://github.com/chrober/bliss-learner/releases/tag/%s\n\nThese references do not constitute a complete Corresponding Source bundle.\n' "$GITHUB_SHA" "$GITHUB_SHA" "$MIXER_RELEASE" "$MIXER_RELEASE" "$LEARNER_RELEASE" "$LEARNER_RELEASE" > staging/BlissMixerLab/SOURCE.md
+            printf '\nPlugin source archive: https://github.com/chrober/lms-blissmixer-lab/releases/download/%s/lms-blissmixer-lab-source-%s.zip\n' "$RELEASE_TAG" "$RELEASE_VERSION" >> staging/BlissMixerLab/SOURCE.md
+            printf 'Native mixer source: https://github.com/chrober/bliss-mixer/releases/download/%s/bliss-mixer-source.tar.gz\nNative learner source: https://github.com/chrober/bliss-learner/releases/download/%s/bliss-learner-source.tar.gz\n' "$MIXER_RELEASE" "$LEARNER_RELEASE" >> staging/BlissMixerLab/SOURCE.md
+            cp staging/BlissMixerLab/SOURCE.md staging/BlissMixerLab/Bin/SOURCE.md
             case "$platform" in
               linux) rm -rf staging/BlissMixerLab/Bin/mac staging/BlissMixerLab/Bin/windows ;;
               mac) rm -rf staging/BlissMixerLab/Bin/aarch64-linux staging/BlissMixerLab/Bin/armhf-linux staging/BlissMixerLab/Bin/x86_64-linux staging/BlissMixerLab/Bin/windows ;;
               windows) rm -rf staging/BlissMixerLab/Bin/aarch64-linux staging/BlissMixerLab/Bin/armhf-linux staging/BlissMixerLab/Bin/x86_64-linux staging/BlissMixerLab/Bin/mac ;;
             esac
             (cd staging && zip -q -r "../dist/$asset" BlissMixerLab)
+            unzip -tq "dist/$asset" >/dev/null
+            unzip -p "dist/$asset" BlissMixerLab/LICENSE | cmp - LICENSE
+            unzip -p "dist/$asset" BlissMixerLab/THIRD_PARTY_NOTICES.md | cmp - THIRD_PARTY_NOTICES.md
+            unzip -p "dist/$asset" BlissMixerLab/SOURCE.md | grep -F -- "$MIXER_RELEASE" >/dev/null
+            unzip -p "dist/$asset" BlissMixerLab/SOURCE.md | grep -F -- "$LEARNER_RELEASE" >/dev/null
           }
           package_platform linux "$LINUX_ASSET"
           package_platform mac "$MAC_ASSET"
           package_platform windows "$WINDOWS_ASSET"
-          for asset in "$LINUX_ASSET" "$MAC_ASSET" "$WINDOWS_ASSET"; do
+          if git ls-tree -r "$GITHUB_SHA" | grep '^160000 ' >/dev/null; then echo 'Submodule source capture is not implemented' >&2; exit 1; fi
+          SOURCE_ASSET="lms-blissmixer-lab-source-$RELEASE_VERSION.zip"
+          git archive --format=zip --output="dist/$SOURCE_ASSET" "$GITHUB_SHA"
+          unzip -tq "dist/$SOURCE_ASSET" >/dev/null
+          for asset in "$LINUX_ASSET" "$MAC_ASSET" "$WINDOWS_ASSET" "$SOURCE_ASSET"; do
             (cd dist && sha1sum "$asset" > "$asset.sha1")
             (cd dist && sha256sum "$asset" > "$asset.sha256")
           done
@@ -237,6 +261,11 @@ jobs:
           } > "$notes"
           prerelease_flag=()
           if [ "$PRERELEASE" = "true" ]; then prerelease_flag=(--prerelease); fi
+          remote_tag="$(git ls-remote --tags origin "refs/tags/$TAG")"
+          if [ -n "$remote_tag" ]; then
+            git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+            test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$GITHUB_SHA" || { echo 'Release tag points to a different source commit' >&2; exit 1; }
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/*.zip dist/*.sha1 dist/*.sha256 --clobber
           else
