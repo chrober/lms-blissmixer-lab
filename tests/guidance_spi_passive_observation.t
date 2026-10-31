@@ -48,7 +48,7 @@ is($false->{status}, 'neutral', 'string false does not enable observation');
 
 my $result = Plugins::BlissMixerLab::GuidanceProviderAdapter::observe_via_spi(
     \@seed, \@pool, $provider, $policy, \%operation);
-is($result->{status}, 'observed', 'neutral SPI response is safely observed');
+is($result->{status}, 'spi_completed_neutral', 'completed SPI exchange does not imply feature evaluation');
 is($result->{candidate_count}, 2, 'complete original candidate count preserved');
 is($calls, 1, 'observer uses precisely the existing SPI scoring callback');
 is($config_context->{candidate_identity_artifact}{kind},
