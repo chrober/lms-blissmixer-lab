@@ -114,8 +114,24 @@ sub _exact_file_key {
     $path =~ s{\\}{/}g if $windows;
     die 'nonabsolute local track' unless _absolute($path, $windows);
 
-    my %matched;
+    # TracksV2.File records only a relative path, not which LMS music root
+    # originally owned it. Distinct roots can contain the same relative
+    # file name. Never treat a two-database key hit as root provenance.
+    my %unique_roots;
     for my $root (@$roots) {
+        die 'invalid media root' unless defined($root) && length($root);
+        my $clean = $root;
+        $clean =~ s{\\}{/}g if $windows;
+        $clean =~ s{/$}{} unless $clean eq '/';
+        die 'invalid media root'
+            unless _absolute($clean, $windows)
+                && $clean !~ m{(?:\A|/)\.\.?(?:/|\z)};
+        $unique_roots{$clean} = 1;
+    }
+    die 'multi-root provenance unavailable' unless keys(%unique_roots) == 1;
+
+    my %matched;
+    for my $root (keys %unique_roots) {
         next unless defined($root) && length($root) && index($root, "\0") == -1;
         my $clean = $root;
         $clean =~ s{\\}{/}g if $windows;
