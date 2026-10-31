@@ -72,7 +72,8 @@ sub run_shadow {
             unless ref($seeds) eq 'ARRAY' && @$seeds == 1
                 && ref($tracks) eq 'ARRAY' && @$tracks >= 2 && @$tracks <= 50;
         my $limit = 256 * 1024 * 1024; # Explicit resource safety bound.
-        my $temp = File::Temp->newdir('essentia-shadow-XXXXXXXX', CLEANUP => 1);
+        my $temp = File::Temp->newdir('essentia-shadow-XXXXXXXX',
+            DIR => File::Spec->tmpdir(), CLEANUP => 1);
         my $dir = "$temp";
         my $bliss_copy = File::Spec->catfile($dir, 'bliss-frozen.sqlite');
         my $feature_copy = File::Spec->catfile($dir, 'features-frozen.sqlite');
