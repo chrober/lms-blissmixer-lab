@@ -124,7 +124,8 @@ SKIP: {
     my $ok = Plugins::BlissMixerLab::EssentiaShadowProbe::run_shadow(
         %base, provider_binary => $binary
     );
-    diag('synthetic end-to-end failure phase: ' . ($ok->{phase} || 'none'))
+    diag('synthetic end-to-end failure phase: ' . ($ok->{phase} || 'none')
+        . ', native code: ' . ($ok->{native_code} || 'none'))
         if $ok->{status} ne 'shadow_evaluated_no_active_signals';
     is($ok->{status}, 'shadow_evaluated_no_active_signals',
         'real native SPI v2 with two frozen SQLite copies evaluates features');
