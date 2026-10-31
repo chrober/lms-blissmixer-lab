@@ -71,6 +71,16 @@ my $pre_feature = do { open my $f, '<:raw', $feature_file or die $!; local $/; s
 my @tracks = map {
     ShadowTestTrack->new("file:///media/music/$keys[$_]", "/media/music/$keys[$_]")
 } 0..2;
+my $direct_copy = File::Spec->catfile($dir, 'direct-frozen-test.sqlite');
+my $direct_handle = eval {
+    Plugins::BlissMixerLab::EssentiaShadowProbe::_frozen_copy(
+        $bliss_file, $direct_copy, 256 * 1024 * 1024
+    )
+};
+diag('synthetic readonly backup error: ' . $@) if !$direct_handle;
+ok($direct_handle, 'actual SQLite READONLY connection and frozen online backup');
+$direct_handle->disconnect if $direct_handle;
+unlink $direct_copy if -e $direct_copy;
 my %base = (
     shadow_opt_in => 1,
     bliss_db => $bliss_file,
