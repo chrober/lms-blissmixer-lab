@@ -78,16 +78,14 @@ my $pre_feature = do { open my $f, '<:raw', $feature_file or die $!; local $/; s
 my @tracks = map {
     ShadowTestTrack->new("file:///media/music/$keys[$_]", "/media/music/$keys[$_]")
 } 0..2;
-my $direct_copy = File::Spec->catfile($dir, 'direct-frozen-test.sqlite');
-my $direct_handle = eval {
-    Plugins::BlissMixerLab::EssentiaShadowProbe::_frozen_copy(
-        $bliss_file, $direct_copy, 256 * 1024 * 1024
-    )
+my $read_handle = eval {
+    Plugins::BlissMixerLab::EssentiaBoundedSnapshot::open_source($bliss_file)
 };
-diag('synthetic readonly backup error: ' . $@) if !$direct_handle;
-ok($direct_handle, 'actual SQLite READONLY connection and frozen online backup');
-$direct_handle->disconnect if $direct_handle;
-unlink $direct_copy if -e $direct_copy;
+diag('read-only source error: ' . $@) unless $read_handle;
+ok($read_handle, 'actual SQLite READONLY source transaction without full backup');
+$read_handle->do('ROLLBACK') if $read_handle;
+$read_handle->disconnect if $read_handle;
+
 my %base = (
     shadow_opt_in => 1,
     bliss_db => $bliss_file,
@@ -196,7 +194,7 @@ SKIP: {
         . ', native code: ' . ($ok->{native_code} || 'none'))
         if $ok->{status} ne 'shadow_evaluated_no_active_signals';
     is($ok->{status}, 'shadow_evaluated_no_active_signals',
-        'real native SPI v2 with two frozen SQLite copies evaluates features');
+        'real native SPI v2 with bounded feature projection evaluates features');
     is($ok->{candidate_count}, 2, 'complete host-qualified pool preserved');
     ok(!defined($ok->{reason}), 'successful provider did not require a fallback');
     my $wrong_fp = Plugins::BlissMixerLab::EssentiaShadowProbe::run_shadow(
