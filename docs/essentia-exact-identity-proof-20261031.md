@@ -65,3 +65,53 @@ Windows paths, overlapping music roots, prefix/case errors, missing/duplicate
 rows, duplicate IDs/keys, remote paths, traversal and pool bounds. Database
 handles are deliberately mocked; a next-phase integration test must exercise
 real read-only SQLite snapshots and a native provider transcript.
+
+
+## P1 extension: frozen read-only sources, native SPI v2 (31 October 2026)
+
+The new standalone EssentiaShadowProbe.pm exposes run_shadow for explicit,
+trusted research execution only. It is NOT called by Plugin.pm, settings,
+DSTM, existing guidance providers or Better Call Bliss. The caller must
+supply shadow_opt_in=1 and trusted absolute paths to Bliss SQLite, Essentia
+SQLite v3 and a separately installed native executable. No binary, audio,
+ONNX weights or user music are downloaded.
+
+Both source databases are opened using SQLITE_OPEN_READONLY, then copied
+via the SQLite Online Backup API to an ephemeral private directory. This
+captures WAL-aware, independently internally consistent snapshots of
+each database. Both copies are reopened read-only and used for exact-key
+verification. The native provider is passed ONLY the frozen Essentia copy.
+The Online Backup API does not give a single *atomic cross-database*
+snapshot across two unrelated SQLite databases; source-generation parity
+is an outstanding additional compatibility proof. Separate copies can
+represent different moments in time.
+
+The manual probe limits each input and frozen snapshot to 256 MiB, to
+prevent accidental unbounded copying and disk pressure. This is not an
+approved performance strategy for large libraries or Raspberry Pi.
+Oversized, nonlocal, missing or untrusted sources fail neutrally. Temporary
+artifacts are destroyed on exit including errors. No raw paths or track
+IDs are returned.
+
+A true native SPI v2 JSONL transcript is constructed and verified:
+describe -> prepare (job-bound SHA256 exact-key artifact, pinned model,
+read-only SQLite resource, one anchor) -> score (the same complete 2-50
+candidate cohort, global context) -> close. The research CI checks out
+chrober/bliss-guidance-essentia at immutable revision
+de72433d9c690e1aa46e973bbcca63691e959df8 and builds it from source.
+The isolated subprocess has a 15-second watchdog; this does NOT represent
+a production LMS response-time budget.
+
+Only anonymous state, bounded candidate count and generic neutral reason
+can escape the probe. A provider with active host policies or any nonempty
+guidance signals is rejected. No route, playlist, source database or
+playback mutation is performed. Real temporary SQLite fixtures test valid
+feature evaluation, missing tracks, wrong model fingerprints, failed
+source/native access and unchanged original database contents.
+
+Still NOT P2 complete: native deployment/provider discovery and safe
+host-side settings, live single-seed admission, multi-root provenance,
+cross-database generation identity, multi-seed support, fast repeated
+requests without full database copies, anonymous Lab Shadow UI, real
+feature/audio parity, validated General Metric, low-power latency and
+source/model distribution licence gates remain outstanding.
