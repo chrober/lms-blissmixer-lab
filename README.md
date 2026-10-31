@@ -46,7 +46,7 @@ Guidance providers influence the ranking of an already Bliss-derived candidate p
 
 ## How it fits into the Bliss ecosystem
 
-| Component | Purpose | Required? |
+| Component | What it contributes | Required? |
 | --- | --- | --- |
 | [Bliss Mixer](https://github.com/CDrummond/lms-blissmixer) | Analyzes your library, maintains `bliss.db`, and supplies the base mixing preferences | **Yes** |
 | **Bliss Mixer Lab** | Runs the experimental mixer, DSTM provider, survey, and learner | This plugin |
