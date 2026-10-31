@@ -89,10 +89,13 @@ sub run_shadow {
         );
         # All track keys come from the verified artifact; never from urlmd5
         # or the user-provided model/metadata fields.
-        open my $afh, '<:raw', $artifact->{path} or die 'artifact unavailable';
-        local $/;
-        my $bytes = <$afh>;
-        close $afh;
+        my $bytes = do {
+            open my $afh, '<:raw', $artifact->{path} or die 'artifact unavailable';
+            local $/;
+            my $data = <$afh>;
+            close $afh;
+            $data;
+        };
         my $mapping = JSON::PP->new->utf8->decode($bytes);
         my @items = @{$mapping->{tracks}};
         die 'identity cohort not complete' unless @items == 1 + @$tracks;
@@ -160,7 +163,7 @@ sub run_shadow {
         die 'unknown shadow outcome'
             unless $state eq 'shadow_evaluated_no_active_signals'
                 || $state eq 'neutral_fallback';
-        return {
+        {
             status => $state, candidate_count => scalar(@$tracks),
             # Only one of these neutral public categories is exposed.
             reason => $state eq 'neutral_fallback' ? 'FEATURE_OR_MODEL_UNAVAILABLE' : undef,
