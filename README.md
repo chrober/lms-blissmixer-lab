@@ -56,6 +56,21 @@ Guidance providers influence the ranking of an already Bliss-derived candidate p
 
 Bliss Mixer Lab installs alongside [Bliss Mixer](https://github.com/CDrummond/lms-blissmixer). It does not modify that plugin or its library analysis, or replace its DSTM provider.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    BM["Bliss Mixer<br/>bliss.db and preferences"] --> Lab["Bliss Mixer Lab<br/>Experimental mixer"]
+    Learning["Preference-learning survey<br/>Learned similarity matrix"] -.-> Lab
+
+    Lab --> DSTM["Bliss (Lab)<br/>Don't Stop the Music"]
+    Lab --> Actions["Lab context-menu actions<br/>Create mix / Similar tracks"]
+
+    Guidance["Optional guidance providers<br/>Library Signals / Last.fm"] -.-> DSTM
+```
+
+Bliss Mixer Lab builds on Bliss Mixer's existing library analysis and settings without modifying that plugin. Its experimental mixer can use a learned similarity matrix, while the separate **Bliss (Lab)** DSTM provider can also incorporate optional guidance from Library Signals and Last.fm.
+
 ## Requirements
 
 - **Lyrion Music Server:** Developed and tested with **Lyrion 9.1**. Older versions may also work, but have not been tested.
