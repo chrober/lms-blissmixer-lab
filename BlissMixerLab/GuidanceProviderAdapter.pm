@@ -40,6 +40,25 @@ sub write_candidate_identity_artifact {
     };
 }
 
+# Generic SPI-v2 host route-context binding, shared by all seed-aware
+# guidance providers. The seed-N token is NOT a track identity: its
+# candidate_id is the original Lyrion URL, resolved by the provider
+# against its own trusted identity artifact/resource during prepare.
+# Preserve source ordering and the established Last.fm seed numbering.
+sub build_seed_context {
+    my ($seeds) = @_;
+    $seeds = [] unless ref($seeds) eq 'ARRAY';
+    my (@anchors, @context_ids);
+    for my $index (0 .. $#$seeds) {
+        my $candidate = _candidate_for_track($seeds->[$index]);
+        next unless $candidate;
+        my $anchor_id = 'seed-' . ($index + 1);
+        push @context_ids, $anchor_id;
+        push @anchors, { anchor_id => $anchor_id, %$candidate };
+    }
+    return (\@anchors, \@context_ids);
+}
+
 sub profile_from_provider {
     my ($tracks, $provider, $resolved_policy, $as_of, $operations) = @_;
     $tracks = [] unless ref($tracks) eq 'ARRAY';
@@ -73,6 +92,9 @@ sub profile_from_provider {
                 && defined($urlmd5) && $urlmd5 =~ /^[a-f0-9]+$/i
                 ? ({ candidate_id => "$candidate_id", lms_urlmd5 => "$urlmd5" }) : ()
         } @$tracks;
+        # The optional seed cohort is host-owned; no provider-specific
+        # selection logic or candidate expansion belongs in this adapter.
+        my ($anchors, $context_ids) = build_seed_context($operations->{seeds});
         $result = $score_batch->($config, {
             job_id => 'blissmixerlab',
             request_id => 'dstm-candidate-pool',
@@ -81,8 +103,9 @@ sub profile_from_provider {
                 scope => 'global',
                 left_anchor_id => undef,
                 right_anchor_id => undef,
-                context_track_ids => [],
+                context_track_ids => $context_ids,
             },
+            (ref($operations->{seeds}) eq 'ARRAY' ? (anchors => $anchors) : ()),
             candidates => \@candidates,
         });
     };
@@ -116,15 +139,7 @@ sub lastfm_evidence_from_provider {
         my $trusted_context = ref($operations->{trusted_context}) eq 'HASH'
             ? $operations->{trusted_context} : {};
         $config = $native_config->($provider, $effective, $trusted_context);
-        my @anchors;
-        my @context_ids;
-        for my $index (0 .. $#$seeds) {
-            my $candidate = _candidate_for_track($seeds->[$index]);
-            next unless $candidate;
-            my $anchor_id = 'seed-' . ($index + 1);
-            push @context_ids, $anchor_id;
-            push @anchors, { anchor_id => $anchor_id, %$candidate };
-        }
+        my ($anchors, $context_ids) = build_seed_context($seeds);
         my @candidates = grep { defined $_ }
             map { _candidate_for_track($_) } @$tracks;
         $result = $score_batch->($config, {
@@ -134,9 +149,9 @@ sub lastfm_evidence_from_provider {
                 scope => 'global',
                 left_anchor_id => undef,
                 right_anchor_id => undef,
-                context_track_ids => \@context_ids,
+                context_track_ids => $context_ids,
             },
-            anchors => \@anchors,
+            anchors => $anchors,
             candidates => \@candidates,
         });
     };
