@@ -5,6 +5,7 @@ on:
     paths:
       - 'BlissMixerLab/EssentiaExactIdentity.pm'
       - 'BlissMixerLab/EssentiaShadowProbe.pm'
+      - 'BlissMixerLab/EssentiaBoundedSnapshot.pm'
       - 'tests/essentia_*'
       - '.github/workflows/essentia-shadow-integration.yml'
   workflow_dispatch:
@@ -40,4 +41,4 @@ jobs:
           ESSENTIA_SHADOW_PROVIDER_BIN: ${{ github.workspace }}/_native_essentia_provider/target/debug/bliss-guidance-essentia
         run: |
           set -euo pipefail
-          prove -lv tests/essentia_shadow_probe.t tests/essentia_exact_identity.t tests/essentia_exact_identity_sqlite.t
+          prove -lv tests/essentia_bounded_snapshot.t tests/essentia_shadow_probe.t tests/essentia_exact_identity.t tests/essentia_exact_identity_sqlite.t
