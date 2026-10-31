@@ -129,12 +129,23 @@ rejects('duplicate candidate IDs cause whole-query fallback',
 rejects('duplicate file keys with different IDs fail',
     candidates => [
         $unicode,
-        ExactTestTrack->new(url => 'another-id', path => '/mnt/music/Artist/Café.flac'),
+        ExactTestTrack->new(url => 'file:///different-url', path => '/mnt/music/Artist/Café.flac'),
     ]);
 rejects('nonlocal stream does not acquire a file key',
     candidates => [
         ExactTestTrack->new(url => 'spotify:track:123', path => 'spotify:track:123'),
         $cue,
+    ]);
+rejects('remote URL cannot masquerade as a local path',
+    candidates => [
+        ExactTestTrack->new(url => 'spotify:track:123', path => '/mnt/music/seed.flac'),
+        $cue,
+    ]);
+rejects('nonnumeric CUE URL fragment cannot acquire a local feature key',
+    candidates => [
+        $unicode,
+        ExactTestTrack->new(url => 'file:///mnt/music/album.flac#unrelated',
+            path => '/mnt/music/album.flac', tracknum => 2),
     ]);
 rejects('CUE fragment without a verified index fails',
     candidates => [
