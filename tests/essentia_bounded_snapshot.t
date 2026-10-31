@@ -117,6 +117,26 @@ ok(!$dupe, 'duplicate candidate identity rejected');
 $reader2->do('ROLLBACK');
 $reader2->disconnect;
 
+# Reject a TEXT SQLite value even when its length accidentally matches 87 f32.
+$writer->do('UPDATE feature_tracks SET scores_f32_le=? WHERE track_file=?',
+    undef, 'x' x (87 * 4), 'two.flac');
+is($writer->selectrow_array(
+    "SELECT typeof(scores_f32_le) FROM feature_tracks WHERE track_file='two.flac'"),
+   'text', 'malformed equal-length value is truly SQLite TEXT');
+my $reader3 = Plugins::BlissMixerLab::EssentiaBoundedSnapshot::open_source($src);
+my $not_blob = eval {
+    Plugins::BlissMixerLab::EssentiaBoundedSnapshot::project_features(
+        source_dbh => $reader3, verified_tracks => \@verified,
+        model_id => 'genre', expected_model_key => 'model-v3',
+        destination => File::Spec->catfile($dir, 'not-blob.sqlite'));
+    1;
+};
+ok(!$not_blob, 'SQLite TEXT mislabelled as Float32LE BLOB is rejected');
+ok(!-e File::Spec->catfile($dir, 'not-blob.sqlite'),
+   'malformed feature data cannot create a projected database');
+$reader3->do('ROLLBACK');
+$reader3->disconnect;
+
 # The production source is opened read-only even if the OS permissions are
 # writable. Missing databases must never be silently created.
 my $absent = File::Spec->catfile($dir, 'not-there.sqlite');
