@@ -31,8 +31,10 @@ reader is introduced.
 - The standard SPI host callback owns the native program launch,
   protocol validation, trusted configuration and deadline. This helper
   does **not** start or communicate directly with a subprocess.
-- A passive observation is accepted only for a valid SPI response
-  containing exactly **zero active guidance signals**. Provider errors,
+- A completed passive SPI exchange is recorded only for a valid SPI
+  response containing exactly **zero active guidance signals**. The
+  `spi_completed_neutral` status confirms transport/validation, **not**
+  provider evaluation or model coverage. Provider errors,
   timeouts, malformed output and attempts to return active signals
   fail neutral. No private diagnostics, track names or raw paths are
   returned to the caller.
