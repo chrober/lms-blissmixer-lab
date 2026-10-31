@@ -48,18 +48,28 @@ are retained exactly as in Last.fm's previous implementation.
 
 ## Remaining provider-owned identity issue (do not conceal)
 
-The current experimental `lms-guidance-essentia` exact-key artifact
-stores its anchor row using the **file URL** as `track_id`, while
-the actual generic host uses its separate **route token**
-`seed-1` as `anchor_id`. The native Essentia implementation
-requires that `anchor_id` resolve to the exact-key artifact row;
-it will reject an unbound alias. A verified, read-only
-provider-owned binding from `seed-1` to the corresponding
-`file://` source and root-relative `track_file` remains to be
-implemented and tested before an **actual** Lab-native Essentia
-end-to-end test can succeed. Do not forge validation flags or
-silently choose one seed from a multi-seed request; the current
-native Essentia scorer requires exactly one source context.
+The **offline provider-owned** `lms-guidance-essentia`
+`ImportedSidecarPilot` now has an explicit single-seed
+`host_anchors` binding. It compares the generic Lab helper's
+`seed-1` / original `file://` source URL / `lms_urlmd5`
+against the trusted Lyrion track object and the exact
+root-relative sidecar key. The SHA-256-pinned exact-key
+artifact records all three identities. Independent native
+Essentia `prepare` now rechecks the original URL and hash;
+a post-artifact spoof fails closed.
+
+[Cross-repo CI](https://github.com/chrober/lms-guidance-essentia/actions/runs/41217718930)
+checks out this exact Lab research SHA `ff67f7c5`, the corrected
+generic host, and the native Essentia research revision, then
+runs a **real native JSONL subprocess** on a bounded imported
+Windows SQLite-v3 fixture. This is proof of an offline generic
+Lab helper → provider → host → native pipeline, **not**
+a live DSTM/Lyrion plugin or an activated guidance scorer.
+Provider discovery remains unavailable until separate live
+resource acquisition and trust gates pass. Do not forge
+validation flags or silently choose one seed from a
+multi-seed request; the current native Essentia scorer
+requires exactly one source context.
 
 The real Lab native guidance path through
 `_guidanceHostPayload` and `bliss-mixer` already forwards
