@@ -1540,6 +1540,10 @@ sub _dstmMix {
                                     $providerGuidance->{resolved},
                                     int(time()),
                                     {
+                                        # Reuse the frozen DSTM seed cohort already
+                                        # passed to the existing Last.fm guidance path.
+                                        # Library Signals ignores the optional anchors.
+                                        seeds => \@seedsToUse,
                                         native_config => sub {
                                             return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
                                         },
