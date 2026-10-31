@@ -176,6 +176,23 @@ my $win = Plugins::BlissMixerLab::EssentiaExactIdentity::write_artifact(
     media_dirs => ['C:\Music'], windows => 1,
 );
 ok(-f $win->{path}, 'Windows separators handled without case or Unicode folding');
+
+my $unc_seed = ExactTestTrack->new(
+    url => 'file:////NAS/Media/seed.flac', path => '\\NAS\Media\seed.flac'
+);
+my $unc_one = ExactTestTrack->new(
+    url => 'file:////NAS/Media/Artist/Caf%C3%A9.flac',
+    path => '\\NAS\Media\Artist\Café.flac'
+);
+my $unc_two = ExactTestTrack->new(
+    url => 'file:////NAS/Media/album.flac#35-70',
+    path => '\\NAS\Media\album.flac', tracknum => 2
+);
+my $unc = Plugins::BlissMixerLab::EssentiaExactIdentity::write_artifact(
+    %args, anchors => [$unc_seed], candidates => [$unc_one, $unc_two],
+    media_dirs => ['\\NAS\Media'], windows => 1,
+);
+ok(-f $unc->{path}, 'Windows UNC share root supports exact identity proof');
 rejects('Windows drive case mismatch fails safely',
     anchors => [$windows_seed], candidates => [$windows_one, $windows_two],
     media_dirs => ['c:\Music'], windows => 1);
