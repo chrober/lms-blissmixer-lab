@@ -163,7 +163,7 @@ sub _exact_file_key {
 sub _absolute {
     my ($path, $windows) = @_;
     return 0 unless defined $path;
-    return $path =~ m{\A(?:[A-Za-z]:/|//[^/]+/[^/]+/)} if $windows;
+    return $path =~ m{\A(?:[A-Za-z]:/|//[^/]+/[^/]+(?:/|\z))} if $windows;
     return $path =~ m{\A/};
 }
 
