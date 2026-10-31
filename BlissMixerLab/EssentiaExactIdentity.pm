@@ -111,6 +111,7 @@ sub _exact_file_key {
         unless defined($id) && length($id) && length($id) <= 4096
             && defined($path) && length($path) && length($path) <= 4096
             && index($id, "\0") == -1 && index($path, "\0") == -1;
+    die 'nonlocal LMS source' unless $id =~ /\Afile:\/\//i;
     $path =~ s{\\}{/}g if $windows;
     die 'nonabsolute local track' unless _absolute($path, $windows);
 
@@ -152,7 +153,7 @@ sub _exact_file_key {
         my @parts = split /#/, $id, -1;
         my $number = eval { $track->tracknum };
         die 'unverified CUE track identity'
-            unless @parts == 2 && length($parts[1])
+            unless @parts == 2 && $parts[1] =~ /\A[0-9]+(?:\.[0-9]+)?-[0-9]+(?:\.[0-9]+)?\z/
                 && defined($number) && $number =~ /\A[1-9][0-9]*\z/;
         $key .= '.CUE_TRACK.' . $number;
     }
