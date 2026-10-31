@@ -47,7 +47,7 @@ sub score_batch {
             options => ref($config->{options}) eq 'HASH' ? $config->{options} : {},
             artifacts => ref($config->{artifacts}) eq 'ARRAY' ? $config->{artifacts} : [],
             resources => ref($config->{resources}) eq 'ARRAY' ? $config->{resources} : [],
-            anchors => [],
+            anchors => ref($request->{anchors}) eq 'ARRAY' ? $request->{anchors} : [],
         });
         _expect($prepared, 'prepared', $provider_id);
 
