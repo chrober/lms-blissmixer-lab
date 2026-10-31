@@ -51,7 +51,9 @@ sub _frozen_copy {
 sub run_shadow {
     my (%args) = @_;
     return { status => 'neutral_fallback', reason => 'NOT_ENABLED' }
-        unless $args{shadow_opt_in};
+        unless defined($args{shadow_opt_in})
+            && !ref($args{shadow_opt_in})
+            && "$args{shadow_opt_in}" eq '1';
     my $phase = 'validation';
     my $native_code;
     my $status = eval {
@@ -108,6 +110,9 @@ sub run_shadow {
         my @candidates = map {
             { candidate_id => $_->{track_id}, database_file => $_->{track_file} }
         } @items[1 .. $#items];
+        # Release the prepared binary-identity statement handles before
+        # disconnecting their snapshot database handles.
+        $verify = undef;
         $bliss->disconnect;
         $features->disconnect;
         my @requests = (
@@ -118,7 +123,9 @@ sub run_shadow {
                     model_id => $args{model_id},
                     metric => $args{metric},
                     expected_model_key => $args{expected_model_key},
-                    experimental_preview_opt_in => $args{experimental_preview_opt_in}
+                    experimental_preview_opt_in => defined($args{experimental_preview_opt_in})
+                        && !ref($args{experimental_preview_opt_in})
+                        && "$args{experimental_preview_opt_in}" eq '1'
                         ? JSON::PP::true : JSON::PP::false,
                 },
                 artifacts => [$artifact],
