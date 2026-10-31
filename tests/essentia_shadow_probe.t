@@ -104,6 +104,10 @@ my $disabled = Plugins::BlissMixerLab::EssentiaShadowProbe::run_shadow(
     %base, shadow_opt_in => 0
 );
 is($disabled->{reason}, 'NOT_ENABLED', 'manual opt-in required');
+my $false_text = Plugins::BlissMixerLab::EssentiaShadowProbe::run_shadow(
+    %base, shadow_opt_in => 'false'
+);
+is($false_text->{reason}, 'NOT_ENABLED', 'string false never activates shadow mode');
 ok(!exists($disabled->{candidate_count}), 'disabled status discloses no song identities');
 my $missing_binary = Plugins::BlissMixerLab::EssentiaShadowProbe::run_shadow(
     %base, provider_binary => File::Spec->catfile($dir, 'not-installed')
