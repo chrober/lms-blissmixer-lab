@@ -52,6 +52,7 @@ sub run_shadow {
     my (%args) = @_;
     return { status => 'neutral_fallback', reason => 'NOT_ENABLED' }
         unless $args{shadow_opt_in};
+    my $phase = 'validation';
     my $status = eval {
         die 'trusted native executable required'
             unless defined($args{provider_binary})
@@ -75,10 +76,12 @@ sub run_shadow {
         my $dir = "$temp";
         my $bliss_copy = File::Spec->catfile($dir, 'bliss-frozen.sqlite');
         my $feature_copy = File::Spec->catfile($dir, 'features-frozen.sqlite');
+        $phase = 'source_backup';
         my $bliss = _frozen_copy($args{bliss_db}, $bliss_copy, $limit);
         my $features = _frozen_copy($args{feature_db}, $feature_copy, $limit);
         die 'wrong sidecar schema'
             unless $features->selectrow_array('PRAGMA user_version') == 3;
+        $phase = 'identity';
         my $verify = Plugins::BlissMixerLab::EssentiaExactIdentity::verifier_from_db_handles(
             $bliss, $features
         );
@@ -137,9 +140,11 @@ sub run_shadow {
             },
             { type => 'close', spi_version => 2 },
         );
+        $phase = 'native_process';
         my $responses = _native_transcript($args{provider_binary}, \@requests);
         die 'incorrect SPI response count' unless @$responses == 4;
         my ($manifest, $prepared, $scored, $closed) = @$responses;
+        $phase = 'manifest';
         die 'unsupported native manifest'
             unless ($manifest->{type} || '') eq 'manifest'
                 && ($manifest->{provider_id} || '') eq 'essentia-guidance'
@@ -149,17 +154,21 @@ sub run_shadow {
                 && @{$manifest->{channels}} == 1
                 && ref($manifest->{channels}[0]{supported_host_policies}) eq 'ARRAY'
                 && @{$manifest->{channels}[0]{supported_host_policies}} == 0;
+        $phase = 'prepared';
         die 'provider failed prepare' unless ($prepared->{type} || '') eq 'prepared'
             && ($prepared->{provider_id} || '') eq 'essentia-guidance';
+        $phase = 'scores';
         die 'unsafe or malformed score response'
             unless ($scored->{type} || '') eq 'scores'
                 && ($scored->{provider_id} || '') eq 'essentia-guidance'
                 && ($scored->{request_id} || '') eq 'essentia-shadow-query'
                 && ref($scored->{signals}) eq 'ARRAY' && @{$scored->{signals}} == 0
                 && ref($scored->{diagnostics}) eq 'HASH';
+        $phase = 'closed';
         die 'provider failed close' unless ($closed->{type} || '') eq 'closed'
             && ($closed->{provider_id} || '') eq 'essentia-guidance';
         my $state = $scored->{diagnostics}{state} || '';
+        $phase = 'outcome';
         die 'unknown shadow outcome'
             unless $state eq 'shadow_evaluated_no_active_signals'
                 || $state eq 'neutral_fallback';
@@ -171,7 +180,7 @@ sub run_shadow {
     };
     # No exception details, paths, SQL or track identifiers escape the probe.
     return $@ || ref($status) ne 'HASH'
-        ? { status => 'neutral_fallback', reason => 'SHADOW_PROBE_UNAVAILABLE' }
+        ? { status => 'neutral_fallback', reason => 'SHADOW_PROBE_UNAVAILABLE', phase => $phase }
         : $status;
 }
 
