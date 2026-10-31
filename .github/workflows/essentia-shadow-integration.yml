@@ -13,6 +13,11 @@ on:
 permissions:
   contents: read
 
+# Keep one native build per active PR; superseded commits need no duplicate build.
+concurrency:
+  group: native-shadow-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   native-shadow:
     runs-on: ubuntu-latest
