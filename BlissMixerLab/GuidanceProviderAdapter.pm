@@ -154,7 +154,7 @@ sub observe_via_spi {
         && $response->{valid}
         && ref($response->{signals}) eq 'ARRAY'
         && @{$response->{signals}} == 0;
-    return { status => 'observed', candidate_count => scalar(@$tracks) };
+    return { status => 'spi_completed_neutral', candidate_count => scalar(@$tracks) };
 }
 
 sub lastfm_evidence_from_provider {
