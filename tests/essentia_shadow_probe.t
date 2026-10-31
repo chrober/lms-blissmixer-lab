@@ -59,9 +59,16 @@ my $fi = $feature->prepare('INSERT INTO feature_tracks VALUES (?,?,?,?,?)');
 for my $i (0..$#keys) {
     my @scores = map { 0.05 + ((($_ + ($i * 10)) * 31) % 83) / 100 } 0..86;
     $bi->execute($keys[$i]);
-    $fi->execute($keys[$i], 'genre', 'genre', 'test-model-key',
-        pack('f<*', @scores));
+    $fi->bind_param(1, $keys[$i]);
+    $fi->bind_param(2, 'genre');
+    $fi->bind_param(3, 'genre');
+    $fi->bind_param(4, 'test-model-key');
+    $fi->bind_param(5, pack('f<*', @scores), DBI::SQL_BLOB());
+    $fi->execute();
 }
+is($feature->selectrow_array(
+    'SELECT typeof(scores_f32_le) FROM feature_tracks LIMIT 1'),
+    'blob', 'synthetic Float32LE audio vector has required SQLite BLOB storage');
 $bi->finish;
 $fi->finish;
 $bliss->disconnect;
