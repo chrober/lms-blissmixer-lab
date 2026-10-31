@@ -3,8 +3,6 @@ package Plugins::BlissMixerLab::EssentiaShadowProbe;
 use strict;
 use warnings;
 
-use DBI;
-use DBD::SQLite::Constants qw(SQLITE_OPEN_READONLY);
 use File::Spec;
 use File::Temp ();
 use IPC::Open3 qw(open3);
@@ -12,42 +10,13 @@ use JSON::PP ();
 use Symbol qw(gensym);
 
 use Plugins::BlissMixerLab::EssentiaExactIdentity ();
+use Plugins::BlissMixerLab::EssentiaBoundedSnapshot ();
 
-# Explicit experimental runner. Never called from the live Lab mixer.
-# Both source databases are opened with SQLite's actual READONLY flag.
-# SQLite online backups give independently frozen, WAL-aware copies; they
-# are not a globally atomic snapshot of two separate source databases.
-sub _frozen_copy {
-    my ($source, $target, $limit) = @_;
-    die 'untrusted source database'
-        unless defined $source && File::Spec->file_name_is_absolute($source)
-            && -f $source && -r $source && !-l $source;
-    die 'untrusted snapshot destination'
-        unless defined $target && File::Spec->file_name_is_absolute($target)
-            && !-e $target;
-    die 'database exceeds experimental copy limit'
-        if (-s $source) > $limit;
-    my $dbh = DBI->connect("dbi:SQLite:dbname=$source", '', '', {
-        RaiseError => 1, PrintError => 0, AutoCommit => 1,
-        sqlite_unicode => 1, sqlite_open_flags => SQLITE_OPEN_READONLY,
-    }) or die 'read-only database unavailable';
-    $dbh->do('PRAGMA query_only = ON');
-    my $result = eval { $dbh->sqlite_backup_to_file($target); 1 };
-    $dbh->disconnect;
-    die 'SQLite online backup failed' unless $result && -f $target;
-    die 'snapshot exceeds experimental copy limit'
-        if (-s $target) > $limit;
-    chmod 0400, $target or die 'cannot restrict frozen feature snapshot';
-    my $frozen = DBI->connect("dbi:SQLite:dbname=$target", '', '', {
-        RaiseError => 1, PrintError => 0, AutoCommit => 1,
-        sqlite_unicode => 1, sqlite_open_flags => SQLITE_OPEN_READONLY,
-    }) or die 'read-only snapshot unavailable';
-    $frozen->do('PRAGMA query_only = ON');
-    return $frozen;
-}
-
-# Build a complete SPI v2 transcript on immutable snapshots, and send it only
-# to an explicitly selected, locally installed native provider executable.
+# Research-only, manually opted-in runner; never wired to live Lab DSTM.
+# Both source DBs are read through pinned SQLite read transactions. These
+# transactions are NOT an atomic cross-database scan-generation guarantee.
+# Only 1+2..50 feature rows for one model are exported to a small temporary
+# read-only SQLite-v3 sidecar, never a complete source database copy.
 sub run_shadow {
     my (%args) = @_;
     return { status => 'neutral_fallback', reason => 'NOT_ENABLED' }
@@ -74,17 +43,18 @@ sub run_shadow {
         die 'one anchor, complete bounded pool required'
             unless ref($seeds) eq 'ARRAY' && @$seeds == 1
                 && ref($tracks) eq 'ARRAY' && @$tracks >= 2 && @$tracks <= 50;
-        my $limit = 256 * 1024 * 1024; # Explicit resource safety bound.
         my $temp = File::Temp->newdir('essentia-shadow-XXXXXXXX',
             DIR => File::Spec->tmpdir(), CLEANUP => 1);
         my $dir = "$temp";
-        my $bliss_copy = File::Spec->catfile($dir, 'bliss-frozen.sqlite');
-        my $feature_copy = File::Spec->catfile($dir, 'features-frozen.sqlite');
-        $phase = 'source_backup';
-        my $bliss = _frozen_copy($args{bliss_db}, $bliss_copy, $limit);
-        my $features = _frozen_copy($args{feature_db}, $feature_copy, $limit);
+        my $feature_copy = File::Spec->catfile($dir, 'features-bounded.sqlite');
+        $phase = 'source_read_only';
+        my $bliss = Plugins::BlissMixerLab::EssentiaBoundedSnapshot::open_source(
+            $args{bliss_db});
+        my $features = Plugins::BlissMixerLab::EssentiaBoundedSnapshot::open_source(
+            $args{feature_db});
         die 'wrong sidecar schema'
             unless $features->selectrow_array('PRAGMA user_version') == 3;
+
         $phase = 'identity';
         my $verify = Plugins::BlissMixerLab::EssentiaExactIdentity::verifier_from_db_handles(
             $bliss, $features
@@ -106,6 +76,13 @@ sub run_shadow {
         my $mapping = JSON::PP->new->utf8->decode($bytes);
         my @items = @{$mapping->{tracks}};
         die 'identity cohort not complete' unless @items == 1 + @$tracks;
+        $phase = 'bounded_projection';
+        Plugins::BlissMixerLab::EssentiaBoundedSnapshot::project_features(
+            source_dbh => $features, verified_tracks => \@items,
+            model_id => $args{model_id},
+            expected_model_key => $args{expected_model_key},
+            destination => $feature_copy,
+        );
         my $anchor = $items[0];
         my @candidates = map {
             { candidate_id => $_->{track_id}, database_file => $_->{track_file} }
@@ -113,6 +90,8 @@ sub run_shadow {
         # Release the prepared binary-identity statement handles before
         # disconnecting their snapshot database handles.
         $verify = undef;
+        $bliss->do('ROLLBACK');
+        $features->do('ROLLBACK');
         $bliss->disconnect;
         $features->disconnect;
         my @requests = (
