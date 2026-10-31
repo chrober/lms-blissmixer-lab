@@ -89,6 +89,74 @@ sub profile_from_provider {
     return profile_from_native_result($tracks, $effective, $result, $as_of);
 }
 
+# Passive research probe using ONLY the existing guidance SPI host callbacks.
+# No provider-specific imports, file-key knowledge or direct native process.
+# Deliberately not called from DSTM, player, queue or selection code.
+sub observe_via_spi {
+    my ($seeds, $tracks, $provider, $resolved_policy, $operations) = @_;
+    $operations = {} unless ref($operations) eq 'HASH';
+    my $neutral = { status => 'neutral', candidate_count => 0 };
+    return $neutral unless defined($operations->{shadow_opt_in})
+        && !ref($operations->{shadow_opt_in})
+        && "$operations->{shadow_opt_in}" eq '1';
+    return $neutral unless ref($seeds) eq 'ARRAY' && @$seeds == 1
+        && ref($tracks) eq 'ARRAY' && @$tracks >= 2 && @$tracks <= 50
+        && ref($provider) eq 'HASH'
+        && ref($resolved_policy) eq 'HASH'
+        && $resolved_policy->{valid} && $resolved_policy->{enabled}
+        && ref($operations->{native_config}) eq 'CODE'
+        && ref($operations->{score_batch}) eq 'CODE';
+
+    my @all_tracks = (@$seeds, @$tracks);
+    my (%seen_ids, %seen_hashes, @items);
+    for my $track (@all_tracks) {
+        my $item = _candidate_for_track($track);
+        return $neutral unless $item && ref($item) eq 'HASH';
+        my ($id, $md5) = @$item{qw(candidate_id lms_urlmd5)};
+        return $neutral unless defined($id) && !ref($id)
+            && length($id) && length($id) <= 4096
+            && defined($md5) && !ref($md5)
+            && $md5 =~ /\A[a-fA-F0-9]{1,64}\z/
+            && !$seen_ids{$id}++ && !$seen_hashes{lc($md5)}++;
+        push @items, $item;
+    }
+
+    my $response;
+    my $ok = eval {
+        my $directory = tempdir(CLEANUP => 1);
+        my $identity = write_candidate_identity_artifact(\@all_tracks, $directory);
+        my $effective = ref($resolved_policy->{effective}) eq 'HASH'
+            ? $resolved_policy->{effective} : {};
+        my $job = 'blissmixerlab-passive-probe';
+        my $config = $operations->{native_config}->(
+            $provider, $effective, {
+                candidate_identity_artifact => $identity,
+                job_id => $job,
+                as_of_unix_seconds => int(time()),
+            }
+        );
+        die 'missing native SPI configuration' unless ref($config) eq 'HASH';
+        my $anchor = $items[0];
+        $response = $operations->{score_batch}->($config, {
+            job_id => $job, request_id => 'passive-candidate-pool',
+            deadline_ms => 500,
+            context => {
+                scope => 'global', left_anchor_id => undef,
+                right_anchor_id => undef,
+                context_track_ids => [ $anchor->{candidate_id} ],
+            },
+            anchors => [{ anchor_id => $anchor->{candidate_id}, %$anchor }],
+            candidates => [ @items[1 .. $#items] ],
+        });
+        1;
+    };
+    return $neutral unless $ok && ref($response) eq 'HASH'
+        && $response->{valid}
+        && ref($response->{signals}) eq 'ARRAY'
+        && @{$response->{signals}} == 0;
+    return { status => 'observed', candidate_count => scalar(@$tracks) };
+}
+
 sub lastfm_evidence_from_provider {
     my ($seeds, $tracks, $provider, $resolved_policy, $operations) = @_;
     $seeds = [] unless ref($seeds) eq 'ARRAY';
