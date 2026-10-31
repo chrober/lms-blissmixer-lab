@@ -25,9 +25,10 @@ BlissMixerLab/EssentiaExactIdentity.pm offers:
 2. write_artifact(anchors, candidates, media_dirs, verify_key, job_id,
    directory, windows): uses only host-owned LMS track objects and media
    directories. Requires exactly one anchor, 2–50 already-admitted
-   candidates and complete verification. Checks root boundary, ambiguous
-   roots, relative traversal, duplicates, nonlocal tracks, case and CUE
-   suffixes. Unicode is preserved without normalization or fuzzy joins.
+   candidates and complete verification. Checks root boundary, relative traversal, duplicates, nonlocal tracks,
+   case and CUE suffixes. Distinct multiple media roots are rejected outright:
+   a relative TracksV2.File key alone cannot establish which physical root
+   produced the row; a future host-owned root-provenance contract is required. Unicode is preserved without normalization or fuzzy joins.
 
 Only an entirely verified batch produces a private mode-0600
 essentia-exact-track-keys-v1 UTF-8 JSON file of at most 256 KiB. The
@@ -39,7 +40,7 @@ does not invoke the provider. It does not change playlists or songs.
 ## Required next phase (not implemented)
 
 - Capture one real host seed and the frozen eligible 2–50 song pool.
-  Multiple seeds and directed-edge contexts remain neutral.
+  Multiple seeds, distinct music roots and directed-edge contexts remain neutral.
 - Open the correct Bliss and Essentia SQLite-v3 files read-only and ensure
   snapshot consistency, including rescan/change detection. The host owns
   paths and the music-root list, not a browser request.
