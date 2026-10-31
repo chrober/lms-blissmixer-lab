@@ -17,22 +17,21 @@ use Test::More;
 use lib "$FindBin::Bin/..";
 require 'BlissMixerLab/GuidanceProviderAdapter.pm';
 
-my $adapter = 'Plugins::BlissMixerLab::GuidanceProviderAdapter';
 my $seed = SeedContextTrack->new('file:///music/seed.flac', 's01', 'Seed', '11111111-1111-4111-8111-111111111111');
 my $second_seed = SeedContextTrack->new('file:///music/other-seed.flac', 's02', 'Second seed', undef);
 my $a = SeedContextTrack->new('file:///music/a.flac', 'a01', 'A', undef);
 my $b = SeedContextTrack->new('file:///music/b.flac', 'b02', 'B', undef);
-my ($anchors, $context_ids) = $adapter->build_seed_context([$seed, $second_seed]);
+my ($anchors, $context_ids) = Plugins::BlissMixerLab::GuidanceProviderAdapter::build_seed_context([$seed, $second_seed]);
 is_deeply($context_ids, ['seed-1','seed-2'], 'provider-neutral IDs preserve existing Last.fm route token semantics');
 is_deeply([map { $_->{candidate_id} } @$anchors],
     [$seed->url, $second_seed->url], 'anchors retain actual Lyrion source URLs');
 is_deeply([map { $_->{lms_urlmd5} } @$anchors], ['s01','s02'], 'anchors retain Lyrion hashes');
 is($anchors->[0]{recording_mbid}, '11111111-1111-4111-8111-111111111111',
     'Last.fm recording metadata survives shared helper');
-my ($empty_anchors, $empty_context) = $adapter->build_seed_context(undef);
+my ($empty_anchors, $empty_context) = Plugins::BlissMixerLab::GuidanceProviderAdapter::build_seed_context(undef);
 is_deeply($empty_anchors, [], 'optional absent seed list yields no anchors');
 is_deeply($empty_context, [], 'optional absent seed list yields no context IDs');
-my ($holes, $hole_ids) = $adapter->build_seed_context([$seed, undef, $second_seed]);
+my ($holes, $hole_ids) = Plugins::BlissMixerLab::GuidanceProviderAdapter::build_seed_context([$seed, undef, $second_seed]);
 is_deeply($hole_ids, ['seed-1', 'seed-3'], 'existing Last.fm numbering preserves original seed positions');
 is_deeply([map { $_->{candidate_id} } @$holes], [$seed->url, $second_seed->url],
     'ineligible seed cannot become a candidate or replace a valid host seed');
@@ -59,7 +58,7 @@ sub stub_run {
         },
     );
     $ops{seeds} = $seeds if defined $seeds;
-    my $profile = $adapter->profile_from_provider(
+    my $profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_provider(
         \@source_candidates, {provider_id=>$provider_id}, $policy, 1000, \%ops);
     return ($profile,$req);
 }
