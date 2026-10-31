@@ -87,6 +87,7 @@ $write_allowed = eval {
 };
 ok(!$write_allowed, 'read-only SQLite query_only guard prevents sidecar writes');
 
+$verify = undef;
 $bliss->disconnect;
 $features->disconnect;
 done_testing();
