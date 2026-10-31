@@ -64,8 +64,10 @@ sub project_features {
     my %names;
     die 'duplicate model labels' if grep { $names{$_}++ } @$labels;
     die 'invalid model metadata'
-        unless defined($meta->{preprocessing_version}) && length($meta->{preprocessing_version})
-            && defined($meta->{aggregation}) && length($meta->{aggregation})
+        unless defined($meta->{preprocessing_version})
+            && length($meta->{preprocessing_version}) && length($meta->{preprocessing_version}) <= 256
+            && defined($meta->{aggregation})
+            && length($meta->{aggregation}) && length($meta->{aggregation}) <= 256
             && defined($meta->{validated_against_essentia})
             && $meta->{validated_against_essentia} =~ /\A[01]\z/;
 
