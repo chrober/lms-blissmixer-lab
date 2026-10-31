@@ -29,7 +29,9 @@ is_deeply([map { $_->{candidate_id} } @$anchors],
 is_deeply([map { $_->{lms_urlmd5} } @$anchors], ['s01','s02'], 'anchors retain Lyrion hashes');
 is($anchors->[0]{recording_mbid}, '11111111-1111-4111-8111-111111111111',
     'Last.fm recording metadata survives shared helper');
-is_deeply($adapter->build_seed_context(undef), [], 'optional absent seed list yields no anchors');
+my ($empty_anchors, $empty_context) = $adapter->build_seed_context(undef);
+is_deeply($empty_anchors, [], 'optional absent seed list yields no anchors');
+is_deeply($empty_context, [], 'optional absent seed list yields no context IDs');
 my ($holes, $hole_ids) = $adapter->build_seed_context([$seed, undef, $second_seed]);
 is_deeply($hole_ids, ['seed-1', 'seed-3'], 'existing Last.fm numbering preserves original seed positions');
 is_deeply([map { $_->{candidate_id} } @$holes], [$seed->url, $second_seed->url],
