@@ -60,7 +60,7 @@ use constant LASTFM_EVIDENCE_TIMEOUT => 8;
 
 my $log = Slim::Utils::Log->addLogCategory({
     'category'     => 'plugin.blissmixerlab',
-    'defaultLevel' => 'INFO',
+    'defaultLevel' => 'WARN',
     'logGroups'    => 'SCANNER',
 });
 
