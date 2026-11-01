@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.6
+
+- Bundle mixer 0.11.6 and learner 0.1.2, with version-specific source and
+  third-party license material available alongside the release.
+
 ## 0.10.5 - 2026-10-16
 
 - Cover persistence of provider-declared enum overrides such as the Last.fm
