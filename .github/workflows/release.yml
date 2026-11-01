@@ -148,6 +148,8 @@ jobs:
           (cd native/mixer && sha256sum -c *.sha256)
           (cd native/mixer && for name in alloc-stdlib convert_case winapi-legacy fxhash; do sha256sum -c "bliss-mixer-third-party-$name-LICENSE.sha256"; done)
           (cd native/learner && sha256sum -c *.sha256)
+          (cd native/mixer && sha256sum -c bliss-mixer-third-party-licenses.zip.sha256)
+          (cd native/learner && sha256sum -c bliss-learner-third-party-licenses.zip.sha256)
           git check-ref-format "refs/tags/$MIXER_RELEASE"
           git check-ref-format "refs/tags/$LEARNER_RELEASE"
           mixer_commit="$(git ls-remote "https://github.com/$MIXER_REPO.git" "refs/tags/$MIXER_RELEASE" "refs/tags/$MIXER_RELEASE^{}" | tail -n 1 | cut -f 1)"
@@ -190,6 +192,7 @@ jobs:
             cp LICENSE THIRD_PARTY_NOTICES.md staging/BlissMixerLab/
             mkdir -p staging/BlissMixerLab/third-party-licenses
             for name in alloc-stdlib convert_case winapi-legacy fxhash; do cp "native/mixer/bliss-mixer-third-party-$name-LICENSE" staging/BlissMixerLab/third-party-licenses/; done
+            cp native/mixer/bliss-mixer-third-party-licenses.zip native/learner/bliss-learner-third-party-licenses.zip staging/BlissMixerLab/third-party-licenses/
             printf '# Source provenance\n\nPlugin commit: %s\nhttps://github.com/chrober/lms-blissmixer-lab/tree/%s\n\nNative mixer release: %s\nhttps://github.com/chrober/bliss-mixer/releases/tag/%s\n\nNative learner release: %s\nhttps://github.com/chrober/bliss-learner/releases/tag/%s\n\nThese references do not constitute a complete Corresponding Source bundle.\n' "$GITHUB_SHA" "$GITHUB_SHA" "$MIXER_RELEASE" "$MIXER_RELEASE" "$LEARNER_RELEASE" "$LEARNER_RELEASE" > staging/BlissMixerLab/SOURCE.md
             printf '\nPlugin source archive: https://github.com/chrober/lms-blissmixer-lab/releases/download/%s/lms-blissmixer-lab-source-%s.zip\n' "$RELEASE_TAG" "$RELEASE_VERSION" >> staging/BlissMixerLab/SOURCE.md
             printf 'Native mixer source: https://github.com/chrober/bliss-mixer/releases/download/%s/bliss-mixer-source.tar.gz\nNative learner source: https://github.com/chrober/bliss-learner/releases/download/%s/bliss-learner-source.tar.gz\n' "$MIXER_RELEASE" "$LEARNER_RELEASE" >> staging/BlissMixerLab/SOURCE.md
