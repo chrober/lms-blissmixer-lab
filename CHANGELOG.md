@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.7
+
+- Bundle mixer 0.11.7 and learner 0.1.3 with updated third-party notices.
+
 ## 0.10.6
 
 - Bundle mixer 0.11.6 and learner 0.1.2, with version-specific source and
