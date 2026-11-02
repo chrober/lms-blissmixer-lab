@@ -273,7 +273,7 @@ jobs:
             test "$(git rev-parse "refs/tags/$TAG^{commit}")" = "$GITHUB_SHA" || { echo 'Release tag points to a different source commit' >&2; exit 1; }
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/*.zip dist/*.sha1 dist/*.sha256 --clobber
+            echo "Release already exists: $TAG; refusing to overwrite assets" >&2; exit 1
           else
             gh release create "$TAG" dist/*.zip dist/*.sha1 dist/*.sha256 \
               --target "$GITHUB_SHA" \
