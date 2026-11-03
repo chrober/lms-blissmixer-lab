@@ -18,25 +18,26 @@ registrations.
 
 The two preference namespaces are deliberately separate:
 
-- `plugin.blissmixer` supplies filters, repeat limits, weights, seed strategy,
-  genre groups, DSTM count, Last.fm artist probability, and play-count
-  influence.
-- `plugin.blissmixerlab` supplies only the learned blend, Last.fm
-  similar-track guidance, Last.fm artist reranking mode and bounded influence,
-  last-played and library-age influence plus their saturation horizons, and
-  training-data backup path.
+- `plugin.blissmixer` supplies the base strategy, filters, repeat limits,
+  weights, seed strategy, genre groups, and DSTM count. Its play-count
+  preference remains relevant to the legacy fallback when Library Signals is
+  not active.
+- `plugin.blissmixerlab` owns Lab-specific settings, including the learned
+  blend, provider enablement and overrides, and the training-data backup path.
+- Discoverable guidance providers own their default policies. Lab may override
+  supported values without changing the provider defaults.
 
 ## Candidate reranking
 
 BlissMixerLab requests candidates from its sidecar mixer using the Static
 Weights, EIF, or Adaptive Weightings strategy configured in Bliss Mixer. It
-delegates Last.fm artist and play-count reranking to Bliss Mixer's shared
-candidate selector, adding its Last.fm recording-similarity factor and optional
-local listening/library factors to the same selection pass. Last-played and
-library-age values are read in one bounded lookup against Lyrion's
-`persistentdb.tracks_persistent` table for the Bliss-derived DSTM pool, not by
-scanning the library. They use the same signed `-100` through `100` preference
-semantics as upstream play-count influence. Learned-matrix weighting applies
+uses discoverable, explicitly enabled guidance providers to influence selection
+within that Bliss-derived pool. The native Library Signals provider reads
+trusted Lyrion or optional Alternative Play Count history for the candidates;
+the Last.fm provider can use LastMix or its direct API Key path. If Library
+Signals is not enabled, the legacy local selection path remains available.
+See [provider host integration](GUIDANCE_PROVIDER_HOST_INTEGRATION.md) for the
+request paths and fallback behavior. Learned-matrix weighting applies
 only to Adaptive Weightings. Last.fm recording matches prefer MusicBrainz
 recording IDs and fall
 back to normalized artist/title identity. Track and artist request lanes run
@@ -46,22 +47,21 @@ order.
 
 ### Last.fm artist reranking
 
-BlissMixerLab offers two explicitly selected modes:
+The Last.fm provider offers two explicitly selected modes, inherited or
+overridden by the host:
 
 | Mode | Meaning | Setting used |
 | --- | --- | --- |
-| **Bounded artist influence** (default) | Every artist-endorsed candidate receives a bounded multiplier comparable to the other reranking factors. | Lab artist influence, `0..100`; `25` is about `1.8x`, `50` about `3.2x`, and `100` up to `10x`. |
-| **Target endorsed share** | Delegates to the upstream BlissMixer percentage semantics, requesting a best-effort share of selected candidates endorsed by Last.fm artist evidence. | Upstream BlissMixer Last.fm artist probability. |
+| **Per-candidate boost** | Each artist-endorsed candidate receives a bounded multiplier that competes with the other reranking factors. | Provider artist influence, `0..100`; `25` is about `1.8x`, `50` about `3.2x`, and `100` up to `10x`. |
+| **Target share** | Requests a best-effort share of selected candidates endorsed by Last.fm artist evidence; the resulting boost can dominate other factors. | Provider artist target share. |
 
-The default mode prevents a single Last.fm artist match from overwhelming
-play-count, last-played, library-age, and Bliss similarity factors. In both
+The per-candidate mode bounds the contribution of an artist match. In both
 modes, Last.fm only reranks the Bliss-derived pool; it cannot add a candidate
 outside that pool or bypass a hard constraint.
 
 At information level, the plugin reports the active mode, number of artist
-matches, configured influence or target, and the calculated boost range. Debug
-logging additionally reports `Last.fm-artist-mode` for every selected
-candidate and shows the artist multiplier separately from the other factors.
+matches, and configured influence or target. Debug logging additionally shows
+the selected candidates' artist multipliers alongside the other factors.
 
 ### Saturating last-played and library-age signals
 
@@ -89,9 +89,8 @@ Consequences:
 - negative library-age influence favors older additions;
 - five- and six-year-old tracks receive nearly the same age signal when the
   horizon is much shorter than either age;
-- missing metadata is neutral; and
-- a `lastPlayed` value of zero (“never played”) is treated as maximally
-  overdue.
+- missing metadata is neutral. Provider-specific source handling determines
+  which timestamps are available.
 
 The settings are:
 
