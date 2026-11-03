@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.8
+
+- Add German settings translations and clarify artist repeat identity options.
+
 ## 0.10.7
 
 - Bundle mixer 0.11.7 and learner 0.1.3 with updated third-party notices.

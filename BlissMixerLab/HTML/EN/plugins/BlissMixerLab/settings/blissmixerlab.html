@@ -134,6 +134,7 @@
 
 [% PROCESS settings/footer.html %]
 
+<span hidden id="lab-clear-training-confirm">[% "BLISSMIXERLAB_CLEAR_TRAINING_CONFIRM" | string | html %]</span>
 <script type="text/javascript">
     [% PROCESS "plugins/BlissGuidance/settings/guidance-provider-controls.js" %]
     let learningRunning = false;
@@ -269,7 +270,7 @@
     }
 
     async function clearTraining() {
-        if (!confirm('Delete all BlissMixerLab survey answers and the learned matrix?')) return;
+        if (!confirm(document.getElementById('lab-clear-training-confirm').textContent)) return;
         await labCommand('clear-training-data');
         await refreshLearning();
     }

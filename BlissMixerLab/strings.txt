@@ -1,215 +1,291 @@
 BLISSMIXERLAB
 	EN	Bliss Mixer Lab
+	DE	Bliss Mixer Lab
 
 BLISSMIXERLAB_DESC
 	EN	Experimental and early-access extensions for Bliss Mixer
+	DE	Experimentelle und vorab verfügbare Erweiterungen für Bliss Mixer
 
 DEBUG_PLUGIN_BLISSMIXERLAB
 	EN	Bliss Mixer Lab
+	DE	Bliss Mixer Lab
 
 BLISSMIXERLAB_DSTM
 	EN	Bliss (Lab)
+	DE	Bliss (Lab)
 
 BLISSMIXERLAB_CREATE_MIX
 	EN	Create bliss mix (Lab)
+	DE	Bliss-Mix erstellen (Lab)
 
 BLISSMIXERLAB_SIMILAR_TRACKS
 	EN	Similar tracks (Lab)
+	DE	Ähnliche Titel (Lab)
 
 BLISSMIXERLAB_SIMILAR_TRACKS_BY_ARTIST
 	EN	Similar tracks by artist (Lab)
+	DE	Ähnliche Titel nach Interpret (Lab)
 
 BLISSMIXERLAB_STATUS
 	EN	Companion status
+	DE	Kompatibilitätsstatus
 
 BLISSMIXERLAB_UPSTREAM_OK
 	EN	Compatible installed BlissMixer version:
+	DE	Installierte kompatible BlissMixer-Version:
 
 BLISSMIXERLAB_UPSTREAM_MISSING
 	EN	BlissMixerLab requires an enabled upstream BlissMixer 0.10.0 or newer with candidate-reranking support. Detected version:
+	DE	BlissMixerLab benötigt einen aktivierten BlissMixer ab Version 0.10.0 mit Unterstützung für die Neugewichtung von Kandidaten. Erkannte Version:
 
 BLISSMIXERLAB_DATABASE_OK
 	EN	The upstream analysis database (%s) is available.
+	DE	Die Analyse-Datenbank von BlissMixer (%s) ist verfügbar.
 
 BLISSMIXERLAB_DATABASE_MISSING
 	EN	No %s was found. Run analysis from the upstream BlissMixer settings first.
+	DE	%s wurde nicht gefunden. Starte zunächst die Analyse in den BlissMixer-Einstellungen.
 
 BLISSMIXERLAB_SETTINGS_NOTE
 	EN	BlissMixerLab uses the mixing strategy, candidate-selection, filter, seed, and genre settings from upstream Bliss Mixer. Only experimental settings are shown here.
+	DE	BlissMixerLab verwendet die Einstellungen für Mischstrategie, Kandidatenauswahl, Filter, Seeds und Stilrichtungen von Bliss Mixer. Hier werden nur experimentelle Einstellungen angezeigt.
 
 BLISSMIXERLAB_MIX_SETTINGS
 	EN	Experimental mix settings
+	DE	Experimentelle Mix-Einstellungen
 
 BLISSMIXERLAB_MIX_SETTINGS_NOTE
 	EN	These settings extend the candidate selection produced by Bliss Mixer.
+	DE	Diese Einstellungen erweitern die Kandidatenauswahl von Bliss Mixer.
 
 BLISSMIXERLAB_MIX_GROUP_BASE
 	EN	Matrix and base mixing
+	DE	Matrix und grundlegende Mix-Einstellungen
 
 BLISSMIXERLAB_MIX_GROUP_LOCAL
 	EN	Local library signals
+	DE	Lokale Mediathekssignale
 
 BLISSMIXERLAB_GUIDANCE_PROVIDERS
 	EN	Optional guidance providers
+	DE	Optionale Gewichtungsanbieter
 
 BLISSMIXERLAB_GUIDANCE_PROVIDERS_DESC
 	EN	Guidance providers contribute optional secondary ranking signals. Bliss remains the primary similarity authority. Provider settings are inherited unless overridden here.
+	DE	Gewichtungsanbieter liefern optionale zusätzliche Signale für die Rangfolge. Bliss bleibt für die Ähnlichkeit maßgeblich. Anbietereinstellungen werden übernommen, sofern sie hier nicht überschrieben werden.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED
 	EN	Use this provider
+	DE	Diesen Anbieter verwenden
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC
 	EN	Enable this provider for Lab candidate selection. Its settings below stay local to Bliss Mixer Lab until you save this page.
+	DE	Diesen Anbieter für die Kandidatenauswahl von Lab aktivieren. Die Einstellungen unten werden erst beim Speichern dieser Seite für Bliss Mixer Lab übernommen.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE
 	EN	This provider is available.
+	DE	Dieser Anbieter ist verfügbar.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE
 	EN	This provider is unavailable: %s
+	DE	Dieser Anbieter ist nicht verfügbar: %s
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS
 	EN	Open %s settings
+	DE	%s-Einstellungen öffnen
 
 BLISSMIXERLAB_GUIDANCE_PROVIDERS_NONE
 	EN	No compatible guidance providers are currently discovered.
+	DE	Derzeit wurden keine kompatiblen Gewichtungsanbieter gefunden.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN
 	EN	Effective value source:
+	DE	Quelle des wirksamen Werts:
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PROVIDER
 	EN	Provider setting
+	DE	Anbietereinstellung
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST
 	EN	Bliss Mixer Lab setting
+	DE	Bliss-Mixer-Lab-Einstellung
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_FACTORY
 	EN	Provider factory setting
+	DE	Eingebauter Standardwert des Anbieters
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_JOB
 	EN	Job setting
+	DE	Auftragseinstellung
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING
 	EN	(will apply when saved)
+	DE	(wird beim Speichern übernommen)
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET
 	EN	Use inherited default
+	DE	Übernommenen Standardwert verwenden
 
 BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
+	DE	Einfluss der gelernten Matrix
 
 BLISSMIXERLAB_LEARNED_BLEND_DESC
 	EN	For multiple adaptive-weighting seeds, controls how strongly the learned matrix influences similarity. 0 is variance only; 100 is learned matrix only. A single seed uses the learned matrix directly.
+	DE	Legt bei mehreren Seeds für die adaptive Gewichtung fest, wie stark die gelernte Matrix die Ähnlichkeit beeinflusst. 0 verwendet nur die Varianz, 100 nur die gelernte Matrix. Bei einem einzelnen Seed wird die gelernte Matrix direkt verwendet.
 
 BLISSMIXERLAB_ARTIST_REPEAT_MODE
 	EN	Artist repeat identity
+	DE	Interpretenvergleich bei Wiederholungen
 
 BLISSMIXERLAB_ARTIST_REPEAT_MODE_DESC
-	EN	<b>Any shared credited artist:</b> Treats tracks as the same artist when any credited artist matches, including solo and collaboration credits.<br/><br/><b>Primary artist only:</b> Compares only each track's primary artist; guest artists do not create a conflict.<br/><br/><b>Exact Bliss artist credit:</b> Compares the complete artist text stored in bliss.db. This was the previous default behavior; differently written collaboration credits may count as different artists.<br/><br/>The first two options prefer MusicBrainz artist IDs, followed by Lyrion contributor IDs and normalized names.
+	EN	<b>Any shared credited artist:</b> Tracks count as the same artist if any credited artist matches, including solo and collaboration credits.<br/><br/><b>Primary artist only:</b> Compares only each track's primary artist; guest artists do not create a conflict.<br/><br/><b>Exact Bliss artist credit:</b> Compares the complete artist credit stored in bliss.db. For example, a solo track by David Bowie and a collaboration credited to David Bowie &amp; Queen count as different artists.<br/><br/>The first two options prefer MusicBrainz artist IDs, followed by Lyrion contributor IDs and normalized names.
+	DE	<b>Jeder gemeinsame beteiligte Interpret:</b> Titel gelten als vom selben Interpreten, sobald ein beteiligter Interpret übereinstimmt – auch bei Solotiteln und Zusammenarbeiten.<br/><br/><b>Nur Hauptinterpret:</b> Vergleicht nur den Hauptinterpreten jedes Titels; Gastinterpreten verursachen keinen Konflikt.<br/><br/><b>Exakte Bliss-Interpretenangabe:</b> Vergleicht die vollständige, in bliss.db gespeicherte Interpretenangabe. Ein Solotitel von David Bowie und ein gemeinsamer Titel von David Bowie &amp; Queen gelten beispielsweise als Titel unterschiedlicher Interpreten.<br/><br/>Die ersten beiden Optionen bevorzugen MusicBrainz-Interpreten-IDs, danach Lyrion-Mitwirkenden-IDs und normalisierte Namen.
 
 BLISSMIXERLAB_ARTIST_REPEAT_SHARED
 	EN	Any shared credited artist
+	DE	Jeder gemeinsame beteiligte Interpret
 
 BLISSMIXERLAB_ARTIST_REPEAT_PRIMARY
 	EN	Primary artist only
+	DE	Nur Hauptinterpret
 
 BLISSMIXERLAB_ARTIST_REPEAT_EXACT
 	EN	Exact Bliss artist credit
+	DE	Exakte Bliss-Interpretenangabe
 
 BLISSMIXERLAB_LAST_PLAYED_INFLUENCE
 	EN	Last-played influence
+	DE	Einfluss der letzten Wiedergabe
 
 BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC
 	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's last-played timestamp. Negative values favor songs heard longer ago; positive values favor recently played songs. Zero is neutral.
+	DE	Gewichtet die begrenzte Bliss-Kandidatenauswahl anhand des Lyrion-Zeitpunkts der letzten Wiedergabe neu. Negative Werte bevorzugen länger nicht gespielte, positive Werte kürzlich gespielte Titel. Null ist neutral.
 
 BLISSMIXERLAB_LAST_PLAYED_HORIZON
 	EN	Last-played saturation horizon (days)
+	DE	Sättigungshorizont für die letzte Wiedergabe (Tage)
 
 BLISSMIXERLAB_LAST_PLAYED_HORIZON_DESC
 	EN	Controls how quickly last-played differences saturate. After one horizon, the raw time signal is about 36.8% of its starting value; songs played much longer ago become increasingly similar. Default: 180 days.
+	DE	Legt fest, wie schnell Unterschiede bei der letzten Wiedergabe abflachen. Nach einem Horizont beträgt das Zeitsignal etwa 36,8 % seines Ausgangswerts; länger zurückliegende Wiedergaben wirken zunehmend ähnlich. Standard: 180 Tage.
 
 BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE
 	EN	Library-age influence
+	DE	Einfluss des Mediatheksalters
 
 BLISSMIXERLAB_LIBRARY_AGE_INFLUENCE_DESC
 	EN	Re-ranks the bounded Bliss candidate pool using Lyrion's library-added timestamp. Negative values favor older library additions; positive values favor newer additions. Zero is neutral. A full LMS database rebuild can reset this timestamp.
+	DE	Gewichtet die begrenzte Bliss-Kandidatenauswahl anhand des Lyrion-Aufnahmezeitpunkts neu. Negative Werte bevorzugen ältere, positive Werte neuere Mediathekszugänge. Null ist neutral. Ein vollständiger Neuaufbau der Lyrion-Datenbank kann diesen Zeitpunkt zurücksetzen.
 
 BLISSMIXERLAB_LIBRARY_AGE_HORIZON
 	EN	Library-age saturation horizon (days)
+	DE	Sättigungshorizont für das Mediatheksalter (Tage)
 
 BLISSMIXERLAB_LIBRARY_AGE_HORIZON_DESC
 	EN	Controls how quickly library-age differences saturate. After one horizon, the raw age signal is about 36.8% of its starting value; very old additions become increasingly similar. Default: 365 days.
+	DE	Legt fest, wie schnell Unterschiede beim Mediatheksalter abflachen. Nach einem Horizont beträgt das Alterssignal etwa 36,8 % seines Ausgangswerts; sehr alte Zugänge wirken zunehmend ähnlich. Standard: 365 Tage.
 
 BLISSMIXERLAB_LEARNING
 	EN	Metric learning
+	DE	Metriklernen
 
 BLISSMIXERLAB_LEARNING_NOTE
 	EN	Complete similarity surveys, then train a personal distance matrix. The previous matrix remains active if an experimental training run fails.
+	DE	Beantworte Ähnlichkeitsumfragen und trainiere anschließend eine persönliche Distanzmatrix. Schlägt ein experimenteller Trainingslauf fehl, bleibt die bisherige Matrix aktiv.
 
 BLISSMIXERLAB_LEARNER_NOT_FOUND
 	EN	The bliss-learner executable was not found.
+	DE	Die ausführbare Datei bliss-learner wurde nicht gefunden.
 
 BLISSMIXERLAB_OPEN_SURVEY
 	EN	Open Similarity Survey
+	DE	Ähnlichkeitsumfrage öffnen
 
 BLISSMIXERLAB_TRIPLETS
 	EN	Training triplets:
+	DE	Trainings-Tripel:
 
 BLISSMIXERLAB_MATRIX
 	EN	Learned matrix:
+	DE	Gelernte Matrix:
 
 BLISSMIXERLAB_MATRIX_AVAILABLE
 	EN	Available
+	DE	Verfügbar
 
 BLISSMIXERLAB_MATRIX_MISSING
 	EN	Not yet generated
+	DE	Noch nicht erstellt
 
 BLISSMIXERLAB_RUN_LEARNING
 	EN	Run Learning
+	DE	Lernen starten
 
 BLISSMIXERLAB_STOP_LEARNING
 	EN	Stop Learning
+	DE	Lernen stoppen
 
 BLISSMIXERLAB_CLEAR_TRAINING
 	EN	Clear Training Data
+	DE	Trainingsdaten löschen
+
+BLISSMIXERLAB_CLEAR_TRAINING_CONFIRM
+	EN	Delete all BlissMixerLab survey answers and the learned matrix?
+	DE	Alle Antworten der BlissMixerLab-Umfrage und die gelernte Matrix löschen?
 
 BLISSMIXERLAB_LEARNING_START_TIME
 	EN	Start:
+	DE	Start:
 
 BLISSMIXERLAB_LEARNING_DURATION
 	EN	Duration:
+	DE	Dauer:
 
 BLISSMIXERLAB_LEARNING_STATUS
 	EN	Status:
+	DE	Status:
 
 BLISSMIXERLAB_LEARNING_FAILED
 	EN	Learning failed unexpectedly. Check the Lyrion server log for details.
+	DE	Das Lernen ist unerwartet fehlgeschlagen. Weitere Informationen stehen im Lyrion-Serverprotokoll.
 
 BLISSMIXERLAB_BACKUP_PATH
 	EN	Training data backup folder
+	DE	Sicherungsordner für Trainingsdaten
 
 BLISSMIXERLAB_BACKUP_PATH_DESC
 	EN	If set, backup zip files of the training triplets are stored in this folder. Backup filenames include a timestamp.
+	DE	Wenn angegeben, werden ZIP-Sicherungen der Trainings-Tripel in diesem Ordner gespeichert. Die Dateinamen enthalten einen Zeitstempel.
 
 BLISSMIXERLAB_BACKUP_NOW
 	EN	Backup now
+	DE	Jetzt sichern
 
 BLISSMIXERLAB_BACKUP_SUCCESS
 	EN	Backup created.
+	DE	Sicherung erstellt.
 
 BLISSMIXERLAB_BACKUP_FAILED
 	EN	Backup failed.
+	DE	Sicherung fehlgeschlagen.
 
 BLISSMIXERLAB_RESTORE_PATH
 	EN	Restore from backup
+	DE	Aus Sicherung wiederherstellen
 
 BLISSMIXERLAB_RESTORE_PATH_DESC
 	EN	Choose a backup zip file to restore the training triplets.
+	DE	Wähle eine ZIP-Sicherung zum Wiederherstellen der Trainings-Tripel.
 
 BLISSMIXERLAB_RESTORE_IN_PROGRESS
 	EN	Restoring backup...
+	DE	Sicherung wird wiederhergestellt ...
 
 BLISSMIXERLAB_RESTORE_SUCCESS
 	EN	Training data restored successfully.
+	DE	Trainingsdaten erfolgreich wiederhergestellt.
 
 BLISSMIXERLAB_RESTORE_FAILED
 	EN	Restore failed.
+	DE	Wiederherstellung fehlgeschlagen.
