@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.9
+
+- Respect provider-owned controls in guidance settings.
+
 ## 0.10.8
 
 - Add German settings translations and clarify artist repeat identity options.
