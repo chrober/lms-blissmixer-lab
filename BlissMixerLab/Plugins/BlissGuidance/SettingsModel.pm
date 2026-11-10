@@ -59,6 +59,7 @@ sub _section {
 
     for my $control (@{$descriptor->{controls} || []}) {
         next unless ref($control) eq 'HASH' && $control->{key};
+        next if defined($control->{host_overridable}) && !$control->{host_overridable};
         my $key = $control->{key};
         my $origin = $resolved->{origins}->{$key} || 'factory_default';
         my $field_name = _field_name(

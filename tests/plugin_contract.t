@@ -418,6 +418,7 @@ $TestPrefs::values{'plugin.blissmixerlab'}{guidance_provider_state} = {
         lastfm => {
             enabled => 1,
             overrides => {
+                source => 'lastmix',
                 lastfm_track_influence => 40,
                 lastfm_artist_mode => 'bounded_influence',
                 lastfm_artist_level => 65,
@@ -442,7 +443,7 @@ my $direct_lastfm_context = Plugins::BlissMixerLab::Plugin::_lastfmGuidanceConte
 ok($direct_lastfm_context->{enabled},
     'API-key source activates the same discoverable Last.fm provider');
 is($direct_lastfm_context->{source}, 'api_key',
-    'Lab retains the provider-owned API-key source selection');
+    'Lab uses the provider-owned API-key source despite a stale host override');
 is_deeply(
     Plugins::BlissMixerLab::Plugin::_guidanceProcessEnvironment(),
     { BLISS_GUIDANCE_LASTFM_API_KEY => 'test-secret' },

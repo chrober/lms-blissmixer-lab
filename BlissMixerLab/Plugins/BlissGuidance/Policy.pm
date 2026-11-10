@@ -21,9 +21,11 @@ sub resolve {
         next unless ref($control) eq 'HASH' && $control->{key};
         my $key = $control->{key};
         my ($value, $origin);
-        if (exists $job_values->{$key}) {
+        my $overridable = !defined($control->{host_overridable})
+            || $control->{host_overridable};
+        if ($overridable && exists $job_values->{$key}) {
             ($value, $origin) = ($job_values->{$key}, 'job_override');
-        } elsif (exists $host_values->{$key}) {
+        } elsif ($overridable && exists $host_values->{$key}) {
             ($value, $origin) = ($host_values->{$key}, 'host_override');
         } elsif (exists $defaults->{$key}) {
             ($value, $origin) = ($defaults->{$key}, 'provider_default');
