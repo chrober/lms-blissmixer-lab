@@ -68,27 +68,27 @@ BLISSMIXERLAB_MIX_GROUP_LOCAL
 
 BLISSMIXERLAB_GUIDANCE_PROVIDERS
 	EN	Optional guidance providers
-	DE	Optionale Gewichtungsanbieter
+	DE	Optionale Gewichtungs-Plugins
 
 BLISSMIXERLAB_GUIDANCE_PROVIDERS_DESC
 	EN	Guidance providers contribute optional secondary ranking signals. Bliss remains the primary similarity authority. Provider settings are inherited unless overridden here.
-	DE	Gewichtungsanbieter liefern optionale zusätzliche Signale für die Rangfolge. Bliss bleibt für die Ähnlichkeit maßgeblich. Anbietereinstellungen werden übernommen, sofern sie hier nicht überschrieben werden.
+	DE	Gewichtungs-Plugins liefern optionale zusätzliche Signale für die Rangfolge. Bliss bleibt für die Ähnlichkeit maßgeblich. Ihre Einstellungen werden übernommen, sofern sie hier nicht überschrieben werden.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED
 	EN	Use this provider
-	DE	Diesen Anbieter verwenden
+	DE	Dieses Gewichtungs-Plugin verwenden
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ENABLED_DESC
 	EN	Enable this provider for Lab candidate selection. Its settings below stay local to Bliss Mixer Lab until you save this page.
-	DE	Diesen Anbieter für die Kandidatenauswahl von Lab aktivieren. Die Einstellungen unten werden erst beim Speichern dieser Seite für Bliss Mixer Lab übernommen.
+	DE	Dieses Gewichtungs-Plugin für die Kandidatenauswahl von Lab aktivieren. Die Einstellungen unten werden erst beim Speichern dieser Seite für Bliss Mixer Lab übernommen.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_AVAILABLE
 	EN	This provider is available.
-	DE	Dieser Anbieter ist verfügbar.
+	DE	Dieses Gewichtungs-Plugin ist verfügbar.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_UNAVAILABLE
 	EN	This provider is unavailable: %s
-	DE	Dieser Anbieter ist nicht verfügbar: %s
+	DE	Dieses Gewichtungs-Plugin ist nicht verfügbar: %s
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS
 	EN	Open %s settings
@@ -96,15 +96,15 @@ BLISSMIXERLAB_GUIDANCE_PROVIDER_SETTINGS
 
 BLISSMIXERLAB_GUIDANCE_PROVIDERS_NONE
 	EN	No compatible guidance providers are currently discovered.
-	DE	Derzeit wurden keine kompatiblen Gewichtungsanbieter gefunden.
+	DE	Derzeit wurden keine kompatiblen Gewichtungs-Plugins gefunden.
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN
 	EN	Effective value source:
-	DE	Quelle des wirksamen Werts:
+	DE	Wirksamer Wert:
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PROVIDER
 	EN	Provider setting
-	DE	Anbietereinstellung
+	DE	Einstellung des Gewichtungs-Plugins
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST
 	EN	Bliss Mixer Lab setting
@@ -112,7 +112,7 @@ BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_HOST
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_FACTORY
 	EN	Provider factory setting
-	DE	Eingebauter Standardwert des Anbieters
+	DE	Eingebauter Standardwert des Gewichtungs-Plugins
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_JOB
 	EN	Job setting
@@ -124,7 +124,7 @@ BLISSMIXERLAB_GUIDANCE_PROVIDER_ORIGIN_PENDING
 
 BLISSMIXERLAB_GUIDANCE_PROVIDER_RESET
 	EN	Use inherited default
-	DE	Übernommenen Standardwert verwenden
+	DE	Einstellung des Gewichtungs-Plugins verwenden
 
 BLISSMIXERLAB_LEARNED_BLEND
 	EN	Learned matrix influence
