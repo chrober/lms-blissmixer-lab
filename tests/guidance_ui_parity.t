@@ -19,17 +19,17 @@ my @assets = (
     [
         'Plugins/BlissGuidance/Policy.pm',
         'BlissMixerLab/Plugins/BlissGuidance/Policy.pm',
-        '911a5f869fe60d9c7e50b7961e64332865057ffa1daee761f1d8d0f6d9ae4a5f',
+        '6aef9836b94b48b1f702d66aad625b2556f8c91f69006033defff5e029a40f0a',
     ],
     [
         'Plugins/BlissGuidance/SettingsModel.pm',
         'BlissMixerLab/Plugins/BlissGuidance/SettingsModel.pm',
-        'ac1e18af0834e4feaa2443a57e8f8317b9f9b752564c2a26674ff0d71f04f5e8',
+        '7c016e487e45222102b20d9a4d231218c82ea1a7d2906ac4c92063530727ba90',
     ],
     [
         'HTML/settings/guidance-provider-controls.html',
         'BlissMixerLab/HTML/EN/plugins/BlissGuidance/settings/guidance-provider-controls.html',
-        'd0b3dd3a4e03fe3f164de7b9e0a754d98a972a620d33ded045d6da481a0ca347',
+        '51bc4d3a2aae742f767dd25d6191d5d1beacb06261034df0280340a74e4927ff',
     ],
     [
         'HTML/settings/guidance-provider-controls.js',

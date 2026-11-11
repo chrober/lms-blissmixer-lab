@@ -15,7 +15,7 @@ sub resolve {
         ? $host_state->{overrides} : {};
     my $job_values = ref($job_overrides->{overrides}) eq 'HASH'
         ? $job_overrides->{overrides} : {};
-    my (%effective, %origins);
+    my (%effective, %origins, %fallbacks);
 
     for my $control (@{$descriptor->{controls} || []}) {
         next unless ref($control) eq 'HASH' && $control->{key};
@@ -32,6 +32,11 @@ sub resolve {
         } else {
             ($value, $origin) = ($control->{factory_default}, 'factory_default');
         }
+        my $fallback_map = $control->{unavailable_value_fallbacks};
+        if (defined $value && ref($fallback_map) eq 'HASH' && exists $fallback_map->{$value}) {
+            $fallbacks{$key} = "$value";
+            $value = $fallback_map->{$value};
+        }
         my $error = _validate_value($control, $value);
         return _invalid($provider, $error, $key) if $error;
         $effective{$key} = _normalize_value($control, $value);
@@ -47,6 +52,7 @@ sub resolve {
         enabled => $enabled,
         effective => \%effective,
         origins => \%origins,
+        fallbacks => \%fallbacks,
         provider_revision => int($defaults->{settings_revision} || 0),
         descriptor_version => int($descriptor->{settings_schema_version} || 0),
         diagnostic => '',

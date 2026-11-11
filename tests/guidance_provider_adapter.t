@@ -30,6 +30,11 @@ use Test::More;
 use lib "$FindBin::Bin/..";
 require 'BlissMixerLab/GuidanceProviderAdapter.pm';
 
+ok(Plugins::BlissMixerLab::GuidanceProviderAdapter::has_active_influence({ album_playcount_influence => -60 }),
+    'aggregate-only settings still request a rerankable Bliss candidate pool');
+ok(!Plugins::BlissMixerLab::GuidanceProviderAdapter::has_active_influence({ album_playcount_influence => 0, last_played_horizon_days => 180 }),
+    'disabled influences and non-influence options do not activate reranking');
+
 my $profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_signals(
     [TestTrack->new('track-a'), TestTrack->new('track-b')],
     {
@@ -60,6 +65,34 @@ ok($profile->{by_url}->{'track-a'}->{last_played_weight} > 1,
     'negative last-played influence boosts a never-played provider signal');
 ok($profile->{by_url}->{'track-a'}->{library_age_weight} < 1,
     'positive library-age influence penalizes an older provider signal');
+
+my $family_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_signals(
+    [TestTrack->new('track-a'), TestTrack->new('track-b')],
+    { playcount_influence => -80, album_playcount_influence => -80, artist_playcount_influence => -80 },
+    [
+        (map { +{ candidate_id => 'track-a', channel => $_, score => -1, confidence => 1, observation => { guidance_family_v1 => 'listening_playcount' } } } qw(playcount album_playcount artist_playcount)),
+        (map { +{ candidate_id => 'track-b', channel => $_, score => 1, confidence => 1, observation => { guidance_family_v1 => 'listening_playcount' } } } qw(playcount album_playcount artist_playcount)),
+    ], 1000,
+);
+ok($family_profile->{active}, 'aggregate guidance activates when family scores vary');
+cmp_ok(abs($family_profile->{by_url}{'track-a'}{combined_weight} - 10), '<', 1e-9,
+    'three overlapping signals produce one bounded family multiplier');
+cmp_ok(abs($family_profile->{by_url}{'track-b'}{combined_weight} - 0.1), '<', 1e-9,
+    'opposite family signals produce the inverse bounded multiplier');
+my $traced_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_from_native_result(
+    [TestTrack->new('track-a'), TestTrack->new('track-b')],
+    { playcount_influence => -80, album_playcount_influence => -80 },
+    { valid => 1, signals => [
+        { candidate_id => 'track-a', channel => 'playcount', score => -1, observation => { guidance_family_v1 => 'listening_playcount' } },
+        { candidate_id => 'track-b', channel => 'playcount', score => 1, observation => { guidance_family_v1 => 'listening_playcount' } },
+      ], selection_trace => { trace_version => 'selection_trace_v1', candidates => [
+        { candidate_id => 'track-a', guidance => [ { channel => 'playcount', contribution => 0.25, observation => { guidance_family_v1 => 'listening_playcount' } }, { channel => 'album_playcount', contribution => 0.25, observation => { guidance_family_v1 => 'listening_playcount' } } ] },
+      ] } }, 1000,
+);
+cmp_ok(abs($traced_profile->{by_url}{'track-a'}{combined_weight} - sqrt(10)), '<', 1e-9,
+    'Lab applies the native trace family contribution rather than reconstructing it');
+is($traced_profile->{by_url}{'track-a'}{aggregate_guidance}{album_playcount}{contribution}, 0.25,
+    'aggregate trace contributions remain available for separate debug diagnostics');
 is($profile->{last_played_horizon_days}, 180, 'effective last-played horizon is retained');
 is($profile->{library_age_horizon_days}, 365, 'effective library-age horizon is retained');
 
@@ -111,6 +144,9 @@ my $provider_profile = Plugins::BlissMixerLab::GuidanceProviderAdapter::profile_
     },
     1_000,
     {
+        trusted_context => { track_identity_snapshot => '/trusted/identity.sqlite',
+            as_of_unix_seconds => 9999 },
+        host_capabilities => sub { return { bounded_signal_families_v1 => 1 } },
         native_config => sub {
             (undef, undef, $native_context) = @_;
             return { id => 'library-signals-guidance', program => '/trusted/provider' };
@@ -135,6 +171,10 @@ is($native_context->{candidate_identity_artifact}{kind}, 'eligible-candidate-ide
     'native provider receives only the trusted bounded candidate artifact');
 is($native_context->{as_of_unix_seconds}, 1000,
     'native provider receives the host-frozen observation time');
+is($native_context->{track_identity_snapshot}, '/trusted/identity.sqlite',
+    'native provider receives the already prepared trusted host identity snapshot');
+is($native_context->{bounded_signal_families_v1}, 1,
+    'provider receives the negotiated mixer family capability');
 is($score_request->{deadline_ms}, 500,
     'Lab enforces its 500ms complete provider session deadline');
 is_deeply(

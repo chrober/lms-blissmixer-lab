@@ -62,9 +62,17 @@ sub profile_from_provider {
     my $result;
     eval {
         $artifact = write_candidate_identity_artifact($tracks, $directory);
+        my $capabilities = ref($operations->{host_capabilities}) eq 'CODE'
+            ? eval { $operations->{host_capabilities}->() } : {};
+        $capabilities = {} unless ref($capabilities) eq 'HASH';
+        my $trusted_context = ref($operations->{trusted_context}) eq 'HASH'
+            ? $operations->{trusted_context} : {};
         $config = $native_config->($provider, $effective, {
+            %$trusted_context,
             candidate_identity_artifact => $artifact,
             as_of_unix_seconds => int($as_of),
+            bounded_signal_families_v1 => $capabilities->{bounded_signal_families_v1} ? 1 : 0,
+            realtime_budget_ms => 500,
         });
         my @candidates = map {
             my $candidate_id = eval { $_->url };
@@ -174,6 +182,15 @@ sub lastfm_evidence_from_provider {
     };
 }
 
+sub has_active_influence {
+    my ($effective) = @_;
+    return 0 unless ref($effective) eq 'HASH';
+    return scalar grep {
+        /_influence\z/ && defined($effective->{$_})
+            && $effective->{$_} =~ /^-?\d+\z/ && $effective->{$_} != 0
+    } keys %$effective;
+}
+
 sub profile_from_native_result {
     my ($tracks, $effective, $result, $as_of) = @_;
     $tracks = [] unless ref($tracks) eq 'ARRAY';
@@ -192,6 +209,36 @@ sub profile_from_native_result {
             || ref($trace->{candidates}) ne 'ARRAY'
         );
     my $profile = profile_from_signals($tracks, $effective, $result->{signals}, $as_of);
+    if (ref($trace) eq 'HASH') {
+        for my $candidate (@{$trace->{candidates}}) {
+            next unless ref($candidate) eq 'HASH' && ref($candidate->{guidance}) eq 'ARRAY';
+            my $entry = $profile->{by_url}->{$candidate->{candidate_id}} || next;
+            my %families;
+            for my $item (@{$candidate->{guidance}}) {
+                next unless ref($item) eq 'HASH' && ref($item->{observation}) eq 'HASH';
+                my $family = $item->{observation}->{guidance_family_v1} || '';
+                next unless $family eq 'listening_playcount' || $family eq 'listening_last_played';
+                next unless defined $item->{contribution} && $item->{contribution} =~ /^-?(?:\d+(?:\.\d*)?|\.\d+)$/;
+                $families{$family} += _bounded_score($item->{contribution});
+                my $channel = $item->{channel} || '';
+                if ($channel =~ /^(?:album|artist)_(?:playcount|last_played)$/) {
+                    $entry->{aggregate_guidance}->{$channel} = {
+                        contribution => 0 + $item->{contribution},
+                        observation => $item->{observation},
+                    };
+                }
+            }
+            if (exists $families{listening_playcount}) {
+                $entry->{playcount_weight} = exp(log(10) * _bounded_score($families{listening_playcount}));
+            }
+            if (exists $families{listening_last_played}) {
+                $entry->{last_played_weight} = exp(log(10) * _bounded_score($families{listening_last_played}));
+            }
+            $entry->{combined_weight} = ($entry->{playcount_weight} || 1)
+                * ($entry->{last_played_weight} || 1) * ($entry->{library_age_weight} || 1);
+        }
+        $profile->{active} = 1 if _distinct_count([map { $_->{combined_weight} } values %{$profile->{by_url}}]) > 1;
+    }
     my $details = ref($result->{diagnostics}) eq 'HASH'
         && ref($result->{diagnostics}->{details}) eq 'HASH'
         ? $result->{diagnostics}->{details} : {};
@@ -227,10 +274,11 @@ sub profile_from_signals {
         my $candidate_id = $signal->{candidate_id};
         my $channel = $signal->{channel};
         next unless defined $candidate_id && length $candidate_id;
-        next unless defined $channel && $channel =~ /^(?:playcount|last_played|library_age)$/;
+        next unless defined $channel && $channel =~ /^(?:playcount|last_played|library_age|album_playcount|artist_playcount|album_last_played|artist_last_played)$/;
         next unless defined $signal->{score} && $signal->{score} =~ /^-?(?:\d+(?:\.\d*)?|\.\d+)$/;
         $by_id{$candidate_id}{$channel} = {
             score => _bounded_score($signal->{score}),
+            confidence => defined($signal->{confidence}) ? _bounded_confidence($signal->{confidence}) : 1,
             observation => ref($signal->{observation}) eq 'HASH'
                 ? $signal->{observation} : {},
         };
@@ -270,6 +318,26 @@ sub profile_from_signals {
         $entry->{playcount_weight} ||= 1;
         $entry->{last_played_weight} ||= 1;
         $entry->{library_age_weight} ||= 1;
+        for my $family (
+            ['listening_playcount', 'playcount_weight', [qw(playcount album_playcount artist_playcount)]],
+            ['listening_last_played', 'last_played_weight', [qw(last_played album_last_played artist_last_played)]],
+        ) {
+            my ($family_name, $weight_key, $channels) = @$family;
+            my ($sum, $denominator, $seen) = (0, 0, 0);
+            for my $channel (@$channels) {
+                my $signal = $source->{$channel} || next;
+                next unless ($signal->{observation}->{guidance_family_v1} || '') eq $family_name;
+                next unless $signal->{confidence} > 0;
+                my $influence = _influence($policy, $channel) / 100;
+                $sum += $influence * $signal->{score} * $signal->{confidence};
+                $denominator += abs($influence);
+                $seen++;
+            }
+            if ($seen) {
+                $denominator = 1 if $denominator < 1;
+                $entry->{$weight_key} = exp(log(10) * $sum / $denominator);
+            }
+        }
         $entry->{combined_weight} = $entry->{playcount_weight}
             * $entry->{last_played_weight} * $entry->{library_age_weight};
         $by_url{$url} = $entry;
@@ -283,7 +351,8 @@ sub profile_from_signals {
     my $library_age_distinct = _distinct_count($channel_scores{library_age});
     my $active = ($playcount_influence && $playcount_distinct > 1)
         || ($last_played_influence && $last_played_distinct > 1)
-        || ($library_age_influence && $library_age_distinct > 1);
+        || ($library_age_influence && $library_age_distinct > 1)
+        || _distinct_count([map { $_->{combined_weight} } values %by_url]) > 1;
 
     return {
         active => $active ? 1 : 0,
@@ -314,11 +383,18 @@ sub _influence {
     my ($policy, $channel) = @_;
     my $key = $channel eq 'playcount' ? 'playcount_influence'
         : $channel eq 'last_played' ? 'last_played_influence'
-        : 'library_age_influence';
+        : $channel eq 'library_age' ? 'library_age_influence'
+        : $channel . '_influence';
     my $value = int($policy->{$key} || 0);
     $value = -100 if $value < -100;
     $value = 100 if $value > 100;
     return $value;
+}
+
+sub _bounded_confidence {
+    my $value = shift;
+    return 0 unless defined $value && $value =~ /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+    return $value > 1 ? 1 : 0 + $value;
 }
 
 sub _horizon {

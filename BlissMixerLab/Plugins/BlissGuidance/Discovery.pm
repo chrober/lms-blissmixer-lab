@@ -230,6 +230,30 @@ sub _validate_descriptor {
                         && length $control->{option_labels}->{$value};
             }
         }
+        if (exists $control->{unavailable_value_fallbacks}) {
+            return 'control fallback mapping is invalid'
+                unless $control->{type} eq 'enum'
+                    && ref($control->{unavailable_value_fallbacks}) eq 'HASH'
+                    && ref($control->{values}) eq 'ARRAY';
+            my %allowed = map { $_ => 1 } @{$control->{values}};
+            for my $source (keys %{$control->{unavailable_value_fallbacks}}) {
+                my $target = $control->{unavailable_value_fallbacks}->{$source};
+                return 'control fallback mapping is invalid'
+                    unless length($source) && !$allowed{$source}
+                        && defined($target) && !ref($target) && $allowed{$target};
+            }
+        }
+        if (exists $control->{unavailable_value_fallback_tokens}) {
+            return 'control fallback tokens are invalid'
+                unless ref($control->{unavailable_value_fallback_tokens}) eq 'HASH';
+            for my $source (keys %{$control->{unavailable_value_fallback_tokens}}) {
+                my $token = $control->{unavailable_value_fallback_tokens}->{$source};
+                return 'control fallback tokens are invalid'
+                    unless ref($control->{unavailable_value_fallbacks}) eq 'HASH'
+                        && exists $control->{unavailable_value_fallbacks}->{$source}
+                        && defined($token) && !ref($token) && $token =~ /^[A-Z0-9_]+$/;
+            }
+        }
         if ($control->{type} eq 'integer') {
             return 'integer control bounds/default are invalid'
                 unless defined $control->{minimum} && defined $control->{maximum}

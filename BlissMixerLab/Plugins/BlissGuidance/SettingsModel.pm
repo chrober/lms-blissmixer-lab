@@ -62,6 +62,13 @@ sub _section {
         next if defined($control->{host_overridable}) && !$control->{host_overridable};
         my $key = $control->{key};
         my $origin = $resolved->{origins}->{$key} || 'factory_default';
+        my $fallback = $resolved->{fallbacks}->{$key};
+        $fallback = $provider->{status}->{effective_default_fallbacks}->{$key}
+            if !defined($fallback) && $origin eq 'provider_default'
+                && ref($provider->{status}) eq 'HASH'
+                && ref($provider->{status}->{effective_default_fallbacks}) eq 'HASH';
+        my $fallback_tokens = ref($control->{unavailable_value_fallback_tokens}) eq 'HASH'
+            ? $control->{unavailable_value_fallback_tokens} : {};
         my $field_name = _field_name(
             $field_names->{control}, "pref_guidance_${provider_id}_${key}", $provider_id, $key,
         );
@@ -87,6 +94,7 @@ sub _section {
             effective_value => $resolved->{effective}->{$key},
             effective => $resolved->{effective}->{$key},
             origin => $origin,
+            fallback_note_token => defined($fallback) ? $fallback_tokens->{$fallback} : undef,
             origin_label => $labels->{$origin} || $origin,
             origin_label_token => $origin_label_token
                 ? $origin_label_token->($origin) : undef,

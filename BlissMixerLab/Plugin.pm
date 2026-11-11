@@ -1340,16 +1340,19 @@ sub _dstmMix {
             }
             my $localLibraryWeighting = $lastPlayedInfluence
                 || $libraryAgeInfluence;
+            my $providerRefinements = $providerLocalSignals
+                && Plugins::BlissMixerLab::GuidanceProviderAdapter::has_active_influence(
+                    $providerGuidance->{resolved}{effective});
             my $poolMultiplier =
                 Plugins::BlissMixer::CandidateSelection::candidatePoolMultiplier(
                 $lastfmWeighting, $playCountInfluence
             );
             $poolMultiplier = 10
-                if ($lastfmTrackGuidance || $localLibraryWeighting)
+                if ($lastfmTrackGuidance || $localLibraryWeighting || $providerRefinements)
                 && $poolMultiplier < 10;
             my $requestCount = $dstm_tracks * $poolMultiplier;
             my $expandedSelection = $lastfmWeighting || $playCountWeighting
-                || $lastfmTrackGuidance || $localLibraryWeighting;
+                || $lastfmTrackGuidance || $localLibraryWeighting || $providerRefinements;
             my $shuffle = $expandedSelection ? 0 : 1;
             main::DEBUGLOG && $log->debug(sprintf(
                 'Candidate generation: strategy=%s, seeds=%d, requested=%d, selecting=%d, pool multiplier=%d, shuffle=%d, Last.fm artist mode=%s, artist probability=%d%%, artist influence=%d%%, play-count influence=%+d, Last.fm track influence=%d%%, last-played influence=%+d (horizon=%dd), library-age influence=%+d (horizon=%dd)',
@@ -1523,6 +1526,9 @@ sub _dstmMix {
                                     $providerGuidance->{resolved},
                                     int(time()),
                                     {
+                                        host_capabilities => sub {
+                                            return _guidanceHostCapabilities($mixerPort);
+                                        },
                                         native_config => sub {
                                             return Plugins::BlissGuidance::Discovery::native_spi_config(@_);
                                         },
@@ -1628,6 +1634,16 @@ sub _dstmMix {
             _mixFailed($client, $cb, $numSpot);
         }
     }
+}
+
+sub _guidanceHostCapabilities {
+    my $port = shift;
+    return {} unless defined $port && $port =~ /^\d+$/ && $port > 0;
+    my $ua = LWP::UserAgent->new(timeout => 0.25);
+    my $response = $ua->get("http://localhost:$port/api/guidance/capabilities");
+    return {} unless $response->is_success;
+    my $capabilities = eval { from_json($response->decoded_content) };
+    return ref($capabilities) eq 'HASH' ? $capabilities : {};
 }
 
 sub _scoreGuidanceThroughMixer {
@@ -2207,7 +2223,7 @@ sub _selectWeightedCandidates {
                 : Plugins::BlissMixerLab::LocalLibrarySignals::forTrack(
                     $localSignals, $track
                 );
-            for my $field (qw(playcount playcount_signal playcount_weight last_played added last_played_signal last_played_weight library_age_signal library_age_weight)) {
+            for my $field (qw(playcount playcount_signal playcount_weight last_played added last_played_signal last_played_weight library_age_signal library_age_weight aggregate_guidance)) {
                 $entry->{$field} = $signals->{$field}
                     if exists $signals->{$field};
             }
@@ -2275,6 +2291,12 @@ sub _selectWeightedCandidates {
             }
 
             if (main::DEBUGLOG) {
+                if (ref($entry->{aggregate_guidance}) eq 'HASH') {
+                    my @aggregate = map {
+                        sprintf('%s=%+.3f', $_, $entry->{aggregate_guidance}->{$_}->{contribution})
+                    } sort keys %{$entry->{aggregate_guidance}};
+                    $log->debug('    Aggregate guidance contributions: ' . join(', ', @aggregate)) if @aggregate;
+                }
                 my $similarityWeight = $entry->{similarity_weight} || 1;
                 my $playCountWeight = $entry->{playcount_weight} || 1;
                 my $trackWeight = $entry->{track_weight} || 1;
