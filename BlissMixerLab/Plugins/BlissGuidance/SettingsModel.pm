@@ -56,11 +56,15 @@ sub _section {
         $field_names->{enabled}, "pref_guidance_${provider_id}_enabled", $provider_id,
     );
     my @controls;
+    my $previous_group = '';
 
     for my $control (@{$descriptor->{controls} || []}) {
         next unless ref($control) eq 'HASH' && $control->{key};
         next if defined($control->{host_overridable}) && !$control->{host_overridable};
         my $key = $control->{key};
+        my $group = $control->{group_label_token} || '';
+        my $group_heading = $group ne $previous_group ? $group : '';
+        $previous_group = $group;
         my $origin = $resolved->{origins}->{$key} || 'factory_default';
         my $fallback = $resolved->{fallbacks}->{$key};
         $fallback = $provider->{status}->{effective_default_fallbacks}->{$key}
@@ -81,6 +85,7 @@ sub _section {
         my $inherited_is_provider = exists $defaults->{$key};
         push @controls, {
             %$control,
+            group_heading_token => $group_heading,
             key => $key,
             label => $control->{label} || $key,
             help => $control->{help} || '',

@@ -26,6 +26,7 @@
   [% END %]
   <div id="guidance-provider-controls-[% provider.provider_id | html %]" class="[% UNLESS provider.enabled %]hidden[% END %]">
     [% FOREACH control IN provider.controls %]
+      [% IF control.group_heading_token %][% IF loop.count > 1 %]<br/><hr style="opacity:0.4" class="sub-sep"/><br/>[% END %]<h4>[% control.group_heading_token | string %]</h4>[% END %]
       [% SET control_step = control.step || 1 %]
       [% WRAPPER settingGroup title=control.label_token desc=control.help_token %]
         [% IF control.type == 'boolean' %]
