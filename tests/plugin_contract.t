@@ -368,6 +368,56 @@ is($Slim::Plugin::DontStopTheMusic::Plugin::registered[0][0], 'BLISSMIXERLAB_DST
 is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
     'the sidecar DSTM provider has a callback');
 
+{
+    package TestDstmClient;
+    sub new { bless {data => {active => 1, playlist => {}}}, shift }
+    sub pluginData {
+        my ($self, $key, @value) = @_;
+        $self->{data}{$key} = $value[0] if @value;
+        return $self->{data}{$key};
+    }
+}
+{
+    no warnings 'redefine';
+    my $handler = $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1];
+    my $result;
+    local *Plugins::BlissMixerLab::Plugin::_dstmMix = sub { $_[1]->($_[0], $result) };
+    local *Slim::Plugin::DontStopTheMusic::Plugin::deDupePlaylist = sub {
+        my ($class, $client, $tracks) = @_;
+        return [] unless $tracks;
+        return [grep { $_ ne 'already-queued' } @$tracks];
+    };
+    my $client = TestDstmClient->new;
+    my @delivered;
+    my $lms_callback = sub { push @delivered, $_[1] };
+    $result = [];
+    $handler->($client, $lms_callback);
+    is(scalar @delivered, 0, 'empty Lab result cannot trigger LMS Random Play fallback');
+    is($client->pluginData('active'), 0, 'empty result releases the DSTM active flag');
+    $client->pluginData(active => 1);
+    $result = ['already-queued'];
+    $handler->($client, $lms_callback);
+    is(scalar @delivered, 0, 'duplicate-only result cannot trigger Random Play fallback');
+    is($client->pluginData('active'), 0, 'duplicate-only result releases the DSTM active flag');
+    $result = ['new-track'];
+    $handler->($client, $lms_callback);
+    is_deeply($delivered[0], ['new-track'], 'valid new tracks reach the LMS callback');
+}
+
+{
+    no warnings 'redefine';
+    my $factory = Plugins::BlissMixerLab::Plugin->can('_newDstmHttpRequest');
+    ok($factory, 'DSTM requests can set a separate timeout for large library snapshots');
+    if ($factory) {
+        my $options;
+        local *Slim::Networking::SimpleAsyncHTTP::new = sub { $options = $_[3]; return bless {}, 'TestHttp' };
+        $factory->(sub {}, sub {}, 1);
+        cmp_ok($options->{timeout}, '>=', 60, 'restricted DSTM has time to process a large snapshot');
+        $factory->(sub {}, sub {}, 0);
+        ok(!defined $options->{timeout}, 'unrestricted DSTM keeps the standard HTTP timeout');
+    }
+}
+
 $Slim::Utils::PluginManager::manifest = {version => '0.9.9'};
 @Slim::Plugin::DontStopTheMusic::Plugin::registered = ();
 Plugins::BlissMixerLab::Plugin->postinitPlugin();

@@ -36,6 +36,7 @@ use Plugins::BlissMixerLab::LastFmTrackSimilarity;
 use Plugins::BlissMixerLab::LocalLibrarySignals;
 use Plugins::BlissMixerLab::GuidanceProviderAdapter;
 use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
+use Plugins::BlissMixerLab::CandidateLibrarySnapshot;
 
 use lib dirname(__FILE__);
 use Plugins::BlissGuidance::Discovery;
@@ -177,7 +178,18 @@ sub postinitPlugin {
         require Slim::Plugin::DontStopTheMusic::Plugin;
         Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM', sub {
             my ($client, $cb) = @_;
-            _dstmMix($client, $cb, $prefs->get('filter_genres') || 0, 0);
+            my $safe_callback = sub {
+                my ($callback_client, $tracks) = @_;
+                my $new_tracks = Slim::Plugin::DontStopTheMusic::Plugin->deDupePlaylist($callback_client, $tracks);
+                if (!$new_tracks || !@$new_tracks) {
+                    $log->warn('No new Bliss tracks available; leaving the player queue unchanged');
+                    $callback_client->pluginData(playlist => 0);
+                    $callback_client->pluginData(active => 0);
+                    return;
+                }
+                $cb->($callback_client, $new_tracks);
+            };
+            _dstmMix($client, $safe_callback, $prefs->get('filter_genres') || 0, 0);
         });
         #Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM_IGNORE_GENRES', sub {
         #    my ($client, $cb) = @_;
@@ -1219,6 +1231,13 @@ sub similarTracksByArtistHandler {
     return _trackSimilarityHandler(1, @_);
 }
 
+sub _newDstmHttpRequest {
+    my ($success, $failure, $restricted) = @_;
+    return Slim::Networking::SimpleAsyncHTTP->new(
+        $success, $failure, $restricted ? { timeout => 90 } : {},
+    );
+}
+
 sub _dstmMix {
     my ($client, $cb, $filterGenres, $callCount) = @_;
 
@@ -1413,7 +1432,13 @@ sub _dstmMix {
                 }
             }
 
-            my $jsonData = _getMixData(\@seedsToUse, $previousTracks ? \@$previousTracks : undef, $requestCount, $shuffle, $filterGenres, $noRepArtOverride, $noRepAlbOverride);
+            my $candidate_snapshot = eval { Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare($client) };
+            if ($@) {
+                $log->warn('Could not capture candidate library: ' . $@);
+                $cb->($client, []);
+                return;
+            }
+            my $jsonData = _getMixData(\@seedsToUse, $previousTracks ? \@$previousTracks : undef, $requestCount, $shuffle, $filterGenres, $noRepArtOverride, $noRepAlbOverride, $candidate_snapshot);
             my $port = $mixerPort;
             unless ($port) {
                 _mixFailed($client, $cb, $numSpot);
@@ -1421,9 +1446,14 @@ sub _dstmMix {
             }
             my $url = "http://localhost:$port/api/mix";
             main::DEBUGLOG && $log->debug("URL: ${url}");
-            Slim::Networking::SimpleAsyncHTTP->new(
+            _newDstmHttpRequest(
                 sub {
                     my $response = shift;
+                    if ($candidate_snapshot && ($response->headers->header('X-Bliss-Candidate-Library') || '') ne 'enforced') {
+                        $log->warn('Mixer did not confirm candidate library enforcement');
+                        $cb->($client, []);
+                        return;
+                    }
                     main::DEBUGLOG && $log->debug("Received API response: " . ($response->headers->header('X-Bliss-Debug') || $response->content));
 
                     # Analyse and log dynamic weights debug info if returned by bliss-mixer
@@ -1619,7 +1649,7 @@ sub _dstmMix {
                                 _fireComparisonQueue(\@compQueue) if @compQueue;
                             }
                         } else {
-                            _mixFailed($client, $cb, $numSpot);
+                            $candidate_snapshot ? $cb->($client, []) : _mixFailed($client, $cb, $numSpot);
                         }
                     }
                 },
@@ -1627,8 +1657,9 @@ sub _dstmMix {
                     my $response = shift;
                     my $error  = $response->error;
                     main::DEBUGLOG && $log->debug("Failed to fetch URL: $error");
-                    _mixFailed($client, $cb, $numSpot);
-                }
+                    $log->warn("Candidate-library mixer request failed: $error") if $candidate_snapshot;
+                    $candidate_snapshot ? $cb->($client, []) : _mixFailed($client, $cb, $numSpot);
+                }, $candidate_snapshot
             )->post($url, 'Content-Type' => 'application/json;charset=utf-8', $jsonData);
         } else {
             _mixFailed($client, $cb, $numSpot);
@@ -2463,6 +2494,13 @@ sub title {
 sub _mixFailed {
     my ($client, $cb, $numSpot) = @_;
 
+    require Slim::Music::VirtualLibraries;
+    if (Slim::Music::VirtualLibraries->getLibraryIdForClient($client)) {
+        $log->warn('Cannot fall back to another mixer while a virtual library is active');
+        $cb->($client, []);
+        return;
+    }
+
     if ($numSpot > 0 && exists $INC{'Plugins/Spotty/DontStopTheMusic.pm'}) {
         main::DEBUGLOG && $log->debug("Call through to Spotty");
         Plugins::Spotty::DontStopTheMusic::dontStopTheMusic($client, $cb);
@@ -2508,6 +2546,7 @@ sub _getMixData {
     my $filterGenres = shift;
     my $noRepArtOverride = shift;
     my $noRepAlbOverride = shift;
+    my $candidateSnapshot = shift;
     my @tracks = ref $seedTracks ? @$seedTracks : ($seedTracks);
     my @previous = ref $previousTracks ? @$previousTracks : ($previousTracks);
     my @mix = ();
@@ -2555,6 +2594,8 @@ sub _getMixData {
                         norepart    => int($noRepArtOverride // $prefs->get('no_repeat_artist')),
                         norepalb    => int($noRepAlbOverride // $prefs->get('no_repeat_album')),
                         artist_repeat_mode => $artistRepeatMode,
+                        defined $candidateSnapshot
+                            ? (candidate_library_snapshot => $candidateSnapshot->filename) : (),
                         defined $identitySnapshot
                             ? (artist_identity_snapshot => $identitySnapshot) : (),
                         forest      => int($prefs->get('use_forest') || 0),
