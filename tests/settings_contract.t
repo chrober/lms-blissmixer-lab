@@ -2,6 +2,8 @@ use strict;
 use warnings;
 use FindBin;
 use Test::More;
+use File::Temp qw(tempdir);
+use File::Spec;
 
 BEGIN {
     package main;
@@ -27,12 +29,16 @@ BEGIN {
 
     package Slim::Utils::Prefs;
     sub preferences { return bless {name => $_[0]}, 'TestSettingsPrefs' }
-    sub dir { return '/missing-test-prefs' }
+    sub dir { return $TestSettingsPrefs::directory || '/missing-test-prefs' }
     sub import {
         no strict 'refs';
         *{caller() . '::preferences'} = \&preferences;
     }
     $INC{'Slim/Utils/Prefs.pm'} = __FILE__;
+    package Slim::Music::VirtualLibraries;
+    sub getLibraries { return { jazz => {}, christmas => {} } }
+    sub getNameForId { return $_[1] }
+    $INC{'Slim/Music/VirtualLibraries.pm'} = __FILE__;
 
     package Slim::Utils::Misc;
     sub findbin { return '/test/bliss-learner' }
@@ -398,5 +404,19 @@ like($guidance_script, qr/bindGuidanceProviderControls/,
     'shared guidance script preserves immediate provider-toggle handling');
 like($template, qr/restoreSectionState\('guidance-providers-section', false\)/,
     'provider section restores its collapse state like Better Call Bliss');
+
+my $temp_prefs = tempdir(CLEANUP => 1);
+$TestSettingsPrefs::directory = $temp_prefs;
+my $config_before = $TestSettingsPrefs::values{'plugin.blissmixerlab'}{material_sync_config};
+Plugins::BlissMixerLab::Settings->handler(undef, { material_sync_present => 1, material_sync_to_player => 1 });
+is($TestSettingsPrefs::values{'plugin.blissmixerlab'}{material_sync_config}, $config_before, 'unsaved changes do not activate synchronization');
+my %save_sync = (saveSettings => 1, material_sync_present => 1, material_sync_to_player => 1, christmas_exceptions_present => 1, christmas_exception_christmas => 1);
+Plugins::BlissMixerLab::Settings->handler(undef, \%save_sync);
+is_deeply($TestSettingsPrefs::values{'plugin.blissmixerlab'}{material_sync_config}, {toPlayer => 1, toBrowser => 0}, 'save persists independent synchronization directions');
+is_deeply($TestSettingsPrefs::values{'plugin.blissmixerlab'}{christmas_exception_libraries}, ['christmas'], 'save persists selected library identity');
+ok(-e File::Spec->catfile($temp_prefs, 'material-skin', 'custom.js'), 'save installs Material loader');
+my %disable_sync = (saveSettings => 1, material_sync_present => 1);
+Plugins::BlissMixerLab::Settings->handler(undef, \%disable_sync);
+is_deeply($TestSettingsPrefs::values{'plugin.blissmixerlab'}{material_sync_config}, {toPlayer => 0, toBrowser => 0}, 'disabling is saved');
 
 done_testing();

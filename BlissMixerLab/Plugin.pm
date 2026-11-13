@@ -37,6 +37,7 @@ use Plugins::BlissMixerLab::LocalLibrarySignals;
 use Plugins::BlissMixerLab::GuidanceProviderAdapter;
 use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
 use Plugins::BlissMixerLab::CandidateLibrarySnapshot;
+use Plugins::BlissMixerLab::LibraryPolicy;
 
 use lib dirname(__FILE__);
 use Plugins::BlissGuidance::Discovery;
@@ -112,6 +113,8 @@ sub initPlugin {
     $labprefs->init({
         learned_blend    => 50,
         artist_repeat_mode => 'shared_artist',
+        christmas_exception_libraries => [],
+        material_sync_config => { toPlayer => 0, toBrowser => 0 },
         last_played_influence => 0,
         last_played_horizon_days => 180,
         library_age_influence => 0,
@@ -1432,13 +1435,18 @@ sub _dstmMix {
                 }
             }
 
-            my $candidate_snapshot = eval { Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare($client) };
+            my ($candidate_snapshot, $candidate_library_id);
+            eval {
+                $candidate_library_id = Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id($client);
+                $candidate_snapshot = Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare($client, $candidate_library_id);
+            };
             if ($@) {
                 $log->warn('Could not capture candidate library: ' . $@);
                 $cb->($client, []);
                 return;
             }
-            my $jsonData = _getMixData(\@seedsToUse, $previousTracks ? \@$previousTracks : undef, $requestCount, $shuffle, $filterGenres, $noRepArtOverride, $noRepAlbOverride, $candidate_snapshot);
+            $log->info(Plugins::BlissMixerLab::CandidateLibrarySnapshot::library_log_message($candidate_library_id, $client));
+            my $jsonData = _getMixData(\@seedsToUse, $previousTracks ? \@$previousTracks : undef, $requestCount, $shuffle, $filterGenres, $noRepArtOverride, $noRepAlbOverride, $candidate_snapshot, $candidate_library_id);
             my $port = $mixerPort;
             unless ($port) {
                 _mixFailed($client, $cb, $numSpot);
@@ -2547,6 +2555,7 @@ sub _getMixData {
     my $noRepArtOverride = shift;
     my $noRepAlbOverride = shift;
     my $candidateSnapshot = shift;
+    my $candidateLibraryId = shift;
     my @tracks = ref $seedTracks ? @$seedTracks : ($seedTracks);
     my @previous = ref $previousTracks ? @$previousTracks : ($previousTracks);
     my @mix = ();
@@ -2569,6 +2578,13 @@ sub _getMixData {
     if (defined $filterXmpsPref) {
         $filterXmas = int($filterXmpsPref);
     }
+    my $effectiveFilterXmas = Plugins::BlissMixerLab::LibraryPolicy::effective_christmas_filter(
+        $filterXmas, $candidateLibraryId, $labprefs->get('christmas_exception_libraries')
+    );
+    if ($filterXmas && !$effectiveFilterXmas) {
+        $log->info('Christmas exclusion overridden for the selected DSTM virtual library');
+    }
+    $filterXmas = $effectiveFilterXmas;
 
     my $identitySnapshot = eval {
         Plugins::BlissMixerLab::RepeatIdentitySnapshot::prepare();

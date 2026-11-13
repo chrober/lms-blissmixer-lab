@@ -30,6 +30,14 @@ These providers **do not create mixes by themselves**. They contribute additiona
 
 Choose how artists with shared or complex credits are treated for repeat avoidance. The Lab supports MusicBrainz-identifier-aware artist identities and policies based on shared artists, primary artists, or exact credits. This is useful when collaborations and differing artist credits affect which tracks can play close together.
 
+### Use player libraries with Bliss (Lab)
+
+Bliss (Lab) DSTM restricts new candidates to the virtual library assigned to the player. In Lab settings, you can optionally select libraries where Bliss Mixer's Christmas exclusion is suspended for Lab DSTM; all other filters remain active.
+
+For Material Skin, two separate opt-in settings can apply its library picker to the selected player and make Material follow that player's library. These affect the player's Lyrion library, including other features that use it. Disable Material's own **Adjust player library** option and reload each client after activation. Other controllers need their own support to reflect changes.
+
+The Lab installs a marked loader in Material's shared `custom.js`, preserving and backing up existing content. A known standalone experimental prototype is backed up and migrated; unrecognized prototypes or modified loader markers require manual review. Visible clients reconcile missed updates every three seconds. Hidden clients reconcile when visible again.
+
 ### Try alternative Bliss menu actions
 
 Use **Create bliss mix (Lab)** for tracks, albums, or artists, along with **Similar tracks (Lab)** and **Similar tracks by artist (Lab)**. These use the separate Lab mixer and its configured strategy, including Adaptive weighting and a learned matrix when enabled.

@@ -55,6 +55,7 @@ jobs:
         run: |
           python tests/validate_repository.py
           python -m unittest discover -s tests -p "test_*.py"
+          node --test tests/material_sync.test.cjs
       - name: Install Perl test dependencies
         run: |
           set -euo pipefail

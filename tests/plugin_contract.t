@@ -534,6 +534,21 @@ is(
         'mix requests carry the configured artist repeat policy');
     is($request->{artist_identity_snapshot}, '/cache/artist-repeat-identities.sqlite',
         'mix requests carry the immutable identity snapshot path');
+    {
+        package TestCandidateSnapshot;
+        sub filename { return '/tmp/candidates.json' }
+    }
+    local $TestPrefs::values{'plugin.blissmixerlab'}{christmas_exception_libraries} = ['christmas'];
+    my $snapshot = bless {}, 'TestCandidateSnapshot';
+    my $matching = JSON::PP::decode_json(Plugins::BlissMixerLab::Plugin::_getMixData(
+        [], [], 5, 0, 1, undef, undef, $snapshot, 'christmas'));
+    is($matching->{filterxmas}, 0, 'selected DSTM library bypasses only Christmas exclusion');
+    is($matching->{filtergenre}, 1, 'genre filter remains active for an exception library');
+    is($matching->{candidate_library_snapshot}, '/tmp/candidates.json', 'exception keeps candidate library enforced');
+    my $other = JSON::PP::decode_json(Plugins::BlissMixerLab::Plugin::_getMixData(
+        [], [], 5, 0, 1, undef, undef, $snapshot, 'jazz'));
+    is($other->{filterxmas}, 1, 'other libraries retain upstream Christmas exclusion');
+    is($TestPrefs::values{'plugin.blissmixer'}{filter_xmas}, 1, 'upstream preference remains unchanged');
 }
 $TestPrefs::values{'plugin.blissmixerlab'}{last_played_influence} = -125;
 is(Plugins::BlissMixerLab::Plugin::_lastPlayedInfluence(), -100,

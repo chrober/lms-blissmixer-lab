@@ -59,6 +59,21 @@
         </select>
     [% END %]
 
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_MATERIAL_SYNC" desc="BLISSMIXERLAB_MATERIAL_SYNC_DESC" %]
+        <input type="hidden" name="material_sync_present" value="1">
+        <label><input type="checkbox" name="material_sync_to_player" value="1" [% IF material_sync_to_player %]checked[% END %]> [% "BLISSMIXERLAB_MATERIAL_SYNC_TO_PLAYER" | string %]</label><br>
+        <label><input type="checkbox" name="material_sync_to_browser" value="1" [% IF material_sync_to_browser %]checked[% END %]> [% "BLISSMIXERLAB_MATERIAL_SYNC_TO_BROWSER" | string %]</label>
+    [% END %]
+
+    [% WRAPPER settingGroup title="BLISSMIXERLAB_CHRISTMAS_EXCEPTION" desc="BLISSMIXERLAB_CHRISTMAS_EXCEPTION_DESC" %]
+        [% IF christmas_exception_choices.size %]
+        <input type="hidden" name="christmas_exceptions_present" value="1">
+        [% FOREACH lib IN christmas_exception_choices %]
+            <label><input type="checkbox" name="christmas_exception_[% lib.id | html %]" value="1" [% IF lib.selected %]checked[% END %]> [% lib.name | html %]</label><br>
+        [% END %]
+        [% END %]
+    [% END %]
+
     [% IF legacy_local_signals_visible %]
     <h3 class="experimental-setting-group">[% "BLISSMIXERLAB_MIX_GROUP_LOCAL" | string %]</h3>
     [% WRAPPER settingGroup title="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE" desc="BLISSMIXERLAB_LAST_PLAYED_INFLUENCE_DESC" %]

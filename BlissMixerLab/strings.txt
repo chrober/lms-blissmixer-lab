@@ -62,6 +62,34 @@ BLISSMIXERLAB_MIX_GROUP_BASE
 	EN	Matrix and base mixing
 	DE	Matrix und grundlegende Mix-Einstellungen
 
+BLISSMIXERLAB_CHRISTMAS_EXCEPTION
+	EN	Allow Christmas tracks in selected virtual libraries
+	DE	Weihnachtstitel in ausgewählten virtuellen Bibliotheken zulassen
+
+BLISSMIXERLAB_CHRISTMAS_EXCEPTION_DESC
+	EN	For Bliss (Lab) DSTM only, ignore Bliss Mixer's Christmas exclusion when the player's selected library is checked here. Other filters remain active.
+	DE	Nur für Bliss (Lab) DSTM den Weihnachtsausschluss von Bliss Mixer ignorieren, wenn die ausgewählte Bibliothek des Players hier angehakt ist. Andere Filter bleiben aktiv.
+
+BLISSMIXERLAB_MATERIAL_SYNC
+	EN	Material player-library synchronization
+	DE	Material- und Player-Bibliothek synchronisieren
+
+BLISSMIXERLAB_MATERIAL_SYNC_DESC
+	EN	Optional synchronization affects the selected player's library for all clients and player-library-aware features. Disable Material's Adjust player library option to avoid conflicts. Reload each Material client after changing these settings. Existing Material customizations are preserved.
+	DE	Die optionale Synchronisierung ändert die Bibliothek des ausgewählten Players für alle Clients und Funktionen, die dessen Bibliothek verwenden. Deaktivieren Sie in Material „Bibliothek des Players anpassen“, um Konflikte zu vermeiden. Nach Änderungen jeden Material-Client neu laden. Vorhandene Material-Anpassungen bleiben erhalten.
+
+BLISSMIXERLAB_MATERIAL_SYNC_TO_PLAYER
+	EN	Use Material's library selection as the selected player's library
+	DE	Material-Bibliotheksauswahl als Bibliothek des ausgewählten Players verwenden
+
+BLISSMIXERLAB_MATERIAL_SYNC_TO_BROWSER
+	EN	Show the selected player's library in Material
+	DE	Bibliothek des ausgewählten Players in Material anzeigen
+
+BLISSMIXERLAB_MATERIAL_SYNC_INSTALL_FAILED
+	EN	Could not install the Material synchronization loader. Check permissions and existing Material customizations, including any standalone synchronization prototype. The synchronization settings were not changed.
+	DE	Der Material-Synchronisierungs-Loader konnte nicht installiert werden. Bitte Berechtigungen und vorhandene Material-Anpassungen einschließlich eines eigenständigen Synchronisierungs-Prototyps prüfen. Die Synchronisierungseinstellungen wurden nicht geändert.
+
 BLISSMIXERLAB_MIX_GROUP_LOCAL
 	EN	Local library signals
 	DE	Lokale Mediathekssignale

@@ -6,13 +6,27 @@ use JSON::XS::VersionOneAndTwo;
 use Slim::Utils::Misc;
 use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
 
-sub prepare {
+sub resolve_library_id {
     my ($client) = @_;
     require Slim::Music::VirtualLibraries;
     my $id = Slim::Music::VirtualLibraries->getLibraryIdForClient($client) || '';
-    return unless length $id;
+    return '' unless length $id;
     $id = Slim::Music::VirtualLibraries->getRealId($id);
     die "Selected virtual library is unavailable" unless defined $id && length $id;
+    return $id;
+}
+
+sub library_log_message {
+    my ($id, $client) = @_;
+    return 'DSTM candidate library: All tracks' unless defined $id && length $id;
+    my $name = Slim::Music::VirtualLibraries->getNameForId($id, $client) || 'Unknown';
+    return "DSTM candidate library: $name (ID: $id)";
+}
+
+sub prepare {
+    my ($client, $resolved_id) = @_;
+    my $id = @_ > 1 ? $resolved_id : resolve_library_id($client);
+    return unless defined $id && length $id;
     my $roots = Slim::Utils::Misc::getMediaDirs('audio') || [];
     my $stmt = Slim::Schema->dbh->prepare(
         'SELECT tracks.url, tracks.tracknum FROM library_track '

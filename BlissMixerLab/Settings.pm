@@ -26,6 +26,7 @@ use lib dirname(__FILE__);
 use Plugins::BlissGuidance::Discovery;
 use Plugins::BlissGuidance::Policy;
 use Plugins::BlissGuidance::SettingsModel;
+use Plugins::BlissMixerLab::MaterialLoader;
 
 my $prefs = preferences('plugin.blissmixerlab');
 my $serverprefs = preferences('server');
@@ -64,6 +65,21 @@ sub beforeRender {
         && Plugins::BlissMixer::Plugin->can('_lastfmNormalizeArtist') ? 1 : 0;
     $paramRef->{database_exists} = -e File::Spec->catfile($dbDir, 'bliss.db') ? 1 : 0;
     $paramRef->{matrix_exists} = -e File::Spec->catfile($dbDir, 'learned_matrix.json') ? 1 : 0;
+    my $material_sync = $prefs->get('material_sync_config');
+    $material_sync = {} unless ref $material_sync eq 'HASH';
+    $paramRef->{material_sync_to_player} = $material_sync->{toPlayer} ? 1 : 0;
+    $paramRef->{material_sync_to_browser} = $material_sync->{toBrowser} ? 1 : 0;
+    my $exceptions = $prefs->get('christmas_exception_libraries');
+    $exceptions = [] unless ref $exceptions eq 'ARRAY';
+    my %selected = map { $_ => 1 } grep { defined $_ && !ref $_ } @$exceptions;
+    $paramRef->{christmas_exception_choices} = [];
+    if (eval { require Slim::Music::VirtualLibraries; 1 }) {
+        my $libraries = Slim::Music::VirtualLibraries->getLibraries() || {};
+        $paramRef->{christmas_exception_choices} = [
+            map { { id => $_, name => Slim::Music::VirtualLibraries->getNameForId($_) || $_, selected => $selected{$_} ? 1 : 0 } }
+            sort keys %$libraries
+        ];
+    }
     $paramRef->{no_learner_binary} = !Slim::Utils::Misc::findbin('bliss-learner');
     $paramRef->{learning_start_text} = string('BLISSMIXERLAB_LEARNING_START_TIME');
     $paramRef->{learning_duration_text} = string('BLISSMIXERLAB_LEARNING_DURATION');
@@ -88,6 +104,30 @@ sub beforeRender {
 
 sub handler {
     my ($class, $client, $paramRef) = @_;
+    if ($paramRef->{saveSettings} && $paramRef->{material_sync_present}) {
+        my $new_config = {
+            toPlayer => $paramRef->{material_sync_to_player} ? 1 : 0,
+            toBrowser => $paramRef->{material_sync_to_browser} ? 1 : 0,
+        };
+        my $ok = 1;
+        if ($new_config->{toPlayer} || $new_config->{toBrowser}) {
+            my $dir = Slim::Utils::Prefs::dir() || Slim::Utils::OSDetect::dirsFor('prefs');
+            $ok = eval { Plugins::BlissMixerLab::MaterialLoader::install(
+                File::Spec->catfile($dir, 'material-skin', 'custom.js')
+            ); 1 };
+        }
+        if ($ok) {
+            $prefs->set('material_sync_config', $new_config);
+        } else {
+            $paramRef->{warning} = string('BLISSMIXERLAB_MATERIAL_SYNC_INSTALL_FAILED');
+        }
+    }
+    if ($paramRef->{saveSettings} && $paramRef->{christmas_exceptions_present}
+        && eval { require Slim::Music::VirtualLibraries; 1 }) {
+        my $libraries = Slim::Music::VirtualLibraries->getLibraries() || {};
+        my @selected = grep { $paramRef->{'christmas_exception_' . $_} } keys %$libraries;
+        $prefs->set('christmas_exception_libraries', [sort @selected]);
+    }
     if (defined $paramRef->{pref_artist_repeat_mode}) {
         $paramRef->{pref_artist_repeat_mode} = 'shared_artist'
             unless $paramRef->{pref_artist_repeat_mode}

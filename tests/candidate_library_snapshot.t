@@ -1,6 +1,6 @@
 use strict;
 use warnings;
-use Test::More tests => 4;
+use Test::More tests => 10;
 use DBI;
 use JSON::XS::VersionOneAndTwo;
 
@@ -14,6 +14,7 @@ BEGIN {
   our $id = '';
   sub getLibraryIdForClient { $id }
   sub getRealId { $_[1] eq 'missing' ? undef : $_[1] }
+  sub getNameForId { $_[1] eq 'jazz' ? 'Jazz' : '' }
 }
 { package Slim::Utils::Misc; sub getMediaDirs { ['/music'] } }
 { package Plugins::BlissMixerLab::RepeatIdentitySnapshot;
@@ -26,6 +27,12 @@ BEGIN {
 { package Slim::Schema; our $dbh; sub dbh { $dbh } }
 
 require './BlissMixerLab/CandidateLibrarySnapshot.pm';
+is(Plugins::BlissMixerLab::CandidateLibrarySnapshot::library_log_message(''),
+    'DSTM candidate library: All tracks', 'unrestricted candidate library is logged');
+is(Plugins::BlissMixerLab::CandidateLibrarySnapshot::library_log_message('jazz'),
+    'DSTM candidate library: Jazz (ID: jazz)', 'candidate library name and ID are logged');
+is(Plugins::BlissMixerLab::CandidateLibrarySnapshot::library_log_message('unknown'),
+    'DSTM candidate library: Unknown (ID: unknown)', 'missing library name falls back to ID');
 $Slim::Schema::dbh = DBI->connect('dbi:SQLite:dbname=:memory:', '', '', { RaiseError => 1 });
 $Slim::Schema::dbh->do('CREATE TABLE tracks (id INTEGER, url TEXT, tracknum INTEGER, remote INTEGER, audio INTEGER)');
 $Slim::Schema::dbh->do('CREATE TABLE library_track (library TEXT, track INTEGER)');
@@ -39,6 +46,15 @@ open my $fh, '<', $snapshot->filename or die $!;
 local $/;
 is_deeply(from_json(<$fh>), ['inside.flac'], 'snapshot contains only local audio members');
 close $fh;
+$Slim::Music::VirtualLibraries::id = 'jazz';
+my $frozen = Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id(undef);
+is($frozen, 'jazz', 'resolve the effective library once');
+$Slim::Music::VirtualLibraries::id = 'rock';
+my $frozen_snapshot = Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare(undef, $frozen);
+open my $frozen_fh, '<', $frozen_snapshot->filename or die $!;
+is_deeply(from_json(<$frozen_fh>), ['inside.flac'], 'snapshot stays with frozen library if player changes');
+close $frozen_fh;
+is(Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id(undef), 'rock', 'a subsequent request sees the new library');
 $Slim::Music::VirtualLibraries::id = 'missing';
 eval { Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare(undef) };
 like($@, qr/unavailable/, 'missing library fails closed');
