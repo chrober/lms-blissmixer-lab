@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.0
+
+- Restrict DSTM candidates to the player's effective virtual library.
+- Add opt-in Material and player library synchronization and per-library Christmas-filter exceptions.
+- Log the effective DSTM candidate library.
+- Bundle bliss-mixer 0.11.8 with virtual-library candidate support.
+
 ## 0.10.9
 
 - Respect provider-owned controls in guidance settings.
