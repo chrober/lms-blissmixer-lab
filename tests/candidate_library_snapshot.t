@@ -2,14 +2,21 @@ use strict;
 use warnings;
 use Test::More tests => 10;
 use DBI;
-use JSON::XS::VersionOneAndTwo;
+use JSON::XS ();
 
 BEGIN {
+    $INC{'JSON/XS/VersionOneAndTwo.pm'} = __FILE__;
     $INC{'Slim/Music/VirtualLibraries.pm'} = __FILE__;
     $INC{'Slim/Utils/Misc.pm'} = __FILE__;
     $INC{'Plugins/BlissMixerLab/RepeatIdentitySnapshot.pm'} = __FILE__;
 }
 
+{ package JSON::XS::VersionOneAndTwo;
+  sub import {
+      no strict 'refs';
+      *{caller() . '::to_json'} = \&JSON::XS::encode_json;
+  }
+}
 { package Slim::Music::VirtualLibraries;
   our $id = '';
   sub getLibraryIdForClient { $id }
@@ -44,7 +51,7 @@ my $snapshot = Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare(undef);
 ok($snapshot && -r $snapshot->filename, 'selected library produces a readable snapshot');
 open my $fh, '<', $snapshot->filename or die $!;
 local $/;
-is_deeply(from_json(<$fh>), ['inside.flac'], 'snapshot contains only local audio members');
+is_deeply(JSON::XS::decode_json(<$fh>), ['inside.flac'], 'snapshot contains only local audio members');
 close $fh;
 $Slim::Music::VirtualLibraries::id = 'jazz';
 my $frozen = Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id(undef);
@@ -52,7 +59,7 @@ is($frozen, 'jazz', 'resolve the effective library once');
 $Slim::Music::VirtualLibraries::id = 'rock';
 my $frozen_snapshot = Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare(undef, $frozen);
 open my $frozen_fh, '<', $frozen_snapshot->filename or die $!;
-is_deeply(from_json(<$frozen_fh>), ['inside.flac'], 'snapshot stays with frozen library if player changes');
+is_deeply(JSON::XS::decode_json(<$frozen_fh>), ['inside.flac'], 'snapshot stays with frozen library if player changes');
 close $frozen_fh;
 is(Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id(undef), 'rock', 'a subsequent request sees the new library');
 $Slim::Music::VirtualLibraries::id = 'missing';
