@@ -5,9 +5,37 @@ priority; sizes are rough engineering estimates, not time commitments.
 
 | Improvement | Intended outcome | Size | Status | Details |
 | --- | --- | ---: | --- | --- |
+| Keep DSTM working during library scans | Continue adding eligible tracks while Lyrion scans, without blocking playback or violating the selected library. | L | Critical requirement; not yet verified | [DSTM during library scans](#dstm-during-library-scans) |
 | Continue DSTM after switching player libraries | Investigate and reliably continue an existing queue using candidates from the newly selected player library, including recovery after inventory failures. | L | Investigation needed | [Switching libraries during playback](#switching-libraries-during-playback) |
 | Continue DSTM from non-library tracks | Let Bliss (Lab) continue from eligible Bandcamp, YouTube, or other remote tracks when a reliable seed can be established. | XL | Research and design needed | [Remote and streaming seeds](#remote-and-streaming-seeds) |
 | Carry player libraries with transferred queues | Explore an optional policy for player virtual libraries when Material moves, copies, or swaps queues. | L | Proposed; feasibility and policy undecided | [Queue transfers and player libraries](#queue-transfers-and-player-libraries) |
+
+## DSTM during library scans
+
+**Requirement: Bliss (Lab) DSTM must continue working while a Lyrion library
+scan is active.** A scan must not indefinitely prevent eligible tracks from
+being added, freeze playback or the UI, or require a server restart to recover.
+
+The shared candidate-inventory implementation must support this requirement
+while preserving the selected player-library scope and existing genre and
+repeat rules. Design and test a safe way to provide candidates even when no
+usable snapshot was previously built; do not silently broaden the library or
+admit invalid tracks. Consider how to use a previously verified snapshot during
+database changes, handle removed or unavailable tracks, and refresh after the
+scan. Do not assume a stale snapshot is always safe. Transient database locks or
+worker failures must be handled and reported, with bounded retries and
+automatic recovery.
+
+On 14 November 2026, DSTM inventory capture repeatedly failed with an empty
+worker response while a scan was active; Lyrion also reported a database lock.
+The relationship between the scan, lock and worker failure remains unproven.
+See [Switching libraries during playback](#switching-libraries-during-playback)
+for the observed sequence.
+
+Verify on the Pi with both warm and missing snapshots, active scans and
+concurrent library changes. Check that eligible in-scope tracks are actually
+added, playback and the UI stay responsive, other players are unaffected, and
+normal freshness and refresh behavior resumes after the scan.
 
 ## Switching libraries during playback
 
