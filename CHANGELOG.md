@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1
+
+- Share candidate-library snapshots with Better Call Bliss and refresh previously used scopes after library scans.
+- Improve recovery after DSTM cannot use queue seeds and add debug logging for shared snapshot refreshes.
+- Known limitation: DSTM may fail to add tracks during a library scan; genre restrictions can also prevent continuation after switching libraries.
+
 ## 0.11.0
 
 - Restrict DSTM candidates to the player's effective virtual library.
