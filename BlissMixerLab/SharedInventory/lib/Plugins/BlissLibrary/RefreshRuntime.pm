@@ -36,7 +36,7 @@ sub new {
     $queue_args{on_error} = $args{on_error} if $args{on_error};
     $self->{queue} = Plugins::BlissLibrary::RefreshQueue->new(%queue_args);
     $self->{queue}->remember($_) for @{$loaded->{scopes}};
-    $self->{listener} = sub { return if $self->{stopped}; $self->{queue}->scan_done; $self->_arm };
+    $self->{listener} = sub { return if $self->{stopped}; $self->{queue}->scan_done; $args{on_scan}->($self->{queue}->status) if $args{on_scan}; $self->_arm };
     $self->{unsubscribe} = $args{unsubscribe};
     $args{subscribe}->($self->{listener});
     return $self;

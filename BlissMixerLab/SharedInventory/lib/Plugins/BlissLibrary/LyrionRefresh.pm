@@ -17,7 +17,12 @@ use Plugins::BlissLibrary::MixerClient;
 use Plugins::BlissLibrary::RefreshRuntime;
 use Plugins::BlissLibrary::SourceIdentity;
 
-my ($runtime, $active_job, @bundles);
+my ($runtime, $active_job, @bundles, $log_registered);
+
+sub _debug {
+    my ($message) = @_;
+    eval { require Slim::Utils::Log; my $log = Slim::Utils::Log::logger('plugin.blisslibrary'); $log->debug($message) if $log->is_debug };
+}
 
 sub _state {
     my ($lyrion, $bliss, $roots) = @_;
@@ -36,6 +41,8 @@ sub _state {
 
 sub _launch {
     my ($scope, $done, $cache_dir) = @_;
+    my $label = $scope->{kind} eq 'library' ? $scope->{id} : 'all';
+    _debug("Shared inventory: refresh started scope=$label");
     my ($bundle) = grep { -f File::Spec->catfile($_, 'bin', 'build-inventory.pl') } @bundles;
     die 'Shared inventory worker is unavailable' unless defined $bundle;
     if ($scope->{kind} eq 'library') {
@@ -75,6 +82,7 @@ sub _launch {
         }
         undef $poll;
         $active_job = undef if $active_job && $active_job == $job;
+        _debug("Shared inventory: refresh completed scope=$label") if $result->{state} eq 'completed';
         $done->($result->{state} eq 'completed' ? undef : ($result->{error} || 'Candidate refresh failed'));
     };
     Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + 0.01, $poll);
@@ -83,6 +91,9 @@ sub _launch {
 sub init {
     my ($bundle) = @_;
     die 'Shared inventory bundle directory is required' unless defined($bundle) && -d $bundle;
+    if (!$log_registered) {
+        eval { require Slim::Utils::Log; Slim::Utils::Log->addLogCategory({category => 'plugin.blisslibrary', defaultLevel => 'WARN', description => 'Shared Bliss candidate inventory'}); $log_registered = 1 };
+    }
     push @bundles, $bundle unless grep { $_ eq $bundle } @bundles;
     my $root = Slim::Utils::Prefs::preferences('server')->get('cachedir');
     die 'Lyrion cache directory is unavailable' unless defined($root) && -d $root;
@@ -90,6 +101,7 @@ sub init {
     make_path($dir) unless -d $dir;
     $runtime = Plugins::BlissLibrary::RefreshRuntime->shared(dir => $dir,
         subscribe => sub { Slim::Control::Request::subscribe($_[0], [['rescan'], ['done']]) },
+        on_scan => sub { _debug('Shared inventory: scan completed; queued scopes=' . $_[0]->{pending}) },
         unsubscribe => sub { Slim::Control::Request::unsubscribe($_[0]) },
         schedule => sub { Slim::Utils::Timers::setTimer(undef, Time::HiRes::time() + $_[0], $_[1]) },
         launch => sub { _launch($_[0], $_[1], $dir) },
