@@ -8,3 +8,4 @@
 *.xml text eol=lf
 *.yml text eol=lf
 *.png binary
+BlissMixerLab/SharedInventory/** text eol=lf
