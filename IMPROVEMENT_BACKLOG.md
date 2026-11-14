@@ -32,6 +32,44 @@ The relationship between the scan, lock and worker failure remains unproven.
 See [Switching libraries during playback](#switching-libraries-during-playback)
 for the observed sequence.
 
+After the scan on 14 November, two completion notifications queued the same
+two previously requested scopes. At 19:30, the refresh of “Alles ohne
+Hörbücher” (`4d2ba37f`) detected that `bliss.db` had changed during validation
+and failed safely. Christmas (`695435a5`) then refreshed successfully, and a
+retry of “Alles ohne Hörbücher” also completed. This demonstrates refresh
+retry, not by itself DSTM recovery or continued operation during a scan.
+
+At 19:37, a later Lab DSTM attempt using three Sue Foley tracks as seeds:
+
+- Restarted the native mixer after detecting a changed `bliss.db`, then
+  reported it ready.
+- Reported a cached shared inventory for Christmas at 19:37:25 and applied
+  the configured Christmas-exclusion override. This is a Lab cache hit; it
+  does not establish cross-host reuse or identify which operation built it.
+- Sent the mixer request at 19:37:54, around 29 seconds after logging the
+  candidate library. The mixer scored 852 tracks and reported 20 usable, no
+  genre rejections, and 256 ms native processing time.
+- Selected Alanis Morissette’s “O Tannenbaum” and Halford’s “Light of the
+  World” at 19:37:58, roughly 45 seconds after the DSTM request began. A later
+  read-only inspection confirmed both tracks in the Wohnzimmer queue following
+  the Sue Foley album. This verifies this post-scan continuation, not operation
+  while a scan is active.
+
+The debug-only “would have chosen” comparisons subsequently listed tracks
+outside Christmas for the static, isolation-forest and alternative adaptive
+strategies. They are hypothetical comparisons, not the two actual additions.
+The comparison request builder does not pass the candidate-library snapshot;
+investigate whether comparisons should use the same scope so their results are
+meaningful and cannot be mistaken for actual selected tracks.
+
+Investigate the approximately 11 seconds from DSTM start to the cache hit and
+the subsequent approximately 29-second gap before the mixer request; do not
+attribute either delay to the shared inventory without further measurements.
+The code prepares an artist-repeat identity snapshot between the library log
+and request log; determine whether this accounts for the gap. Measure the full
+path, including host-side preparation and responsiveness, and verify cross-host
+reuse after refresh.
+
 Verify on the Pi with both warm and missing snapshots, active scans and
 concurrent library changes. Check that eligible in-scope tracks are actually
 added, playback and the UI stay responsive, other players are unaffected, and
