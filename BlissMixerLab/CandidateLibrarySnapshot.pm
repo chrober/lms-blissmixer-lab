@@ -14,6 +14,15 @@ use Plugins::BlissMixerLab::RepeatIdentitySnapshot;
 
 my (%foreground_jobs, $next_foreground_job, $fast_snapshot);
 
+sub _log_shared_inventory {
+    my ($id, $state, $key) = @_;
+    eval {
+        require Slim::Utils::Log;
+        my $log = Slim::Utils::Log::logger('plugin.blissmixerlab');
+        $log->debug("shared inventory: scope=$id state=$state key=$key") if $log->is_debug;
+    };
+}
+
 sub init_shared_refresh {
     my $bundle = File::Spec->catdir(dirname(__FILE__), 'SharedInventory');
     local @INC = (File::Spec->catdir($bundle, 'lib'), @INC);
@@ -82,6 +91,7 @@ sub _reuse_snapshot_async {
         delete $foreground_jobs{$token};
         undef $step;
         if ($valid) {
+            _log_shared_inventory($id, 'memory', $memo->{cache_key} || 'unknown');
             $entry->{finish}->(bless({path => $memo->{path}}, 'Plugins::BlissMixerLab::CandidateLibrarySnapshot::SharedFile'), undef);
             return;
         }
@@ -233,9 +243,10 @@ sub prepare_async {
         delete $foreground_jobs{$token};
         return if $notified;
         if ($result->{state} eq 'completed') {
+            _log_shared_inventory($id, $result->{cache_state} || 'unknown', $result->{cache_key} || 'unknown');
             eval { init_shared_refresh(); Plugins::BlissLibrary::LyrionRefresh::remember({kind => 'library', id => "$id"}) };
             $fast_snapshot = {key => $memo_key, id => "$id", observer => $observer, state => $initial,
-                path => $result->{artifact}->{path}, sha256 => $result->{artifact}->{sha256}};
+                path => $result->{artifact}->{path}, sha256 => $result->{artifact}->{sha256}, cache_key => $result->{cache_key}};
             $entry->{finish}->(bless({path => $result->{artifact}->{path}}, 'Plugins::BlissMixerLab::CandidateLibrarySnapshot::SharedFile'), undef);
         } else {
             $entry->{finish}->(undef, $result->{error} || 'Candidate worker failed');

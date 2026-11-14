@@ -15,6 +15,7 @@ BEGIN {
     $INC{'Slim/Utils/Prefs.pm'} = __FILE__;
     $INC{'Slim/Utils/Timers.pm'} = __FILE__;
     $INC{'Slim/Music/Import.pm'} = __FILE__;
+    $INC{'Slim/Utils/Log.pm'} = __FILE__;
     $INC{'Slim/Control/Request.pm'} = __FILE__;
     $INC{'Slim/Utils/OSDetect.pm'} = __FILE__;
     $INC{'Plugins/BlissMixerLab/RepeatIdentitySnapshot.pm'} = __FILE__;
@@ -28,6 +29,8 @@ BEGIN {
 { package TestPrefs; sub get { return $Slim::Utils::Prefs::cache } }
 { package Slim::Utils::Timers; our @pending; sub setTimer { push @pending, $_[2] } }
 { package Slim::Music::Import; our $scan = 42; sub lastScanTime { $scan } }
+{ package Slim::Utils::Log; our @debug; sub logger { bless {}, 'TestDebugLog' } }
+{ package TestDebugLog; sub is_debug { 1 } sub debug { push @Slim::Utils::Log::debug, $_[1] } sub warn {} }
 { package Slim::Schema; our $dbh; sub dbh { $dbh } }
 { package Plugins::BlissMixerLab::RepeatIdentitySnapshot; }
 
@@ -60,6 +63,9 @@ while (!$called && time < $deadline && @Slim::Utils::Timers::pending) {
     $callback->(); sleep 0.02;
 }
 ok($called && !$error && $snapshot, 'background preparation returns a candidate snapshot');
+like(join("\n", @Slim::Utils::Log::debug), qr/shared inventory: scope=jazz state=built key=[0-9a-f]{64}/,
+    'debug output reports a shared inventory build and its key');
+my ($built_key) = join("\n", @Slim::Utils::Log::debug) =~ /shared inventory: scope=jazz state=built key=([0-9a-f]{64})/;
 diag("snapshot error: " . ($error || 'none')) if !$snapshot;
 my $paths;
 if ($snapshot) {
@@ -87,6 +93,10 @@ is(scalar @scope_records, 1, 'successful selected library is remembered for futu
     }
     ok($started && $warm_done && !$warm_error && $warm_snapshot,
         'unchanged DSTM scope reuses the verified snapshot without another worker or membership scan');
+    like(join("\n", @Slim::Utils::Log::debug), qr/shared inventory: scope=jazz state=memory key=[0-9a-f]{64}/,
+        'debug output reports in-process reuse with the same key');
+    my ($warm_key) = join("\n", @Slim::Utils::Log::debug) =~ /shared inventory: scope=jazz state=memory key=([0-9a-f]{64})/;
+    is($warm_key, $built_key, 'warm reuse logs the original shared inventory key');
 }
 {
     local $Slim::Music::VirtualLibraries::available = 0;

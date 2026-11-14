@@ -4,6 +4,7 @@ use warnings;
 use File::Spec;
 use Config ();
 use File::Temp ();
+use File::Path ();
 use Time::HiRes ();
 use Plugins::BlissLibrary::CandidateInventory;
 use Plugins::BlissLibrary::JsonCodec;
@@ -24,7 +25,7 @@ sub start {
     Plugins::BlissLibrary::SourceIdentity::media_roots_fingerprint($request->{media_roots});
     die 'Scan generation is required' unless defined($request->{scan_generation}) && !ref($request->{scan_generation}) && length($request->{scan_generation});
     $request->{output_kind} = 'mixer-descriptor-v1';
-    my $directory = File::Temp->newdir('bliss-mixer-worker-XXXXXXXX', DIR => $args{work_dir}, CLEANUP => 1);
+    my $directory = Plugins::BlissLibrary::MixerClient::TemporaryDirectory->new($args{work_dir});
     my $request_path = File::Spec->catfile("$directory", 'request.json');
     open my $fh, '>:raw', $request_path or die "Cannot write worker request: $!";
     print {$fh} $json->encode($request) or die "Cannot write worker request: $!";
@@ -80,6 +81,13 @@ sub poll {
         }
     }
     return $self->{terminal} = $status unless $status->{state} eq 'completed';
+    my $cache_state = 'unknown';
+    if (open my $fh, '<:raw', $self->{stderr}) {
+        my $message = '';
+        read($fh, $message, 4096);
+        close $fh;
+        $cache_state = $1 if $message =~ /^cache=(built|cached)\s*$/m;
+    }
     my $result = eval {
         die 'Worker descriptor is missing or too large' unless -f $self->{stdout} && -s $self->{stdout} <= 65536;
         open my $fh, '<:raw', $self->{stdout} or die "Cannot read worker descriptor: $!";
@@ -103,7 +111,9 @@ sub poll {
         die 'Worker returned an unsafe mixer artifact path' unless File::Spec->rel2abs($artifact->{path}) eq $expected
             && -f $artifact->{path} && -r $artifact->{path} && !-l $artifact->{path};
         die 'Library state changed while preparing the mixer' unless $self->{is_current}->($value);
-        {state => 'completed', artifact => {path => $artifact->{path}, sha256 => $artifact->{sha256}}, source => $source};
+        {state => 'completed', artifact => {path => $artifact->{path}, sha256 => $artifact->{sha256}}, source => $source,
+            cache_state => $cache_state,
+            cache_key => Plugins::BlissLibrary::CandidateInventory::cache_key(scope => $scope, source => $source)};
     };
     return $self->{terminal} = $result || {state => 'failed', error => $@ || 'Invalid worker descriptor'};
 }
@@ -117,5 +127,19 @@ sub cancel {
         return 1;
     }
     return $self->{worker}->cancel;
+}
+
+package Plugins::BlissLibrary::MixerClient::TemporaryDirectory;
+use overload '""' => sub { $_[0]->{path} }, fallback => 1;
+
+sub new {
+    my ($class, $parent) = @_;
+    my $path = File::Temp::tempdir('bliss-mixer-worker-XXXXXXXX', DIR => $parent);
+    return bless {path => $path}, $class;
+}
+
+sub DESTROY {
+    my ($self) = @_;
+    File::Path::rmtree($self->{path}) if defined($self->{path}) && -d $self->{path};
 }
 1;

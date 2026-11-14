@@ -2,6 +2,7 @@ package Plugins::BlissLibrary::Worker;
 use strict;
 use warnings;
 use Fcntl qw(O_CREAT O_EXCL O_WRONLY);
+use POSIX ();
 use Proc::Background;
 
 sub start {
@@ -18,10 +19,36 @@ sub start {
         or die "Cannot create worker error output: $!";
     binmode $stdout, ':raw';
     binmode $stderr, ':raw';
-    my $proc = Proc::Background->new({
-        autodie => 1, die_upon_destroy => 0,
-        stdin => undef, stdout => $stdout, stderr => $stderr,
-    }, @$command) or die 'Could not start worker';
+    my $proc;
+    if (tied *STDERR && $^O ne 'MSWin32') {
+        # The Unix backend redirects STDERR after fork.  A tied server log
+        # handle cannot be reopened, so give it an untied descriptor 2 while
+        # preserving the parent's original descriptor and tied handle.
+        my $saved = POSIX::dup(2);
+        die "Cannot preserve server error output: $!" if !defined($saved) || $saved < 0;
+        my $error;
+        {
+            local *STDERR;
+            my $ok = eval {
+                open STDERR, '>&=2' or die "Cannot prepare worker error output: $!";
+                $proc = Proc::Background->new({
+                    autodie => 1, die_upon_destroy => 0,
+                    stdin => undef, stdout => $stdout, stderr => $stderr,
+                }, @$command) or die 'Could not start worker';
+                1;
+            };
+            $error = $@ unless $ok;
+            close STDERR;
+            POSIX::dup2($saved, 2) >= 0 or die "Cannot restore server error output: $!";
+        }
+        POSIX::close($saved);
+        die $error if defined $error;
+    } else {
+        $proc = Proc::Background->new({
+            autodie => 1, die_upon_destroy => 0,
+            stdin => undef, stdout => $stdout, stderr => $stderr,
+        }, @$command) or die 'Could not start worker';
+    }
     close $stdout;
     close $stderr;
     return bless {proc => $proc, cancel_requested => 0}, $class;
