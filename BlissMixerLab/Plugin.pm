@@ -13,7 +13,7 @@ use strict;
 
 use Config ();
 use Digest::SHA qw(sha256_hex);
-use Scalar::Util qw(blessed);
+use Scalar::Util qw(blessed refaddr weaken);
 use IO::Socket::INET;
 use LWP::UserAgent;
 use JSON::XS::VersionOneAndTwo;
@@ -72,6 +72,9 @@ my $dbPath = "";
 my $dbSignature = "";
 my $databaseRefreshDeferred = 0;
 my $initialized = 0;
+my $dstm_generation = 0;
+my $dstm_request_sequence = 0;
+my %dstm_active_requests;
 # Current bliss-mixer process
 my $mixer;
 # Port number mixer is running on
@@ -97,12 +100,31 @@ sub _upstreamCompatible {
 }
 
 sub shutdownPlugin {
+    $dstm_generation++;
+    eval { Plugins::BlissMixerLab::CandidateLibrarySnapshot::shutdown_shared_refresh() };
     _stopMixer();
     Plugins::BlissMixerLab::Survey::shutdown();
     if (Slim::Utils::PluginManager->isEnabled('Slim::Plugin::DontStopTheMusic::Plugin')) {
         Slim::Plugin::DontStopTheMusic::Plugin->unregisterHandler('BLISSMIXERLAB_DSTM');
     }
     $initialized = 0;
+}
+
+sub _dstmQueueSnapshot {
+    my ($client) = @_;
+    my $playlist = Slim::Player::Playlist::playList($client);
+    die 'Player queue is unavailable' unless ref($playlist) eq 'ARRAY';
+    return [map { blessed($_) ? $_->url : $_ } @$playlist];
+}
+
+sub _sameDstmQueue {
+    my ($left, $right) = @_;
+    return 0 unless ref($left) eq 'ARRAY' && ref($right) eq 'ARRAY' && @$left == @$right;
+    for my $index (0 .. $#$left) {
+        return 0 if !defined($left->[$index]) || !defined($right->[$index])
+            || $left->[$index] ne $right->[$index];
+    }
+    return 1;
 }
 
 sub initPlugin {
@@ -162,6 +184,9 @@ sub initPlugin {
     my $dbDir = Slim::Utils::Prefs::dir() || Slim::Utils::OSDetect::dirsFor('prefs');
     $dbPath = $dbDir . "/" . DB_NAME;
 
+    eval { Plugins::BlissMixerLab::CandidateLibrarySnapshot::init_shared_refresh() };
+    $log->warn("Could not initialize shared candidate refresh: $@") if $@;
+
     _initBinaries();
 
     if (!_upstreamCompatible()) {
@@ -179,21 +204,48 @@ sub postinitPlugin {
     if ( _upstreamCompatible()
         && Slim::Utils::PluginManager->isEnabled('Slim::Plugin::DontStopTheMusic::Plugin') ) {
         require Slim::Plugin::DontStopTheMusic::Plugin;
-        Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM', sub {
+        my $handler;
+        $handler = sub {
             my ($client, $cb) = @_;
+            my $key = refaddr($client);
+            my $token = ++$dstm_request_sequence;
+            $dstm_active_requests{$key} = $token;
+            my $generation = $dstm_generation;
+            my $queue = eval { _dstmQueueSnapshot($client) };
             my $safe_callback = sub {
                 my ($callback_client, $tracks) = @_;
+                return unless ($dstm_active_requests{$key} || 0) == $token;
+                delete $dstm_active_requests{$key};
+                my $current_queue = eval { _dstmQueueSnapshot($callback_client) };
+                my $current_handler = Slim::Plugin::DontStopTheMusic::Plugin->getHandler($callback_client);
+                if ($generation != $dstm_generation || !$current_handler || $current_handler != $handler
+                    || !_sameDstmQueue($queue, $current_queue)) {
+                    $log->warn('DSTM request became stale; leaving the player queue unchanged');
+                    # pluginData() uses the caller's namespace; this guard belongs to DSTM.
+                    my $dstm_data = $callback_client->_pluginData->{DontStopTheMusic};
+                    $dstm_data->{playlist} = 0;
+                    $dstm_data->{active} = 0;
+                    if ($generation == $dstm_generation && $current_handler && $current_handler == $handler) {
+                        Slim::Utils::Timers::setTimer($callback_client, Time::HiRes::time() + 1,
+                            \&Slim::Plugin::DontStopTheMusic::Plugin::dontStopTheMusic);
+                    }
+                    return;
+                }
                 my $new_tracks = Slim::Plugin::DontStopTheMusic::Plugin->deDupePlaylist($callback_client, $tracks);
                 if (!$new_tracks || !@$new_tracks) {
                     $log->warn('No new Bliss tracks available; leaving the player queue unchanged');
-                    $callback_client->pluginData(playlist => 0);
-                    $callback_client->pluginData(active => 0);
+                    # pluginData() uses the caller's namespace; this guard belongs to DSTM.
+                    my $dstm_data = $callback_client->_pluginData->{DontStopTheMusic};
+                    $dstm_data->{playlist} = 0;
+                    $dstm_data->{active} = 0;
                     return;
                 }
                 $cb->($callback_client, $new_tracks);
             };
             _dstmMix($client, $safe_callback, $prefs->get('filter_genres') || 0, 0);
-        });
+        };
+        Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM', $handler);
+        weaken($handler);
         #Slim::Plugin::DontStopTheMusic::Plugin->registerHandler('BLISSMIXERLAB_DSTM_IGNORE_GENRES', sub {
         #    my ($client, $cb) = @_;
         #    _dstmMix($client, $cb, 0, 0);
@@ -858,6 +910,7 @@ sub _trackToPath {
 sub _pathToTrack {
     my $mediaDirs = shift;
     my $path = shift;
+    my $allowed = shift;
     my $sep = "/";
 
     if (main::ISWINDOWS) {
@@ -903,14 +956,14 @@ sub _pathToTrack {
                     if ($trackUrl) {
                         # Got URL now get object
                         my $trackObj = Slim::Schema->objectForUrl($trackUrl);
-                        if (blessed $trackObj) {
+                        if (blessed($trackObj) && (!$allowed || $allowed->($trackObj))) {
                             return $trackObj;
                         }
                     }
                 }
             } else {
                 my $trackObj = Slim::Schema->objectForUrl($url);
-                if (blessed $trackObj) {
+                if (blessed($trackObj) && (!$allowed || $allowed->($trackObj))) {
                     return $trackObj;
                 }
             }
@@ -1241,6 +1294,26 @@ sub _newDstmHttpRequest {
     );
 }
 
+sub _mixerFailureForSnapshot {
+    my ($client, $callback, $num_spot, $snapshot) = @_;
+    return $callback->($client, []) if $snapshot;
+    return _mixFailed($client, $callback, $num_spot);
+}
+
+sub _prepareCandidateLibraryForMix {
+    my ($client, $database, $callback) = @_;
+    my $id;
+    my $ok = eval {
+        $id = Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id($client);
+        Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare_async($client, $id, $database, sub {
+            my ($snapshot, $error) = @_;
+            $callback->($snapshot, $id, $error);
+        });
+        1;
+    };
+    $callback->(undef, $id, $@ || 'Could not capture candidate library') unless $ok;
+}
+
 sub _dstmMix {
     my ($client, $cb, $filterGenres, $callCount) = @_;
 
@@ -1435,13 +1508,10 @@ sub _dstmMix {
                 }
             }
 
-            my ($candidate_snapshot, $candidate_library_id);
-            eval {
-                $candidate_library_id = Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id($client);
-                $candidate_snapshot = Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare($client, $candidate_library_id);
-            };
-            if ($@) {
-                $log->warn('Could not capture candidate library: ' . $@);
+            _prepareCandidateLibraryForMix($client, $dbPath, sub {
+            my ($candidate_snapshot, $candidate_library_id, $prepare_error) = @_;
+            if ($prepare_error) {
+                $log->warn('Could not capture candidate library: ' . $prepare_error);
                 $cb->($client, []);
                 return;
             }
@@ -1449,7 +1519,7 @@ sub _dstmMix {
             my $jsonData = _getMixData(\@seedsToUse, $previousTracks ? \@$previousTracks : undef, $requestCount, $shuffle, $filterGenres, $noRepArtOverride, $noRepAlbOverride, $candidate_snapshot, $candidate_library_id);
             my $port = $mixerPort;
             unless ($port) {
-                _mixFailed($client, $cb, $numSpot);
+                _mixerFailureForSnapshot($client, $cb, $numSpot, $candidate_snapshot);
                 return;
             }
             my $url = "http://localhost:$port/api/mix";
@@ -1540,9 +1610,29 @@ sub _dstmMix {
                     my $tracks = ();
                     my @trackObjs = ();
                     my $mediaDirs = Slim::Utils::Misc::getMediaDirs('audio');
+                    my ($membership_sth, $membership_error, $allowed);
+                    if ($candidate_snapshot) {
+                        eval {
+                            die 'Captured library is unavailable' unless defined($candidate_library_id) && length($candidate_library_id);
+                            $membership_sth = Slim::Schema->dbh->prepare('SELECT 1 FROM library_track WHERE library = ? AND track = ? LIMIT 1');
+                            $allowed = sub {
+                                my ($track) = @_;
+                                my $found = eval {
+                                    $membership_sth->execute($candidate_library_id, $track->id);
+                                    my ($member) = $membership_sth->fetchrow_array;
+                                    $membership_sth->finish;
+                                    $member ? 1 : 0;
+                                };
+                                $membership_error = $@ if $@;
+                                return $found || 0;
+                            };
+                            1;
+                        } or $membership_error = $@ || 'Could not verify candidate library membership';
+                    }
 
                     for (my $j = 0; $j < $count; $j++) {
-                        my $trackObj = _pathToTrack($mediaDirs, $songs[$j]);
+                        last if $membership_error;
+                        my $trackObj = _pathToTrack($mediaDirs, $songs[$j], $allowed);
                         if (blessed $trackObj) {
                             push @$tracks, $trackObj->url;
                             push @trackObjs, $trackObj;
@@ -1551,9 +1641,14 @@ sub _dstmMix {
                             $log->error('API attempted to mix in a song at ' . $songs[$j] . ' that can\'t be found at that location');
                         }
                     }
+                    if ($membership_error) {
+                        $log->warn('Could not verify candidate library membership: ' . $membership_error);
+                        $cb->($client, []);
+                        return;
+                    }
 
                     if (!defined $tracks) {
-                        _mixFailed($client, $cb, $numSpot);
+                        _mixerFailureForSnapshot($client, $cb, $numSpot, $candidate_snapshot);
                     } else {
                         main::DEBUGLOG && $log->debug("Num tracks to use:" . scalar(@$tracks));
                         if (scalar @$tracks > 0) {
@@ -1666,9 +1761,10 @@ sub _dstmMix {
                     my $error  = $response->error;
                     main::DEBUGLOG && $log->debug("Failed to fetch URL: $error");
                     $log->warn("Candidate-library mixer request failed: $error") if $candidate_snapshot;
-                    $candidate_snapshot ? $cb->($client, []) : _mixFailed($client, $cb, $numSpot);
+                    _mixerFailureForSnapshot($client, $cb, $numSpot, $candidate_snapshot);
                 }, $candidate_snapshot
             )->post($url, 'Content-Type' => 'application/json;charset=utf-8', $jsonData);
+            });
         } else {
             _mixFailed($client, $cb, $numSpot);
         }

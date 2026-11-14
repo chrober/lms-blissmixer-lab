@@ -291,7 +291,14 @@ BEGIN {
     our @registered;
     sub registerHandler { push @registered, [$_[1], $_[2]] }
     sub unregisterHandler { return }
+    sub getHandler { return $registered[0][1] }
+    sub dontStopTheMusic { }
     $INC{'Slim/Plugin/DontStopTheMusic/Plugin.pm'} = __FILE__;
+
+    package Slim::Player::Playlist;
+    our @tracks;
+    sub playList { return \@tracks }
+    $INC{'Slim/Player/Playlist.pm'} = __FILE__;
 
     package TestTrack;
     sub new {
@@ -370,11 +377,14 @@ is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
 
 {
     package TestDstmClient;
-    sub new { bless {data => {active => 1, playlist => {}}}, shift }
+    sub new { bless {data => {DontStopTheMusic => {active => 1, playlist => {}}, BlissMixerLab => {active => 7}}}, shift }
+    sub _pluginData { $_[0]->{data} }
     sub pluginData {
         my ($self, $key, @value) = @_;
-        $self->{data}{$key} = $value[0] if @value;
-        return $self->{data}{$key};
+        my ($namespace) = caller =~ /^(?:Slim::Plugin|Plugins)::(\w+)/;
+        return $self->{data} unless $namespace;
+        $self->{data}{$namespace}{$key} = $value[0] if @value;
+        return $self->{data}{$namespace}{$key};
     }
 }
 {
@@ -393,15 +403,71 @@ is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
     $result = [];
     $handler->($client, $lms_callback);
     is(scalar @delivered, 0, 'empty Lab result cannot trigger LMS Random Play fallback');
-    is($client->pluginData('active'), 0, 'empty result releases the DSTM active flag');
-    $client->pluginData(active => 1);
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'empty result releases the DSTM active flag');
+    is($client->_pluginData->{BlissMixerLab}{active}, 7, 'empty result leaves Lab namespace untouched');
+    $client->_pluginData->{DontStopTheMusic}{active} = 1;
     $result = ['already-queued'];
     $handler->($client, $lms_callback);
     is(scalar @delivered, 0, 'duplicate-only result cannot trigger Random Play fallback');
-    is($client->pluginData('active'), 0, 'duplicate-only result releases the DSTM active flag');
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'duplicate-only result releases the DSTM active flag');
     $result = ['new-track'];
     $handler->($client, $lms_callback);
     is_deeply($delivered[0], ['new-track'], 'valid new tracks reach the LMS callback');
+}
+
+{
+    no warnings 'redefine';
+    my $handler = $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1];
+    my ($pending, @delivered, @retry_timers);
+    local *Plugins::BlissMixerLab::Plugin::_dstmMix = sub { $pending = $_[1] };
+    local *Slim::Plugin::DontStopTheMusic::Plugin::deDupePlaylist = sub { $_[2] };
+    local *Slim::Utils::Timers::setTimer = sub { push @retry_timers, [@_] };
+    my $client = TestDstmClient->new;
+    @Slim::Player::Playlist::tracks = ('original');
+    $handler->($client, sub { push @delivered, $_[1] });
+    @Slim::Player::Playlist::tracks = ('replaced');
+    $pending->($client, ['stale-result']);
+    is(scalar @delivered, 0, 'a result prepared for a changed queue is never delivered');
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'discarding a stale queue result clears DSTM activity');
+    is(scalar @retry_timers, 1, 'a changed queue schedules one fresh DSTM check');
+    $client->_pluginData->{DontStopTheMusic}{active} = 1;
+    $handler->($client, sub { push @delivered, $_[1] });
+    {
+        local *Slim::Plugin::DontStopTheMusic::Plugin::getHandler = sub { sub {} };
+        $pending->($client, ['wrong-provider']);
+    }
+    is(scalar @delivered, 0, 'a result is not delivered after the player switches DSTM providers');
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'discarding a changed-provider result clears DSTM activity');
+    is(scalar @retry_timers, 1, 'switching DSTM providers does not schedule a Lab retry');
+    $client->_pluginData->{DontStopTheMusic}{active} = 1;
+    $handler->($client, sub { push @delivered, $_[1] });
+    local *Plugins::BlissMixerLab::Plugin::_stopMixer = sub {};
+    local *Plugins::BlissMixerLab::Survey::shutdown = sub {};
+    local *Plugins::BlissMixerLab::CandidateLibrarySnapshot::shutdown_shared_refresh = sub {};
+    Plugins::BlissMixerLab::Plugin->shutdownPlugin();
+    $pending->($client, ['after-shutdown']);
+    is(scalar @delivered, 0, 'a result is not delivered after Lab shuts down');
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'discarding a shutdown result clears DSTM activity');
+    is(scalar @retry_timers, 1, 'Lab shutdown does not schedule a new DSTM check');
+}
+
+{
+    no warnings 'redefine';
+    my $dispatcher = Plugins::BlissMixerLab::Plugin->can('_prepareCandidateLibraryForMix');
+    ok($dispatcher, 'DSTM prepares the selected candidate library asynchronously');
+    SKIP: {
+        skip 'async candidate dispatcher is not implemented', 3 unless $dispatcher;
+        my ($completion, @delivered);
+        local *Plugins::BlissMixerLab::CandidateLibrarySnapshot::resolve_library_id = sub { 'jazz' };
+        local *Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare_async = sub { $completion = $_[3]; return 1 };
+        $dispatcher->(undef, '/tmp/bliss.db', sub { push @delivered, [@_] });
+        is(scalar @delivered, 0, 'DSTM does not proceed before async preparation completes');
+        $completion->('snapshot', undef);
+        is_deeply($delivered[0], ['snapshot', 'jazz', undef], 'DSTM continues with the frozen library and snapshot');
+        local *Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare_async = sub { die 'worker failed' };
+        $dispatcher->(undef, '/tmp/bliss.db', sub { push @delivered, [@_] });
+        like($delivered[1]->[2], qr/worker failed/, 'preparation failure is delivered to the DSTM failure path');
+    }
 }
 
 {
@@ -416,6 +482,42 @@ is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
         $factory->(sub {}, sub {}, 0);
         ok(!defined $options->{timeout}, 'unrestricted DSTM keeps the standard HTTP timeout');
     }
+}
+
+{
+    no warnings 'redefine';
+    my $failure = Plugins::BlissMixerLab::Plugin->can('_mixerFailureForSnapshot');
+    ok($failure, 'a captured library has a dedicated fail-closed mixer failure path');
+    SKIP: {
+        skip 'captured-library failure handler is unavailable', 2 unless $failure;
+        my ($fallbacks, $result) = (0);
+        local *Plugins::BlissMixerLab::Plugin::_mixFailed = sub { $fallbacks++ };
+        $failure->(undef, sub { $result = $_[1] }, 0, bless({}, 'CapturedSnapshot'));
+        ok(!$fallbacks && ref($result) eq 'ARRAY' && !@$result,
+            'a captured restricted library never falls back when the player library changes');
+        $failure->(undef, sub {}, 0, undef);
+        is($fallbacks, 1, 'unrestricted mixer failure retains its existing fallback');
+    }
+}
+
+{
+    package TestScopedTrack;
+    sub id { $_[0]->{id} }
+}
+{
+    no warnings 'redefine';
+    my $root = tempdir(CLEANUP => 1);
+    my $first = File::Spec->catdir($root, 'one');
+    my $second = File::Spec->catdir($root, 'two');
+    mkdir $first or die $!; mkdir $second or die $!;
+    for my $dir ($first, $second) { open my $fh, '>', File::Spec->catfile($dir, 'same.flac') or die $!; close $fh }
+    local *Slim::Utils::Misc::fileURLFromPath = sub { 'file://' . $_[0] };
+    local *Slim::Utils::Unicode::utf8encode_locale = sub { $_[0] };
+    local *Slim::Schema::objectForUrl = sub { bless {id => $_[1] =~ /\/two\// ? 2 : 1}, 'TestScopedTrack' };
+    my $match = Plugins::BlissMixerLab::Plugin::_pathToTrack([$first, $second], 'same.flac', sub { $_[0]->id == 2 });
+    is($match && $match->id, 2, 'ambiguous relative paths resolve to a track in the captured library');
+    my $none = Plugins::BlissMixerLab::Plugin::_pathToTrack([$first, $second], 'same.flac', sub { 0 });
+    ok(!$none, 'no track is returned when no path belongs to the captured library');
 }
 
 $Slim::Utils::PluginManager::manifest = {version => '0.9.9'};
