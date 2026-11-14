@@ -416,6 +416,54 @@ is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
 }
 
 {
+    no warnings qw(redefine once);
+    my $dir = tempdir(CLEANUP => 1);
+    open my $db, '>', File::Spec->catfile($dir, 'bliss.db') or die $!;
+    close $db;
+    local *Slim::Utils::Prefs::dir = sub { $dir };
+    local *Slim::Utils::Misc::findbin = sub { $^X };
+    local *Slim::Control::Request::addDispatch = sub {};
+    local *Slim::Menu::TrackInfo::registerInfoProvider = sub {};
+    local *Slim::Menu::AlbumInfo::registerInfoProvider = sub {};
+    local *Slim::Menu::ArtistInfo::registerInfoProvider = sub {};
+    local *Plugins::BlissMixerLab::CandidateLibrarySnapshot::init_shared_refresh = sub {};
+    local *Plugins::BlissMixerLab::Plugin::_availableMixerPort = sub { 12001 };
+    local *Plugins::BlissMixerLab::Plugin::_guidanceProcessEnvironment = sub { {} };
+    local *Plugins::BlissMixerLab::Plugin::_databaseSignature = sub { 'fixture' };
+    local *Plugins::BlissMixerLab::Plugin::_refreshMixerDatabase = sub {};
+    local *Plugins::BlissMixerLab::Plugin::_resetMixerTimeout = sub {};
+    local *Plugins::BlissMixerLab::Plugin::_getMixableProperties = sub { undef };
+    local *Slim::Plugin::DontStopTheMusic::Plugin::deDupePlaylist = sub { $_[2] };
+    local *Slim::Utils::Timers::setTimer = sub {};
+    local *Proc::Background::alive = sub { 1 };
+    local *TestRequest::isNotCommand = sub { 0 };
+    local *TestRequest::paramUndefinedOrNotOneOf = sub { 0 };
+    local *TestRequest::setStatusDone = sub {};
+    Plugins::BlissMixerLab::Plugin->initPlugin();
+    ok(Plugins::BlissMixerLab::Plugin::_startMixer(), 'fixture mixer starts');
+    Plugins::BlissMixerLab::Plugin::_cliCommand(TestRequest->new({_cmd => 'port', number => 12001}));
+    my $handler = $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1];
+    my $client = TestDstmClient->new;
+    my $other = TestDstmClient->new;
+    my @delivered;
+    @Slim::Player::Playlist::tracks = ('bandcamp-stream');
+    $handler->($client, sub { push @delivered, $_[1] });
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'unmixable seeds release the DSTM active flag');
+    is($other->_pluginData->{DontStopTheMusic}{active}, 1, 'unmixable seeds do not change another player');
+    is(scalar @delivered, 0, 'unmixable seeds do not trigger the LMS random fallback');
+    is_deeply(\@Slim::Player::Playlist::tracks, ['bandcamp-stream'], 'unmixable seeds leave the queue untouched');
+    $client->_pluginData->{DontStopTheMusic}{active} = 1;
+    $handler->($client, sub { push @delivered, $_[1] });
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'a subsequent no-seed request also completes');
+    {
+        local *Plugins::BlissMixerLab::Plugin::_dstmMix = sub { $_[1]->($_[0], ['local-result']) };
+        $client->_pluginData->{DontStopTheMusic}{active} = 1;
+        $handler->($client, sub { push @delivered, $_[1] });
+        is_deeply($delivered[0], ['local-result'], 'the same player can receive a later successful mix');
+    }
+}
+
+{
     no warnings 'redefine';
     my $handler = $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1];
     my ($pending, @delivered, @retry_timers);

@@ -1769,6 +1769,11 @@ sub _dstmMix {
         } else {
             _mixFailed($client, $cb, $numSpot);
         }
+    } else {
+        # Complete the DSTM request even when no queue entry can seed a mix.
+        # The guarded callback releases the player's in-flight DSTM state
+        # without invoking the unrelated Random Play fallback.
+        $cb->($client, []);
     }
 }
 
