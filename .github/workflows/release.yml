@@ -60,7 +60,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes libarchive-zip-perl libdbi-perl libdbd-sqlite3-perl libfile-slurp-perl libjson-xs-perl
+          sudo apt-get install --yes libarchive-zip-perl libdbi-perl libdbd-sqlite3-perl libfile-slurp-perl libjson-xs-perl libproc-background-perl liburi-perl
       - name: Prepare LMS plugin load path
         run: |
           set -euo pipefail
@@ -207,6 +207,11 @@ jobs:
             unzip -tq "dist/$asset" >/dev/null
             unzip -p "dist/$asset" BlissMixerLab/LICENSE | cmp - LICENSE
             unzip -p "dist/$asset" BlissMixerLab/THIRD_PARTY_NOTICES.md | cmp - THIRD_PARTY_NOTICES.md
+            unzip -p "dist/$asset" BlissMixerLab/SharedInventory/bin/build-inventory.pl | cmp - BlissMixerLab/SharedInventory/bin/build-inventory.pl
+            unzip -p "dist/$asset" BlissMixerLab/SharedInventory/lib/Plugins/BlissLibrary/BundleGuard.pm | cmp - BlissMixerLab/SharedInventory/lib/Plugins/BlissLibrary/BundleGuard.pm
+            while IFS= read -r -d '' source; do
+              unzip -p "dist/$asset" "$source" | cmp - "$source"
+            done < <(find BlissMixerLab/SharedInventory -type f -print0)
             unzip -p "dist/$asset" BlissMixerLab/SOURCE.md | grep -F -- "$MIXER_RELEASE" >/dev/null
             unzip -p "dist/$asset" BlissMixerLab/SOURCE.md | grep -F -- "$LEARNER_RELEASE" >/dev/null
           }

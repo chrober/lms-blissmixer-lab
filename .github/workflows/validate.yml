@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes libarchive-zip-perl libdbi-perl libdbd-sqlite3-perl libfile-slurp-perl libjson-xs-perl
+          sudo apt-get install --yes libarchive-zip-perl libdbi-perl libdbd-sqlite3-perl libfile-slurp-perl libjson-xs-perl libproc-background-perl liburi-perl
       - name: Prepare LMS plugin load path
         run: |
           set -euo pipefail
