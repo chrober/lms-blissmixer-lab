@@ -370,11 +370,14 @@ is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
 
 {
     package TestDstmClient;
-    sub new { bless {data => {active => 1, playlist => {}}}, shift }
+    sub new { bless {data => {DontStopTheMusic => {active => 1, playlist => {}}, BlissMixerLab => {active => 7}}}, shift }
+    sub _pluginData { $_[0]->{data} }
     sub pluginData {
         my ($self, $key, @value) = @_;
-        $self->{data}{$key} = $value[0] if @value;
-        return $self->{data}{$key};
+        my ($namespace) = caller =~ /^(?:Slim::Plugin|Plugins)::(\w+)/;
+        return $self->{data} unless $namespace;
+        $self->{data}{$namespace}{$key} = $value[0] if @value;
+        return $self->{data}{$namespace}{$key};
     }
 }
 {
@@ -393,12 +396,13 @@ is(ref $Slim::Plugin::DontStopTheMusic::Plugin::registered[0][1], 'CODE',
     $result = [];
     $handler->($client, $lms_callback);
     is(scalar @delivered, 0, 'empty Lab result cannot trigger LMS Random Play fallback');
-    is($client->pluginData('active'), 0, 'empty result releases the DSTM active flag');
-    $client->pluginData(active => 1);
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'empty result releases the DSTM active flag');
+    is($client->_pluginData->{BlissMixerLab}{active}, 7, 'empty result leaves Lab namespace untouched');
+    $client->_pluginData->{DontStopTheMusic}{active} = 1;
     $result = ['already-queued'];
     $handler->($client, $lms_callback);
     is(scalar @delivered, 0, 'duplicate-only result cannot trigger Random Play fallback');
-    is($client->pluginData('active'), 0, 'duplicate-only result releases the DSTM active flag');
+    is($client->_pluginData->{DontStopTheMusic}{active}, 0, 'duplicate-only result releases the DSTM active flag');
     $result = ['new-track'];
     $handler->($client, $lms_callback);
     is_deeply($delivered[0], ['new-track'], 'valid new tracks reach the LMS callback');
