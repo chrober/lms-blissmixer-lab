@@ -5,8 +5,60 @@ priority; sizes are rough engineering estimates, not time commitments.
 
 | Improvement | Intended outcome | Size | Status | Details |
 | --- | --- | ---: | --- | --- |
+| Continue DSTM after switching player libraries | Investigate and reliably continue an existing queue using candidates from the newly selected player library, including recovery after inventory failures. | L | Investigation needed | [Switching libraries during playback](#switching-libraries-during-playback) |
 | Continue DSTM from non-library tracks | Let Bliss (Lab) continue from eligible Bandcamp, YouTube, or other remote tracks when a reliable seed can be established. | XL | Research and design needed | [Remote and streaming seeds](#remote-and-streaming-seeds) |
 | Carry player libraries with transferred queues | Explore an optional policy for player virtual libraries when Material moves, copies, or swaps queues. | L | Proposed; feasibility and policy undecided | [Queue transfers and player libraries](#queue-transfers-and-player-libraries) |
+
+## Switching libraries during playback
+
+On 14 November 2026, while an album from “Alles ohne Hörbücher” was playing,
+the browsing and player library were switched to “Christmas”. The expected
+behavior was to retain the existing queue as seeds and add eligible Christmas
+tracks from the newly selected player library. Manually adding Christmas tracks
+afterward did not restore the expected continuation.
+
+### Reproduction sequence
+
+The following records the observed sequence; repeatability and the precise
+conditions responsible for each failure still need to be established.
+
+1. With the shared-inventory development builds installed, enable Bliss (Lab)
+   DSTM for a player and select “Alles ohne Hörbücher” as its library.
+2. Start playing a local album from that library, leaving the album's tracks
+   in the queue as DSTM seeds.
+3. While the album is playing, switch both the Material browsing library and
+   the player's library to “Christmas”. The player library is configured to
+   allow Christmas tracks despite the normal Christmas exclusion.
+4. Let DSTM attempt to extend the queue. Expect it to preserve the existing
+   queue and select eligible additions from Christmas; in the observed run it
+   added none and reported that the genre filter rejected all candidates.
+5. Manually add individual Christmas tracks to the queue and trigger subsequent
+   DSTM attempts. In the observed run these also added nothing, but failed at
+   shared-inventory capture instead. Capture the server log and any worker
+   error details; do not assume this second failure always occurs.
+
+The Pi's development build logged two distinct failures:
+
+- At 19:06, the shared inventory was built for Christmas, the Christmas
+  exclusion was overridden, and the native mixer scored 849 candidates; all
+  849 were rejected by the genre filter. Investigate the interaction between
+  source-derived genre restrictions and the new candidate library, rather than
+  assuming the library switch itself failed.
+- At 19:08–19:09, subsequent attempts, including with Christmas seeds, failed
+  earlier: the shared-inventory client received empty or malformed JSON while
+  capturing the candidate library. A Lyrion SQLite database-lock error occurred
+  nearby; whether it caused the worker failure is not yet established.
+
+The “Auto-mixing from random tracks in current playlist” lines in this trace
+come from collecting comparison seeds for adaptive debug diagnostics; they do
+not establish that tracks were selected or added to the queue.
+
+Investigate both failures and their relationship to shared-inventory work.
+Define how a new player library interacts with seed genres and Christmas
+exclusions, preserve the existing queue and scope restrictions, and make sure
+DSTM can recover after temporary worker/database failures. Test switches in
+both directions, mixed old/new-library seeds, explicit genre settings, empty
+results, concurrent scans and subsequent retries on the affected player.
 
 ## Remote and streaming seeds
 
