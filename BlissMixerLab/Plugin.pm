@@ -234,7 +234,8 @@ sub postinitPlugin {
                 my $new_tracks = Slim::Plugin::DontStopTheMusic::Plugin->deDupePlaylist($callback_client, $tracks);
                 if (!$new_tracks || !@$new_tracks) {
                     $log->warn('No new Bliss tracks available; leaving the player queue unchanged');
-                    # pluginData() uses the caller's namespace; this guard belongs to DSTM.
+                    # pluginData() chooses its namespace from the caller. The
+                    # in-flight guard belongs to DSTM, not BlissMixerLab.
                     my $dstm_data = $callback_client->_pluginData->{DontStopTheMusic};
                     $dstm_data->{playlist} = 0;
                     $dstm_data->{active} = 0;
