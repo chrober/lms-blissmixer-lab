@@ -61,6 +61,16 @@ sub poll {
     }
     my $status = $self->{worker}->poll;
     return $status if $status->{state} eq 'running' || $status->{state} eq 'cancelling';
+    if ($status->{exit_status_unknown}) {
+        my $message = '';
+        if (open my $fh, '<:raw', $self->{stderr}) { read($fh, $message, 4096); close $fh }
+        if ($message =~ /^(?:cache|mixer-cache|scan)=busy\s*$/m) {
+            $status = {state => 'failed', exit_code => 75, exit_signal => 0};
+        } elsif (-s $self->{stdout}) {
+            # A complete descriptor can still be independently validated below.
+            $status = {state => 'completed'};
+        }
+    }
     if ($status->{state} eq 'failed' && defined($status->{exit_code}) && $status->{exit_code} == 75
         && defined($status->{exit_signal}) && $status->{exit_signal} == 0) {
         return $self->{terminal} = {state => 'failed', error => 'Inventory build lock contention exceeded the retry limit'} if $self->{attempt} > 30;
@@ -100,9 +110,11 @@ sub poll {
         my $scope = Plugins::BlissLibrary::CandidateInventory::_scope($value->{scope});
         die 'Worker returned the wrong library scope' unless $json->encode($scope) eq
             $json->encode(Plugins::BlissLibrary::CandidateInventory::_scope($self->{request}->{scope}));
-        my $source = Plugins::BlissLibrary::CandidateInventory::_source($value->{source});
-        die 'Worker returned the wrong source context' unless $source->{scan_generation} eq "$self->{request}->{scan_generation}"
-            && $source->{media_roots} eq Plugins::BlissLibrary::SourceIdentity::media_roots_fingerprint($self->{request}->{media_roots});
+        my $scan_snapshot = $self->{request}->{scan_snapshot} ? 1 : 0;
+        die 'Worker returned the wrong snapshot mode' unless ($value->{scan_snapshot} ? 1 : 0) == $scan_snapshot;
+        my $source = $scan_snapshot ? undef : Plugins::BlissLibrary::CandidateInventory::_source($value->{source});
+        die 'Worker returned the wrong source context' if !$scan_snapshot && !($source->{scan_generation} eq "$self->{request}->{scan_generation}"
+            && $source->{media_roots} eq Plugins::BlissLibrary::SourceIdentity::media_roots_fingerprint($self->{request}->{media_roots}));
         my $artifact = $value->{mixer_artifact};
         die 'Worker returned an invalid mixer artifact' unless ref($artifact) eq 'HASH'
             && defined($artifact->{sha256}) && $artifact->{sha256} =~ /\A[0-9a-f]{64}\z/
@@ -112,8 +124,8 @@ sub poll {
             && -f $artifact->{path} && -r $artifact->{path} && !-l $artifact->{path};
         die 'Library state changed while preparing the mixer' unless $self->{is_current}->($value);
         {state => 'completed', artifact => {path => $artifact->{path}, sha256 => $artifact->{sha256}}, source => $source,
-            cache_state => $cache_state,
-            cache_key => Plugins::BlissLibrary::CandidateInventory::cache_key(scope => $scope, source => $source)};
+            cache_state => $scan_snapshot ? 'scan' : $cache_state,
+            cache_key => $scan_snapshot ? 'uncached' : Plugins::BlissLibrary::CandidateInventory::cache_key(scope => $scope, source => $source)};
     };
     return $self->{terminal} = $result || {state => 'failed', error => $@ || 'Invalid worker descriptor'};
 }

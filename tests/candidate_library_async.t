@@ -21,14 +21,14 @@ BEGIN {
     $INC{'Plugins/BlissMixerLab/RepeatIdentitySnapshot.pm'} = __FILE__;
 }
 { package JSON::XS::VersionOneAndTwo; sub import { no strict 'refs'; *{caller() . '::to_json'} = \&JSON::PP::encode_json } }
-{ package Slim::Music::VirtualLibraries; our $available = 1; sub getLibraryIdForClient { 'jazz' } sub getRealId { $available ? $_[1] : undef } }
+{ package Slim::Music::VirtualLibraries; our $available = 1; our $player_library = 'jazz'; sub getLibraryIdForClient { $player_library } sub getRealId { $available ? $_[1] : undef } }
 { package Slim::Utils::Misc; sub getMediaDirs { ['/music'] } }
 { package Slim::Utils::Prefs; our $cache; sub preferences { bless {}, 'TestPrefs' } sub dir { $cache } }
 { package Slim::Utils::OSDetect; sub dirsFor { $Slim::Utils::Prefs::cache } }
 { package Slim::Control::Request; our ($listener, $subscriptions); sub subscribe { $listener = $_[0]; $subscriptions++ } sub unsubscribe {} }
 { package TestPrefs; sub get { return $Slim::Utils::Prefs::cache } }
 { package Slim::Utils::Timers; our @pending; sub setTimer { push @pending, $_[2] } }
-{ package Slim::Music::Import; our $scan = 42; sub lastScanTime { $scan } }
+{ package Slim::Music::Import; our $scan = 42; our $scanning = 0; sub lastScanTime { $scan } sub stillScanning { $scanning } }
 { package Slim::Utils::Log; our @debug; sub logger { bless {}, 'TestDebugLog' } }
 { package TestDebugLog; sub is_debug { 1 } sub debug { push @Slim::Utils::Log::debug, $_[1] } sub warn {} }
 { package Slim::Schema; our $dbh; sub dbh { $dbh } }
@@ -194,6 +194,37 @@ ok($called && $error && !$snapshot, 'changed scan generation rejects an in-fligh
     }
     is_deeply($contents, ['outside.flac'], 'same-connection writes invalidate the in-process warm DSTM snapshot');
     diag($prime_error || $fresh_error) if $prime_error || $fresh_error;
+}
+{
+    local $Slim::Music::Import::scanning = 1;
+    my ($scan_snapshot, $scan_error, $scan_done);
+    my $missing_bliss = File::Spec->catfile($dir, 'changing-bliss.db');
+    my $ok = eval { Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare_async(undef, 'jazz', $missing_bliss,
+        sub { ($scan_snapshot, $scan_error) = @_; $scan_done = 1 }); 1 };
+    my $until = time + 30;
+    while ($ok && !$scan_done && time < $until && @Slim::Utils::Timers::pending) {
+        my $timer = shift @Slim::Utils::Timers::pending;
+        $timer->(); sleep 0.02;
+    }
+    ok($ok && $scan_done && !$scan_error && $scan_snapshot, 'during a scan the selected library is prepared without a stable Bliss database')
+        or diag($@ || $scan_error || 'no scan result');
+    if ($scan_snapshot) {
+        open my $fh, '<:raw', $scan_snapshot->filename or die $!;
+        my $files = JSON::PP->new->utf8->decode(do { local $/; <$fh> });
+        close $fh;
+        is_deeply($files, ['outside.flac'], 'scan-time candidate paths remain restricted to the current library');
+    } else { fail('scan-time candidate paths remain restricted to the current library') }
+    my ($stale_snapshot, $stale_error, $stale_done);
+    my $player = bless {}, 'TestPlayer';
+    Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare_async($player, 'jazz', $missing_bliss,
+        sub { ($stale_snapshot, $stale_error) = @_; $stale_done = 1 });
+    local $Slim::Music::VirtualLibraries::player_library = 'other';
+    $until = time + 30;
+    while (!$stale_done && time < $until && @Slim::Utils::Timers::pending) {
+        my $timer = shift @Slim::Utils::Timers::pending;
+        $timer->(); sleep 0.02;
+    }
+    ok($stale_done && $stale_error && !$stale_snapshot, 'a player library change rejects an in-flight scan snapshot');
 }
 ($snapshot, $error, $called) = (undef, undef, 0);
 Plugins::BlissMixerLab::CandidateLibrarySnapshot::prepare_async(undef, 'jazz', $bliss,

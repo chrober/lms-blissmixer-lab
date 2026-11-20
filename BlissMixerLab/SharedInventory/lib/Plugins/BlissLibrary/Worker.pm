@@ -2,6 +2,7 @@ package Plugins::BlissLibrary::Worker;
 use strict;
 use warnings;
 use Fcntl qw(O_CREAT O_EXCL O_WRONLY);
+use Errno qw(ECHILD EINTR);
 use POSIX ();
 use Proc::Background;
 
@@ -58,6 +59,18 @@ sub poll {
     my ($self) = @_;
     return $self->{terminal} if $self->{terminal};
     my $proc = $self->{proc};
+    if ($^O ne 'MSWin32') {
+        my $pid = $proc->pid;
+        my $waited = waitpid($pid, POSIX::WNOHANG());
+        return {state => $self->{cancel_requested} ? 'cancelling' : 'running'} if $waited == 0 || ($waited < 0 && $! == EINTR);
+        return $self->{terminal} = $self->{cancel_requested} ? {state => 'cancelled'} : {state => 'failed', exit_status_unknown => 1, error => 'Worker exit status was collected by another process handler'} if $waited < 0 && $! == ECHILD;
+        return $self->{terminal} = {state => 'failed', error => "Could not wait for worker: $!"} if $waited < 0;
+        my $exit = $?;
+        my $code = $exit >> 8;
+        my $signal = $exit & 127;
+        my $state = $self->{cancel_requested} ? 'cancelled' : !$code && !$signal ? 'completed' : 'failed';
+        return $self->{terminal} = {state => $state, exit_code => $code, exit_signal => $signal};
+    }
     return {state => $self->{cancel_requested} ? 'cancelling' : 'running'} if $proc->alive;
     my $code = $proc->exit_code;
     my $signal = $proc->exit_signal;
@@ -69,6 +82,12 @@ sub poll {
 sub cancel {
     my ($self) = @_;
     return if $self->{terminal};
+    if ($^O ne 'MSWin32') {
+        return unless $self->poll->{state} eq 'running';
+        $self->{cancel_requested} = 1;
+        kill 'TERM', $self->{proc}->pid;
+        return 1;
+    }
     return unless $self->{proc}->alive;
     $self->{cancel_requested} = 1;
     $self->{proc}->terminate('TERM');

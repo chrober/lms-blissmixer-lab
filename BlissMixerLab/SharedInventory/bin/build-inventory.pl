@@ -20,6 +20,9 @@ use Plugins::BlissLibrary::CachedBuild;
 use Plugins::BlissLibrary::FileIdentity;
 use Plugins::BlissLibrary::MixerAdapter;
 use Plugins::BlissLibrary::SourceIdentity;
+use Digest::SHA qw(sha256_hex);
+use File::Spec;
+use File::Temp qw(tempfile);
 
 my ($path) = @ARGV;
 die "Expected one request file\n" unless @ARGV == 1 && defined($path) && -f $path;
@@ -44,6 +47,47 @@ my $mapper = Plugins::BlissLibrary::FileIdentity::make_alias_mapper($roots);
 eval { setpriority(0, 0, 10) } if $^O ne 'MSWin32';
 my $scope = Plugins::BlissLibrary::CandidateInventory::_scope($request->{scope});
 die "Selected library is unavailable\n" if $scope->{kind} eq 'library' && !$verified{$scope->{id}};
+if ($request->{scan_snapshot}) {
+    my $ok = eval {
+    die "Scan snapshot requires a verified library and cache directory\n"
+        unless $scope->{kind} eq 'library' && defined($request->{cache_dir}) && -d $request->{cache_dir};
+    my $lms = Plugins::BlissLibrary::Builder::_open_readonly($request->{lyrion_path});
+    $lms->sqlite_busy_timeout(2000);
+    $lms->begin_work;
+    my $sth = $lms->prepare('SELECT tracks.url, tracks.tracknum FROM library_track JOIN tracks ON tracks.id = library_track.track WHERE library_track.library = ? AND tracks.remote = 0 AND tracks.audio = 1');
+    $sth->execute($scope->{id});
+    my %paths;
+    while (my ($url, $tracknum) = $sth->fetchrow_array) { $paths{$_} = 1 for @{$mapper->($url, $tracknum)} }
+    $sth->finish;
+    $lms->commit;
+    $lms->disconnect;
+    my $json = Plugins::BlissLibrary::JsonCodec::canonical();
+    my $output = $json->encode([sort keys %paths]);
+    my $digest = sha256_hex($output);
+    my $target = File::Spec->catfile($request->{cache_dir}, "mixer-files-$digest.json");
+    unless (-e $target) {
+        my ($out, $temp) = tempfile('scan-mixer-XXXXXXXX', DIR => $request->{cache_dir}, UNLINK => 1);
+        binmode $out, ':raw';
+        print {$out} $output or die "Cannot write scan snapshot: $!\n";
+        close $out or die "Cannot close scan snapshot: $!\n";
+        die "Cannot publish scan snapshot: $!\n" unless link($temp, $target) || -e $target;
+    }
+    die "Invalid scan snapshot path\n" unless -f $target && !-l $target;
+    open my $check, '<:raw', $target or die "Cannot read scan snapshot: $!\n";
+    my $existing = do { local $/; <$check> };
+    close $check;
+    die "Scan snapshot digest mismatch\n" unless defined($existing) && sha256_hex($existing) eq $digest;
+    print $json->encode({schema => 'bliss-library-mixer-descriptor-v1', scope => $scope,
+        scan_snapshot => 1, mixer_artifact => {path => $target, sha256 => $digest}});
+    1;
+    };
+    if (!$ok) {
+        my $error = $@ || "Scan snapshot failed\n";
+        if ($error =~ /database is (?:locked|busy)/i) { print STDERR "scan=busy\n"; exit 75 }
+        die $error;
+    }
+    exit 0;
+}
 local $Plugins::BlissLibrary::SourceIdentity::session =
     Plugins::BlissLibrary::SourceIdentity::begin_session([$request->{lyrion_path}, $request->{bliss_path}]);
 my $build = sub {

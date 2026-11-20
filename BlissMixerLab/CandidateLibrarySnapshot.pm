@@ -187,12 +187,16 @@ sub prepare_async {
     my $lms_path = $main->[2];
     my $roots = Slim::Utils::Misc::getMediaDirs('audio') || [];
     $roots = [@$roots];
-    my $observer = Plugins::BlissLibrary::SourceIdentity::begin_session([$lms_path, $bliss_path]);
-    my $initial = _source_state($lms_path, $bliss_path, $roots);
+    my $scan_snapshot = Slim::Music::Import->stillScanning ? 1 : 0;
+    my ($observer, $initial);
+    unless ($scan_snapshot) {
+        $observer = Plugins::BlissLibrary::SourceIdentity::begin_session([$lms_path, $bliss_path]);
+        $initial = _source_state($lms_path, $bliss_path, $roots);
+    }
     my $memo_key = Plugins::BlissLibrary::JsonCodec::canonical()->encode({
         library => "$id", lyrion => $lms_path, bliss => $bliss_path, roots => $roots,
     });
-    if ($fast_snapshot && $fast_snapshot->{key} eq $memo_key) {
+    if (!$scan_snapshot && $fast_snapshot && $fast_snapshot->{key} eq $memo_key) {
         return 1 if _reuse_snapshot_async($fast_snapshot, $client, $id, $lms_path, $bliss_path, $roots, $callback);
         $fast_snapshot = undef;
     }
@@ -206,10 +210,18 @@ sub prepare_async {
         work_dir => $cache_dir, command => [$^X, $script],
         request => {schema => 'bliss-library-worker-request-v1', lyrion_path => $lms_path, bliss_path => $bliss_path,
             scope => {kind => 'library', id => "$id"}, verified_library_ids => ["$id"],
-            media_roots => $roots, scan_generation => '' . (Slim::Music::Import->lastScanTime() || 0), cache_dir => $cache_dir},
+            media_roots => $roots, scan_generation => '' . (Slim::Music::Import->lastScanTime() || 0), cache_dir => $cache_dir,
+            $scan_snapshot ? (scan_snapshot => 1) : ()},
         is_current => sub {
             my $current_id = Slim::Music::VirtualLibraries->getRealId($id);
             return 0 unless defined($current_id) && $current_id eq $id;
+            if ($scan_snapshot) {
+                my $current_roots = Slim::Utils::Misc::getMediaDirs('audio') || [];
+                return 0 unless Plugins::BlissLibrary::JsonCodec::canonical()->encode($current_roots)
+                    eq Plugins::BlissLibrary::JsonCodec::canonical()->encode($roots);
+                return 0 if defined($client) && (resolve_library_id($client) || '') ne $id;
+                return 1;
+            }
             local $Plugins::BlissLibrary::SourceIdentity::session = $observer;
             Plugins::BlissLibrary::SourceIdentity::_check_session($lms_path);
             Plugins::BlissLibrary::SourceIdentity::_check_session($bliss_path);
@@ -246,7 +258,7 @@ sub prepare_async {
             _log_shared_inventory($id, $result->{cache_state} || 'unknown', $result->{cache_key} || 'unknown');
             eval { init_shared_refresh(); Plugins::BlissLibrary::LyrionRefresh::remember({kind => 'library', id => "$id"}) };
             $fast_snapshot = {key => $memo_key, id => "$id", observer => $observer, state => $initial,
-                path => $result->{artifact}->{path}, sha256 => $result->{artifact}->{sha256}, cache_key => $result->{cache_key}};
+                path => $result->{artifact}->{path}, sha256 => $result->{artifact}->{sha256}, cache_key => $result->{cache_key}} unless $scan_snapshot;
             $entry->{finish}->(bless({path => $result->{artifact}->{path}}, 'Plugins::BlissMixerLab::CandidateLibrarySnapshot::SharedFile'), undef);
         } else {
             $entry->{finish}->(undef, $result->{error} || 'Candidate worker failed');
